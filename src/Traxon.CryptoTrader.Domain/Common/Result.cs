@@ -26,4 +26,7 @@ public sealed record Error(string Code, string Message)
     public static readonly Error BufferFull           = new("Domain.BufferFull",           "Candle buffer is full.");
     public static readonly Error InvalidEdge          = new("Domain.InvalidEdge",          "Edge is below minimum threshold.");
     public static readonly Error PortfolioInsufficient = new("Domain.PortfolioInsufficient", "Insufficient balance.");
+    public static readonly Error InsufficientConfirmation = new("Domain.InsufficientConfirmation", "Not enough indicator confirmations (minimum 3/5 required).");
+    public static readonly Error InvalidMarketPrice       = new("Domain.InvalidMarketPrice",       "Market price must be between $0.30 and $0.60.");
+    public static readonly Error SignalDirectionMismatch  = new("Domain.SignalDirectionMismatch",  "Fair value direction does not match indicator confirmation direction.");
 }
