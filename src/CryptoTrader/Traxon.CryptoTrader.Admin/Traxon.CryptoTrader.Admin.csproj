@@ -1,14 +1,28 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
-  <ItemGroup>
-    <ProjectReference Include="..\Traxon.CryptoTrader.Infrastructure\Traxon.CryptoTrader.Infrastructure.csproj" />
-  </ItemGroup>
-
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
   </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Traxon.CryptoTrader.Infrastructure\Traxon.CryptoTrader.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Blazor-ApexCharts" />
+    <PackageReference Include="Serilog.Extensions.Hosting" />
+    <PackageReference Include="Serilog.Sinks.Console" />
+    <PackageReference Include="Serilog.Sinks.File" />
+  </ItemGroup>
+
+  <!-- Tailwind CSS v4 build — Dashboard ile ayni -->
+  <Target Name="Tailwind" BeforeTargets="Build">
+    <Exec Command="$(SolutionDir)tailwindcss.exe -i Styles/input.css -o wwwroot/css/app.css --minify"
+          WorkingDirectory="$(ProjectDir)"
+          Condition="Exists('$(SolutionDir)tailwindcss.exe')" />
+  </Target>
 
 </Project>

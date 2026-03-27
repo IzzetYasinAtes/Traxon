@@ -1,0 +1,24 @@
+@inject IDbContextFactory<Traxon.CryptoTrader.Infrastructure.Persistence.AppDbContext> DbFactory
+
+<div class="flex items-center gap-2 text-xs" style="color: var(--color-text-muted);">
+    <span class="w-2 h-2 rounded-full flex-shrink-0"
+          style="background-color: @(_connected ? "var(--color-accent-green)" : "var(--color-accent-red)");"></span>
+    <span>@(_connected ? "DB OK" : "DB ERR")</span>
+</div>
+
+@code {
+    private bool _connected;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            _connected = await db.Database.CanConnectAsync();
+        }
+        catch
+        {
+            _connected = false;
+        }
+    }
+}
