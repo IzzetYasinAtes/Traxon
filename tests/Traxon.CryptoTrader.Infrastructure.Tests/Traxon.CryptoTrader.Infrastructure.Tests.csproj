@@ -17,7 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Traxon.CryptoTrader.Infrastructure\Traxon.CryptoTrader.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\CryptoTrader\Traxon.CryptoTrader.Infrastructure\Traxon.CryptoTrader.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

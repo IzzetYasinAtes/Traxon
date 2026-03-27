@@ -1,7 +1,21 @@
 <Solution>
-  <Folder Name="/src/" />
   <Folder Name="/src/ClaudeOrchestrator/">
     <Project Path="src/ClaudeOrchestrator/Traxon.Contracts/Traxon.Contracts.csproj" />
     <Project Path="src/ClaudeOrchestrator/Traxon.Mcp/Traxon.Mcp.csproj" />
+  </Folder>
+  <Folder Name="/src/CryptoTrader/">
+    <Project Path="src/CryptoTrader/Traxon.CryptoTrader.Domain/Traxon.CryptoTrader.Domain.csproj" />
+    <Project Path="src/CryptoTrader/Traxon.CryptoTrader.Application/Traxon.CryptoTrader.Application.csproj" />
+    <Project Path="src/CryptoTrader/Traxon.CryptoTrader.Infrastructure/Traxon.CryptoTrader.Infrastructure.csproj" />
+    <Project Path="src/CryptoTrader/Traxon.CryptoTrader.Binance/Traxon.CryptoTrader.Binance.csproj" />
+    <Project Path="src/CryptoTrader/Traxon.CryptoTrader.Polymarket/Traxon.CryptoTrader.Polymarket.csproj" />
+    <Project Path="src/CryptoTrader/Traxon.CryptoTrader.Worker/Traxon.CryptoTrader.Worker.csproj" />
+    <Project Path="src/CryptoTrader/Traxon.CryptoTrader.Dashboard/Traxon.CryptoTrader.Dashboard.csproj" />
+    <Project Path="src/CryptoTrader/Traxon.CryptoTrader.Admin/Traxon.CryptoTrader.Admin.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Traxon.CryptoTrader.Domain.Tests/Traxon.CryptoTrader.Domain.Tests.csproj" />
+    <Project Path="tests/Traxon.CryptoTrader.Application.Tests/Traxon.CryptoTrader.Application.Tests.csproj" />
+    <Project Path="tests/Traxon.CryptoTrader.Infrastructure.Tests/Traxon.CryptoTrader.Infrastructure.Tests.csproj" />
   </Folder>
 </Solution>
