@@ -12,5 +12,6 @@
   <Folder Name="/tests/">
     <Project Path="tests/Traxon.CryptoTrader.Application.Tests/Traxon.CryptoTrader.Application.Tests.csproj" />
     <Project Path="tests/Traxon.CryptoTrader.Domain.Tests/Traxon.CryptoTrader.Domain.Tests.csproj" />
+    <Project Path="tests/Traxon.CryptoTrader.Infrastructure.Tests/Traxon.CryptoTrader.Infrastructure.Tests.csproj" />
   </Folder>
 </Solution>
