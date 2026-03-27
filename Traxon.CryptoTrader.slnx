@@ -1,0 +1,17 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Traxon.CryptoTrader.Admin/Traxon.CryptoTrader.Admin.csproj" />
+    <Project Path="src/Traxon.CryptoTrader.Application/Traxon.CryptoTrader.Application.csproj" />
+    <Project Path="src/Traxon.CryptoTrader.Binance/Traxon.CryptoTrader.Binance.csproj" />
+    <Project Path="src/Traxon.CryptoTrader.Dashboard/Traxon.CryptoTrader.Dashboard.csproj" />
+    <Project Path="src/Traxon.CryptoTrader.Domain/Traxon.CryptoTrader.Domain.csproj" />
+    <Project Path="src/Traxon.CryptoTrader.Infrastructure/Traxon.CryptoTrader.Infrastructure.csproj" />
+    <Project Path="src/Traxon.CryptoTrader.Polymarket/Traxon.CryptoTrader.Polymarket.csproj" />
+    <Project Path="src/Traxon.CryptoTrader.Worker/Traxon.CryptoTrader.Worker.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Traxon.CryptoTrader.Application.Tests/Traxon.CryptoTrader.Application.Tests.csproj" />
+    <Project Path="tests/Traxon.CryptoTrader.Domain.Tests/Traxon.CryptoTrader.Domain.Tests.csproj" />
+    <Project Path="tests/Traxon.CryptoTrader.Infrastructure.Tests/Traxon.CryptoTrader.Infrastructure.Tests.csproj" />
+  </Folder>
+</Solution>

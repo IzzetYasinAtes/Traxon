@@ -1,0 +1,29 @@
+namespace Traxon.CryptoTrader.Domain.Common;
+
+public sealed class Result<T>
+{
+    public T? Value { get; }
+    public Error? Error { get; }
+    public bool IsSuccess => Error is null;
+    public bool IsFailure => !IsSuccess;
+
+    private Result(T value) { Value = value; Error = null; }
+    private Result(Error error) { Value = default; Error = error; }
+
+    public static Result<T> Success(T value) => new(value);
+    public static Result<T> Failure(Error error) => new(error);
+
+    public TResult Match<TResult>(Func<T, TResult> onSuccess, Func<Error, TResult> onFailure) =>
+        IsSuccess ? onSuccess(Value!) : onFailure(Error!);
+}
+
+public sealed record Error(string Code, string Message)
+{
+    public static readonly Error None = new(string.Empty, string.Empty);
+
+    public static readonly Error NotEnoughCandles     = new("Domain.NotEnoughCandles",     "Buffer does not have enough candles for calculation.");
+    public static readonly Error InvalidCandle        = new("Domain.InvalidCandle",        "Candle data is invalid.");
+    public static readonly Error BufferFull           = new("Domain.BufferFull",           "Candle buffer is full.");
+    public static readonly Error InvalidEdge          = new("Domain.InvalidEdge",          "Edge is below minimum threshold.");
+    public static readonly Error PortfolioInsufficient = new("Domain.PortfolioInsufficient", "Insufficient balance.");
+}

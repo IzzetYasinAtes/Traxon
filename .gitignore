@@ -416,3 +416,16 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Traxon workspace (runtime data, keep dirs but ignore contents)
+workspace/messages/*
+!workspace/messages/.gitkeep
+workspace/tasks/*
+!workspace/tasks/.gitkeep
+workspace/commands/*
+!workspace/commands/.gitkeep
+workspace/commands/processed/*
+!workspace/commands/processed/.gitkeep
+workspace/artifacts/*
+!workspace/artifacts/.gitkeep
+workspace/state.json

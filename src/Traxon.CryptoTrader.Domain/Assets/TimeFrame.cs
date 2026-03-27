@@ -1,0 +1,28 @@
+using Traxon.CryptoTrader.Domain.Abstractions;
+
+namespace Traxon.CryptoTrader.Domain.Assets;
+
+public sealed class TimeFrame : ValueObject
+{
+    public string Value { get; }
+    public int TotalSeconds { get; }
+    public TimeSpan Duration => TimeSpan.FromSeconds(TotalSeconds);
+
+    private TimeFrame(string value, int totalSeconds)
+    {
+        Value = value;
+        TotalSeconds = totalSeconds;
+    }
+
+    public static readonly TimeFrame FiveMinute    = new("5m",  300);
+    public static readonly TimeFrame FifteenMinute = new("15m", 900);
+
+    public static readonly IReadOnlyList<TimeFrame> All = [FiveMinute, FifteenMinute];
+
+    public static TimeFrame? FromValue(string value) =>
+        All.FirstOrDefault(t => t.Value.Equals(value, StringComparison.OrdinalIgnoreCase));
+
+    protected override IEnumerable<object?> GetEqualityComponents() { yield return Value; }
+
+    public override string ToString() => Value;
+}
