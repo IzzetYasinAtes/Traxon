@@ -9,18 +9,21 @@ public sealed class MarketDataWorker : BackgroundService
     private readonly IMarketDataProvider _marketDataProvider;
     private readonly ICandleBuffer _candleBuffer;
     private readonly IIndicatorCalculator _indicatorCalculator;
+    private readonly ISignalGenerator _signalGenerator;
     private readonly ILogger<MarketDataWorker> _logger;
 
     public MarketDataWorker(
         IMarketDataProvider marketDataProvider,
         ICandleBuffer candleBuffer,
         IIndicatorCalculator indicatorCalculator,
+        ISignalGenerator signalGenerator,
         ILogger<MarketDataWorker> logger)
     {
-        _marketDataProvider = marketDataProvider;
-        _candleBuffer = candleBuffer;
+        _marketDataProvider  = marketDataProvider;
+        _candleBuffer        = candleBuffer;
         _indicatorCalculator = indicatorCalculator;
-        _logger = logger;
+        _signalGenerator     = signalGenerator;
+        _logger              = logger;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -91,6 +94,27 @@ public sealed class MarketDataWorker : BackgroundService
             indicators.BollingerBands.Lower, indicators.BollingerBands.Upper,
             indicators.Atr.Value,
             indicators.BullishCount());
+
+        // Signal uret (simulated market price — Faz 3'te Polymarket API'dan gelecek)
+        const decimal simulatedMarketPrice = 0.50m;
+        var signalResult = _signalGenerator.Generate(
+            candle.Asset, candle.TimeFrame, candlesResult.Value!, simulatedMarketPrice);
+
+        if (signalResult.IsSuccess)
+        {
+            var sig = signalResult.Value!;
+            _logger.LogInformation(
+                ">>> SIGNAL: {Symbol}/{Interval} {Direction} | FV:{FV:F3} Edge:{Edge:F3} " +
+                "Kelly:{Kelly:F4} Regime:{Regime} | Mu:{Mu:E3} Sigma:{Sigma:E3}",
+                sig.Asset.Symbol, sig.TimeFrame.Value, sig.Direction,
+                sig.FairValue, sig.Edge, sig.KellyFraction, sig.Regime,
+                sig.MuEstimate, sig.SigmaEstimate);
+        }
+        else
+        {
+            _logger.LogDebug("No signal: {Symbol}/{Interval} — {Reason}",
+                candle.Asset.Symbol, candle.TimeFrame.Value, signalResult.Error!.Code);
+        }
 
         return Task.CompletedTask;
     }
