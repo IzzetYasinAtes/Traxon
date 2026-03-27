@@ -1,0 +1,95 @@
+@page "/"
+@inject ILiveFeedService Feed
+@implements IDisposable
+
+<div class="flex flex-col gap-4">
+    <!-- Symbol + Interval selector -->
+    <div class="flex items-center gap-3">
+        <select @bind="_selectedSymbol" class="px-2 py-1 rounded text-sm"
+                style="background-color: var(--color-bg-surface); color: var(--color-text-primary); border: 1px solid var(--color-border-default);">
+            @foreach (var s in _symbols)
+            {
+                <option value="@s">@s.Replace("USDT", "")</option>
+            }
+        </select>
+        @foreach (var tf in new[] { "5m", "15m" })
+        {
+            <button @onclick="@(() => _selectedInterval = tf)"
+                    class="px-3 py-1 rounded text-xs"
+                    style="background-color: @(_selectedInterval == tf ? "rgba(0,212,170,0.15)" : "var(--color-bg-surface)");
+                           color: @(_selectedInterval == tf ? "var(--color-accent-green)" : "var(--color-text-secondary)");
+                           border: 1px solid var(--color-border-default);">
+                @tf
+            </button>
+        }
+    </div>
+
+    <!-- Main grid: Chart + Order Book placeholder -->
+    <div class="grid grid-cols-3 gap-4">
+        <div class="col-span-2">
+            <CandlestickChart Symbol="@_selectedSymbol" Interval="@_selectedInterval" Height="420" />
+        </div>
+        <div class="rounded-[10px] p-4" style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default);">
+            <h3 class="text-sm font-bold mb-3" style="color: var(--color-text-secondary);">ORDER BOOK</h3>
+            <p class="text-xs" style="color: var(--color-text-muted);">Polymarket fiyat verisi Faz 5'te entegre edilecek.</p>
+        </div>
+    </div>
+
+    <!-- Active Signals -->
+    <section>
+        <h2 class="text-sm font-bold mb-3" style="color: var(--color-text-secondary);">ACTIVE SIGNALS</h2>
+        <div class="grid grid-cols-4 gap-3">
+            @foreach (var signal in Feed.RecentSignals.TakeLast(8).Reverse())
+            {
+                <SignalCard Signal="signal" />
+            }
+        </div>
+    </section>
+
+    <!-- Recent Trades -->
+    <section>
+        <h2 class="text-sm font-bold mb-3" style="color: var(--color-text-secondary);">RECENT TRADES</h2>
+        <div class="rounded-[10px] overflow-hidden" style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default);">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="text-xs" style="color: var(--color-text-muted); border-bottom: 1px solid var(--color-border-default);">
+                        <th class="py-2 px-3 text-left">Symbol</th>
+                        <th class="py-2 px-3 text-left">Dir</th>
+                        <th class="py-2 px-3 text-left">Engine</th>
+                        <th class="py-2 px-3 text-left">Entry</th>
+                        <th class="py-2 px-3 text-left">PnL</th>
+                        <th class="py-2 px-3 text-left">Status</th>
+                        <th class="py-2 px-3 text-left">Time</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var trade in Feed.RecentTrades.TakeLast(10).Reverse())
+                    {
+                        <TradeRow Trade="trade" />
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+
+@code {
+    private string _selectedSymbol = "BTCUSDT";
+    private string _selectedInterval = "5m";
+    private readonly string[] _symbols = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT", "DOGEUSDT", "BNBUSDT", "HYPEUSDT"];
+
+    protected override void OnInitialized()
+    {
+        Feed.OnSignalGenerated += OnSignal;
+        Feed.OnTradeOpened += OnTrade;
+    }
+
+    private void OnSignal(SignalDto _) => InvokeAsync(StateHasChanged);
+    private void OnTrade(TradeDto _) => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        Feed.OnSignalGenerated -= OnSignal;
+        Feed.OnTradeOpened -= OnTrade;
+    }
+}

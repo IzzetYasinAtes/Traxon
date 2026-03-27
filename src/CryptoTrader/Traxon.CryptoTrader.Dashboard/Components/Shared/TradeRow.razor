@@ -1,0 +1,29 @@
+<tr style="border-bottom: 1px solid var(--color-border-subtle);">
+    <td class="py-2 px-3 text-sm">@Trade.Symbol.Replace("USDT", "")</td>
+    <td class="py-2 px-3 text-xs"
+        style="color: @(Trade.Direction == "UP" ? "var(--color-accent-green)" : "var(--color-accent-red)");">@Trade.Direction</td>
+    <td class="py-2 px-3 font-mono text-sm">@Trade.Engine</td>
+    <td class="py-2 px-3 font-mono text-sm">@Trade.EntryPrice.ToString("F4")</td>
+    <td class="py-2 px-3 font-mono text-sm">
+        @if (Trade.PnL.HasValue)
+        {
+            <span style="color: @(Trade.PnL >= 0 ? "var(--color-accent-green)" : "var(--color-accent-red)")">@Trade.PnL.Value.ToString("+$0.00;-$0.00")</span>
+        }
+        else
+        {
+            <span style="color: var(--color-text-muted);">—</span>
+        }
+    </td>
+    <td class="py-2 px-3">
+        <span class="px-2 py-0.5 rounded text-xs"
+              style="background-color: @(Trade.Status == "OPEN" ? "rgba(59,130,246,0.15)" : "rgba(107,114,128,0.15)");
+                     color: @(Trade.Status == "OPEN" ? "var(--color-accent-blue)" : "var(--color-text-muted)");">
+            @Trade.Status
+        </span>
+    </td>
+    <td class="py-2 px-3 text-xs" style="color: var(--color-text-muted);">@Trade.OpenedAt.ToLocalTime().ToString("HH:mm")</td>
+</tr>
+
+@code {
+    [Parameter, EditorRequired] public TradeDto Trade { get; set; } = default!;
+}

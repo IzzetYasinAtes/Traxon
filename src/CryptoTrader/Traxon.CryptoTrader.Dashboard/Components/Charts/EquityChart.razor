@@ -1,0 +1,54 @@
+@using ApexCharts
+@inject IDbContextFactory<Traxon.CryptoTrader.Infrastructure.Persistence.AppDbContext> DbFactory
+
+<ApexChart TItem="EquityPoint"
+           Options="@_options">
+    @foreach (var engine in _series.Keys)
+    {
+        <ApexPointSeries TItem="EquityPoint"
+                         Items="@_series[engine]"
+                         Name="@engine"
+                         SeriesType="SeriesType.Line"
+                         XValue="@(e => e.Timestamp.ToUnixTimeMilliseconds())"
+                         YValue="@(e => (decimal)e.Balance)" />
+    }
+</ApexChart>
+
+@code {
+    private Dictionary<string, List<EquityPoint>> _series = new();
+
+    private readonly ApexChartOptions<EquityPoint> _options = new()
+    {
+        Chart = new ApexCharts.Chart
+        {
+            Background = "#111111",
+            ForeColor = "#888888",
+            Toolbar = new Toolbar { Show = false }
+        },
+        Theme = new Theme { Mode = Mode.Dark },
+        Stroke = new Stroke { Curve = Curve.Smooth, Width = [2] },
+        Grid = new Grid
+        {
+            BorderColor = "#1f1f1f"
+        }
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var snapshots = await db.PortfolioSnapshots
+            .OrderBy(p => p.Timestamp)
+            .TakeLast(500)
+            .ToListAsync();
+
+        _series = snapshots
+            .GroupBy(p => p.Engine)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(p => new EquityPoint(
+                    new DateTimeOffset(p.Timestamp, TimeSpan.Zero),
+                    p.Balance)).ToList());
+    }
+
+    private record EquityPoint(DateTimeOffset Timestamp, decimal Balance);
+}
