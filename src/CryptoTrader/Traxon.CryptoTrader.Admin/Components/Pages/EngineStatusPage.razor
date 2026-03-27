@@ -1,0 +1,71 @@
+@page "/engines"
+@rendermode InteractiveServer
+@inject AdminDataService DataService
+
+<div class="flex flex-col gap-6">
+    <div class="flex items-center justify-between">
+        <h1 class="text-lg font-bold">Engine Status</h1>
+        <button @onclick="RefreshAsync" style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default); color: var(--color-text-secondary); border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer;">↻ Refresh</button>
+    </div>
+
+    @if (_engines.Count == 0)
+    {
+        <p class="text-sm" style="color: var(--color-text-muted);">Henuz engine snapshot yok. Worker basladiktan sonra guncellenir.</p>
+    }
+    else
+    {
+        <div class="grid grid-cols-2 gap-4">
+            @foreach (var engine in _engines)
+            {
+                <div class="rounded-[10px] p-5"
+                     style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default);">
+
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full animate-pulse"
+                                  style="background-color: var(--color-accent-green);"></span>
+                            <span class="text-sm font-bold font-mono" style="color: var(--color-accent-purple);">@engine.Engine</span>
+                        </div>
+                        <span class="text-xs px-2 py-0.5 rounded"
+                              style="background-color: rgba(0,212,170,0.1); color: var(--color-accent-green);">@engine.Status</span>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <p class="text-xs" style="color: var(--color-text-muted);">BALANCE</p>
+                            <p class="text-xl font-mono font-bold">$@engine.Balance.ToString("N2")</p>
+                        </div>
+                        <div>
+                            <p class="text-xs" style="color: var(--color-text-muted);">TOTAL PnL</p>
+                            <p class="text-xl font-mono font-bold"
+                               style="color: @(engine.TotalPnL >= 0 ? "var(--color-accent-green)" : "var(--color-accent-red)")">
+                                @($"{(engine.TotalPnL >= 0 ? "+$" : "-$")}{Math.Abs(engine.TotalPnL):N2}")
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-xs" style="color: var(--color-text-muted);">WIN RATE</p>
+                            <p class="text-base font-mono">@($"{engine.WinRate * 100:F1}%")</p>
+                        </div>
+                        <div>
+                            <p class="text-xs" style="color: var(--color-text-muted);">OPEN POSITIONS</p>
+                            <p class="text-base font-mono">@engine.OpenPositions</p>
+                        </div>
+                        <div class="col-span-2">
+                            <p class="text-xs" style="color: var(--color-text-muted);">TRADES / LAST UPDATE</p>
+                            <p class="text-xs font-mono" style="color: var(--color-text-secondary);">@engine.TradeCount trades — @engine.LastUpdated.ToString("yyyy-MM-dd HH:mm") UTC</p>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private List<EngineStatusRow> _engines = [];
+
+    protected override async Task OnInitializedAsync() => await RefreshAsync();
+
+    private async Task RefreshAsync()
+        => _engines = await DataService.GetEngineStatusAsync();
+}

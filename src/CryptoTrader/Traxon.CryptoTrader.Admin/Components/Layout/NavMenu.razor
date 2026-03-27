@@ -1,30 +1,11 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">Traxon.CryptoTrader.Admin</a>
-    </div>
-</div>
+<nav class="flex-shrink-0 flex flex-col py-4 gap-1 w-14 hover:w-52 transition-all duration-300 overflow-hidden group"
+     style="background-color: var(--color-bg-elevated); border-right: 1px solid var(--color-border-default);">
 
-<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+    <NavLinkItem Href="/" Icon="📊" Label="Performance" />
+    <NavLinkItem Href="/calibration" Icon="🎯" Label="Calibration" />
+    <NavLinkItem Href="/trades" Icon="📋" Label="Trades" />
+    <NavLinkItem Href="/engines" Icon="⚙️" Label="Engines" />
+    <NavLinkItem Href="/config" Icon="🔧" Label="Config" />
+    <NavLinkItem Href="/logs" Icon="📜" Label="Logs" />
 
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="weather">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
-            </NavLink>
-        </div>
-    </nav>
-</div>
-
+</nav>

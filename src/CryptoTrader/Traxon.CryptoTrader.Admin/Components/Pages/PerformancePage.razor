@@ -1,0 +1,87 @@
+@page "/"
+@rendermode InteractiveServer
+@inject AdminDataService DataService
+
+<div class="flex flex-col gap-6">
+    <h1 class="text-lg font-bold">Performance Overview</h1>
+
+    @if (_summary == null)
+    {
+        <p class="text-sm" style="color: var(--color-text-muted);">Yukleniyor...</p>
+    }
+    else
+    {
+        <!-- KPI Cards -->
+        <div class="grid grid-cols-4 gap-3">
+            <StatCard Title="WIN RATE"
+                      Value="@($"{_summary.WinRate * 100:F1}%")"
+                      Color="@(_summary.WinRate >= 0.5m ? "var(--color-accent-green)" : "var(--color-accent-red)")" />
+            <StatCard Title="TOTAL PnL"
+                      Value="@($"{(_summary.TotalPnL >= 0 ? "+$" : "-$")}{Math.Abs(_summary.TotalPnL):N2}")"
+                      Color="@(_summary.TotalPnL >= 0 ? "var(--color-accent-green)" : "var(--color-accent-red)")" />
+            <StatCard Title="SHARPE RATIO"
+                      Value="@($"{_summary.SharpeRatio:F2}")"
+                      Color="@(_summary.SharpeRatio >= 1 ? "var(--color-accent-green)" : "var(--color-text-primary)")" />
+            <StatCard Title="TOTAL TRADES"
+                      Value="@_summary.TotalTrades.ToString()"
+                      Subtitle="@($"{_summary.WinCount} wins")" />
+        </div>
+
+        <!-- Equity Curve -->
+        <div class="rounded-[10px] p-4"
+             style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default);">
+            <h2 class="text-sm font-bold mb-3" style="color: var(--color-text-secondary);">EQUITY CURVE</h2>
+            <AdminEquityChart Points="_equityPoints" />
+        </div>
+
+        <!-- Engine Comparison Table -->
+        <div class="rounded-[10px] overflow-hidden"
+             style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default);">
+            <div class="px-4 py-3" style="border-bottom: 1px solid var(--color-border-default);">
+                <h2 class="text-sm font-bold" style="color: var(--color-text-secondary);">ENGINE COMPARISON</h2>
+            </div>
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="text-xs" style="color: var(--color-text-muted);">
+                        <th class="py-2 px-4 text-left">Engine</th>
+                        <th class="py-2 px-4 text-right">Trades</th>
+                        <th class="py-2 px-4 text-right">Win Rate</th>
+                        <th class="py-2 px-4 text-right">PnL</th>
+                        <th class="py-2 px-4 text-right">Sharpe</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var e in _summary.ByEngine)
+                    {
+                        var wr = e.Trades > 0 ? (decimal)e.Wins / e.Trades : 0;
+                        <tr style="border-top: 1px solid var(--color-border-default);">
+                            <td class="py-2 px-4 font-mono text-xs"
+                                style="color: var(--color-accent-purple);">@e.Engine</td>
+                            <td class="py-2 px-4 text-right font-mono">@e.Trades</td>
+                            <td class="py-2 px-4 text-right font-mono"
+                                style="color: @(wr >= 0.5m ? "var(--color-accent-green)" : "var(--color-accent-red)")">@($"{wr * 100:F1}%")</td>
+                            <td class="py-2 px-4 text-right font-mono"
+                                style="color: @(e.TotalPnL >= 0 ? "var(--color-accent-green)" : "var(--color-accent-red)")">@($"{(e.TotalPnL >= 0 ? "+$" : "-$")}{Math.Abs(e.TotalPnL):N2}")</td>
+                            <td class="py-2 px-4 text-right font-mono">@($"{e.Sharpe:F2}")</td>
+                        </tr>
+                    }
+                    @if (_summary.ByEngine.Count == 0)
+                    {
+                        <tr><td colspan="5" class="py-6 text-center text-xs" style="color: var(--color-text-muted);">Veri yok</td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    private PerformanceSummary? _summary;
+    private List<EquityPoint> _equityPoints = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _summary = await DataService.GetPerformanceSummaryAsync();
+        _equityPoints = await DataService.GetEquityCurveAsync();
+    }
+}

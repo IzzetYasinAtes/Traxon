@@ -1,0 +1,115 @@
+@page "/config"
+@rendermode InteractiveServer
+@inject ConfigService ConfigSvc
+
+<div class="flex flex-col gap-6">
+    <h1 class="text-lg font-bold">Configuration</h1>
+
+    <div class="rounded-[10px] p-5 max-w-lg"
+         style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default);">
+        <h2 class="text-sm font-bold mb-4" style="color: var(--color-text-secondary);">TRADING PARAMETERS</h2>
+
+        <div class="flex flex-col gap-1">
+            <ConfigRow Label="Min Edge" Description="Minimum required edge to take a trade (e.g. 0.05 = 5%)">
+                <input type="number" step="0.01" min="0" max="1" @bind="_minEdge"
+                       style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:4px 8px; font-size:12px; font-family:monospace;" />
+            </ConfigRow>
+            <ConfigRow Label="Kelly Fraction" Description="Fraction of Kelly to use (0.25 = Quarter Kelly)">
+                <input type="number" step="0.05" min="0.05" max="1" @bind="_kellyFraction"
+                       style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:4px 8px; font-size:12px; font-family:monospace;" />
+            </ConfigRow>
+            <ConfigRow Label="Max Position Size ($)" Description="Maximum dollars per single trade">
+                <input type="number" step="5" min="5" max="10000" @bind="_maxPositionSize"
+                       style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:4px 8px; font-size:12px; font-family:monospace;" />
+            </ConfigRow>
+            <ConfigRow Label="Bankroll ($)" Description="Total capital allocated">
+                <input type="number" step="100" min="100" @bind="_bankroll"
+                       style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:4px 8px; font-size:12px; font-family:monospace;" />
+            </ConfigRow>
+            <ConfigRow Label="Min Confidence" Description="Minimum signal confidence (0.5–1.0)">
+                <input type="number" step="0.01" min="0.5" max="1" @bind="_minConfidence"
+                       style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:4px 8px; font-size:12px; font-family:monospace;" />
+            </ConfigRow>
+            <ConfigRow Label="Max Open Positions" Description="Max simultaneous positions across all engines">
+                <input type="number" step="1" min="1" max="20" @bind="_maxOpenPositions"
+                       style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:4px 8px; font-size:12px; font-family:monospace;" />
+            </ConfigRow>
+        </div>
+
+        <!-- Engine Toggles -->
+        <div class="mt-5 pt-4" style="border-top: 1px solid var(--color-border-default);">
+            <h3 class="text-xs font-bold mb-3" style="color: var(--color-text-muted);">ENGINE TOGGLES</h3>
+            <div class="flex gap-6">
+                <label class="flex items-center gap-2 text-sm cursor-pointer">
+                    <input type="checkbox" @bind="_paperPolyEnabled" />
+                    <span>PaperPolymarket</span>
+                </label>
+                <label class="flex items-center gap-2 text-sm cursor-pointer">
+                    <input type="checkbox" @bind="_paperBinanceEnabled" />
+                    <span>PaperBinance</span>
+                </label>
+            </div>
+        </div>
+
+        <div class="mt-6 flex items-center gap-3">
+            <button @onclick="SaveConfig"
+                    style="background-color:rgba(168,85,247,0.15); border:1px solid rgba(168,85,247,0.3); color:var(--color-accent-purple); border-radius:6px; padding:6px 16px; font-size:13px; cursor:pointer;">
+                Apply
+            </button>
+            <button @onclick="ResetConfig"
+                    style="background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-secondary); border-radius:6px; padding:6px 16px; font-size:13px; cursor:pointer;">
+                Reset
+            </button>
+            @if (_saved)
+            {
+                <span class="text-xs" style="color: var(--color-accent-green);">✓ Applied</span>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    // Individual bound fields (records are immutable, can't bind directly)
+    private decimal _minEdge;
+    private decimal _kellyFraction;
+    private decimal _maxPositionSize;
+    private decimal _bankroll;
+    private decimal _minConfidence;
+    private int _maxOpenPositions;
+    private bool _paperPolyEnabled;
+    private bool _paperBinanceEnabled;
+    private bool _saved;
+
+    protected override void OnInitialized() => LoadFromConfig(ConfigSvc.GetConfig());
+
+    private void LoadFromConfig(TradingConfig c)
+    {
+        _minEdge = c.MinEdge;
+        _kellyFraction = c.KellyFraction;
+        _maxPositionSize = c.MaxPositionSize;
+        _bankroll = c.Bankroll;
+        _minConfidence = c.MinConfidence;
+        _maxOpenPositions = c.MaxOpenPositions;
+        _paperPolyEnabled = c.PaperPolyEnabled;
+        _paperBinanceEnabled = c.PaperBinanceEnabled;
+    }
+
+    private void SaveConfig()
+    {
+        ConfigSvc.Apply(new TradingConfig
+        {
+            MinEdge = _minEdge,
+            KellyFraction = _kellyFraction,
+            MaxPositionSize = _maxPositionSize,
+            Bankroll = _bankroll,
+            MinConfidence = _minConfidence,
+            MaxOpenPositions = _maxOpenPositions,
+            PaperPolyEnabled = _paperPolyEnabled,
+            PaperBinanceEnabled = _paperBinanceEnabled
+        });
+        _saved = true;
+        _ = Task.Delay(3000).ContinueWith(_ => InvokeAsync(() => { _saved = false; StateHasChanged(); }));
+    }
+
+    private void ResetConfig() { LoadFromConfig(new TradingConfig()); _saved = false; }
+}
