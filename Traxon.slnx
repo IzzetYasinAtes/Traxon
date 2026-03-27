@@ -1,0 +1,7 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/ClaudeOrchestrator/">
+    <Project Path="src/ClaudeOrchestrator/Traxon.Contracts/Traxon.Contracts.csproj" />
+    <Project Path="src/ClaudeOrchestrator/Traxon.Mcp/Traxon.Mcp.csproj" />
+  </Folder>
+</Solution>

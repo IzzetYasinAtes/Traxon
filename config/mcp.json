@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "traxon": {
+      "command": "dotnet",
+      "args": ["run", "--project", "src/ClaudeOrchestrator/Traxon.Mcp"],
+      "env": {
+        "TRAXON_WORKSPACE": "./workspace"
+      }
+    },
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp"]
+    },
+    "mssql": {
+      "command": "npx",
+      "args": ["-y", "@vat-mcp/mssql-service"],
+      "env": {
+        "MSSQL_CONNECTION_STRING": "Server=localhost;Database=TraxonDb;User Id=sa;Password=YourPassword;TrustServerCertificate=true"
+      }
+    }
+  }
+}
