@@ -1,0 +1,28 @@
+@inject ILiveFeedService Feed
+@implements IDisposable
+
+<div class="flex items-center gap-3 overflow-x-auto scrollbar-hide flex-1">
+    @foreach (var ticker in Feed.Tickers.Values.OrderBy(t => t.Symbol))
+    {
+        var symbol = ticker.Symbol.Replace("USDT", "");
+        var isPositive = ticker.ChangePercent24h >= 0;
+        var color = isPositive ? "var(--color-accent-green)" : "var(--color-accent-red)";
+        var sign = isPositive ? "+" : "";
+
+        <div class="flex items-center gap-2 px-3 py-1 rounded flex-shrink-0"
+             style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default);">
+            <span class="text-xs font-medium" style="color: var(--color-text-secondary);">@symbol</span>
+            <span class="font-mono text-xs" style="color: var(--color-text-primary);">$@ticker.Price.ToString("N2")</span>
+            <span class="text-xs font-medium" style="color: @color;">@(sign)@ticker.ChangePercent24h.ToString("F2")%</span>
+        </div>
+    }
+</div>
+
+@code {
+    protected override void OnInitialized()
+        => Feed.OnTickerUpdate += OnTicker;
+
+    private void OnTicker(TickerDto _) => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Feed.OnTickerUpdate -= OnTicker;
+}

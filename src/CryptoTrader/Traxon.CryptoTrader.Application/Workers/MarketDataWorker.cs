@@ -1,8 +1,12 @@
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Traxon.CryptoTrader.Application.Abstractions;
+using Traxon.CryptoTrader.Application.DTOs;
+using Traxon.CryptoTrader.Application.Mappings;
 using Traxon.CryptoTrader.Domain.Assets;
 using Traxon.CryptoTrader.Domain.Market;
 
-namespace Traxon.CryptoTrader.Worker.Workers;
+namespace Traxon.CryptoTrader.Application.Workers;
 
 public sealed class MarketDataWorker : BackgroundService
 {
@@ -12,6 +16,7 @@ public sealed class MarketDataWorker : BackgroundService
     private readonly ISignalGenerator            _signalGenerator;
     private readonly IEnumerable<ITradingEngine> _tradingEngines;
     private readonly ICandleWriter               _candleWriter;
+    private readonly IMarketEventPublisher       _publisher;
     private readonly ILogger<MarketDataWorker>   _logger;
 
     public MarketDataWorker(
@@ -21,6 +26,7 @@ public sealed class MarketDataWorker : BackgroundService
         ISignalGenerator signalGenerator,
         IEnumerable<ITradingEngine> tradingEngines,
         ICandleWriter candleWriter,
+        IMarketEventPublisher publisher,
         ILogger<MarketDataWorker> logger)
     {
         _marketDataProvider  = marketDataProvider;
@@ -29,6 +35,7 @@ public sealed class MarketDataWorker : BackgroundService
         _signalGenerator     = signalGenerator;
         _tradingEngines      = tradingEngines;
         _candleWriter        = candleWriter;
+        _publisher           = publisher;
         _logger              = logger;
     }
 
@@ -58,6 +65,13 @@ public sealed class MarketDataWorker : BackgroundService
 
         _logger.LogInformation("Buffer warm-up complete. Starting WebSocket stream...");
 
+        var engineCount = _tradingEngines.Count();
+        _publisher.PublishSystemStatus(new SystemStatusDto(
+            IsRunning: true,
+            IsBinanceConnected: true,
+            ActiveEngineCount: engineCount,
+            StartedAt: DateTime.UtcNow));
+
         await _marketDataProvider.StartStreamAsync(
             assets: Asset.All,
             timeFrames: TimeFrame.All,
@@ -70,6 +84,13 @@ public sealed class MarketDataWorker : BackgroundService
     private async Task OnCandleClosedAsync(Candle candle)
     {
         _candleBuffer.Add(candle);
+
+        // Ticker guncelle
+        _publisher.PublishTickerUpdate(new TickerDto(
+            candle.Asset.Symbol, candle.Close, 0m, 0m, DateTime.UtcNow));
+
+        // Candle guncelle
+        _publisher.PublishCandleUpdate(candle.ToCandleDto());
 
         // SQL'e async yaz (fire-and-forget — exception loglanir)
         _ = _candleWriter.WriteAsync(candle);
@@ -84,7 +105,6 @@ public sealed class MarketDataWorker : BackgroundService
         var candlesResult = _candleBuffer.GetAll(candle.Asset, candle.TimeFrame);
         if (candlesResult.IsFailure) return;
 
-        // Indicator hesapla — tek seferlik (cift hesaplama olmaz)
         var indicatorResult = _indicatorCalculator.Calculate(
             candle.Asset, candle.TimeFrame, candlesResult.Value!);
 
@@ -105,7 +125,6 @@ public sealed class MarketDataWorker : BackgroundService
                 indicators.Atr.Value,
                 indicators.BullishCount());
 
-            // Sinyal uret — precomputed indicator'lar geciriliyor (cift hesaplama yok)
             const decimal simulatedMarketPrice = 0.50m;
             var signalResult = _signalGenerator.Generate(
                 candle.Asset, candle.TimeFrame, candlesResult.Value!,
@@ -120,13 +139,21 @@ public sealed class MarketDataWorker : BackgroundService
                     sig.Asset.Symbol, sig.TimeFrame.Value, sig.Direction,
                     sig.FairValue, sig.Edge, sig.KellyFraction, sig.Regime);
 
+                _publisher.PublishSignalGenerated(sig.ToDto());
+
                 foreach (var engine in _tradingEngines)
                 {
                     var openResult = await engine.OpenPositionAsync(sig);
                     if (openResult.IsFailure)
+                    {
                         _logger.LogDebug(
                             "[{Engine}] OpenPosition skipped: {Reason}",
                             engine.EngineName, openResult.Error!.Code);
+                    }
+                    else if (openResult.Value is not null)
+                    {
+                        _publisher.PublishTradeOpened(openResult.Value.ToDto());
+                    }
                 }
             }
             else
@@ -136,7 +163,6 @@ public sealed class MarketDataWorker : BackgroundService
             }
         }
 
-        // Her engine icin open position kontrolu (SL/TP / resolution)
         foreach (var engine in _tradingEngines)
         {
             await engine.CheckPositionsAsync(candle);

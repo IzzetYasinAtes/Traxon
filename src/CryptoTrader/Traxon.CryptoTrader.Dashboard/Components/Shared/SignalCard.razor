@@ -1,0 +1,51 @@
+<div class="rounded-[10px] p-4" style="background-color: rgba(17,17,17,0.8); border: 1px solid var(--color-border-default);">
+    <div class="flex justify-between items-center mb-3">
+        <div>
+            <span class="font-bold">@Signal.Symbol.Replace("USDT", "")</span>
+            <span class="ml-1 text-xs" style="color: var(--color-text-muted);">@Signal.Interval</span>
+        </div>
+        <span class="px-2 py-0.5 rounded text-xs font-bold"
+              style="background-color: @(Signal.Direction == "UP" ? "rgba(0,212,170,0.15)" : "rgba(255,71,87,0.15)");
+                     color: @(Signal.Direction == "UP" ? "var(--color-accent-green)" : "var(--color-accent-red)");">
+            @Signal.Direction
+        </span>
+    </div>
+
+    <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+        <div class="flex justify-between">
+            <span style="color: var(--color-text-secondary);">FairVal</span>
+            <span class="font-mono">@Signal.FairValue.ToString("F3")</span>
+        </div>
+        <div class="flex justify-between">
+            <span style="color: var(--color-text-secondary);">Edge</span>
+            <span class="font-mono" style="color: var(--color-accent-gold);">@Signal.Edge.ToString("F3")</span>
+        </div>
+        <div class="flex justify-between">
+            <span style="color: var(--color-text-secondary);">RSI</span>
+            <span class="font-mono">@Signal.Rsi.ToString("F1")</span>
+        </div>
+        <div class="flex justify-between">
+            <span style="color: var(--color-text-secondary);">MACD</span>
+            <span class="font-mono">@Signal.MacdHistogram.ToString("F5")</span>
+        </div>
+    </div>
+
+    <!-- Confidence dots -->
+    <div class="flex items-center gap-1 mt-3">
+        @for (int i = 1; i <= 5; i++)
+        {
+            var filled = i <= Signal.BullishCount;
+            <span class="w-2 h-2 rounded-full"
+                  style="background-color: @(filled ? "var(--color-accent-green)" : "var(--color-border-default)")"></span>
+        }
+        <span class="ml-1 text-xs" style="color: var(--color-text-muted);">@Signal.Regime</span>
+    </div>
+
+    <div class="mt-2 text-xs" style="color: var(--color-text-muted);">
+        @Signal.GeneratedAt.ToLocalTime().ToString("HH:mm:ss")
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public SignalDto Signal { get; set; } = default!;
+}

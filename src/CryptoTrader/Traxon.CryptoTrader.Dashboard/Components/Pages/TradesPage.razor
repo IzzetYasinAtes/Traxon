@@ -1,0 +1,66 @@
+@page "/trades"
+@inject ILiveFeedService Feed
+@implements IDisposable
+
+<div>
+    <h1 class="text-lg font-bold mb-4">Trades</h1>
+
+    <!-- Tabs: Open | All -->
+    <div class="flex gap-2 mb-4">
+        @foreach (var tab in new[] { "OPEN", "ALL" })
+        {
+            <button @onclick="@(() => _activeTab = tab)"
+                    class="px-4 py-1.5 rounded text-sm"
+                    style="background-color: @(_activeTab == tab ? "rgba(0,212,170,0.15)" : "var(--color-bg-surface)");
+                           color: @(_activeTab == tab ? "var(--color-accent-green)" : "var(--color-text-secondary)");
+                           border: 1px solid var(--color-border-default);">
+                @tab
+            </button>
+        }
+    </div>
+
+    <div class="rounded-[10px] overflow-hidden" style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default);">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="text-xs" style="color: var(--color-text-muted); border-bottom: 1px solid var(--color-border-default);">
+                    <th class="py-2 px-3 text-left">Symbol</th>
+                    <th class="py-2 px-3 text-left">Dir</th>
+                    <th class="py-2 px-3 text-left">Engine</th>
+                    <th class="py-2 px-3 text-left">Entry</th>
+                    <th class="py-2 px-3 text-left">PnL</th>
+                    <th class="py-2 px-3 text-left">Status</th>
+                    <th class="py-2 px-3 text-left">Time</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var trade in FilteredTrades)
+                {
+                    <TradeRow Trade="trade" />
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@code {
+    private string _activeTab = "OPEN";
+
+    private IEnumerable<TradeDto> FilteredTrades =>
+        Feed.RecentTrades
+            .Where(t => _activeTab == "ALL" || t.Status == _activeTab)
+            .OrderByDescending(t => t.OpenedAt);
+
+    protected override void OnInitialized()
+    {
+        Feed.OnTradeOpened += OnTrade;
+        Feed.OnTradeClosed += OnTrade;
+    }
+
+    private void OnTrade(TradeDto _) => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        Feed.OnTradeOpened -= OnTrade;
+        Feed.OnTradeClosed -= OnTrade;
+    }
+}

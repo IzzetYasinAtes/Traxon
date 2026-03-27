@@ -22,6 +22,11 @@
     <PackageVersion Include="Serilog.Extensions.Hosting" Version="8.0.0" />
     <PackageVersion Include="Serilog.Sinks.Console" Version="6.0.0" />
     <PackageVersion Include="Serilog.Sinks.File" Version="6.0.0" />
+    <!-- Application Workers -->
+    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.3" />
+    <!-- Dashboard UI -->
+    <PackageVersion Include="LightweightCharts.Blazor" Version="5.0.8.2" />
+    <PackageVersion Include="Blazor-ApexCharts" Version="4.0.0" />
     <!-- Presentation -->
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.3" />
     <!-- Tests -->

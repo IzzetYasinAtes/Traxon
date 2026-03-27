@@ -1,0 +1,96 @@
+@using LightweightCharts.Blazor.Charts
+@using LightweightCharts.Blazor.Customization.Chart
+@using LightweightCharts.Blazor.Customization.Series
+@using LightweightCharts.Blazor.DataItems
+@using LightweightCharts.Blazor.Series
+@using LightweightCharts.Blazor.Utilities
+@using LCSeriesType = LightweightCharts.Blazor.Customization.Enums.SeriesType
+@inject ILiveFeedService Feed
+@inject IDbContextFactory<Traxon.CryptoTrader.Infrastructure.Persistence.AppDbContext> DbFactory
+@implements IDisposable
+
+<div style="width:100%; height:@(Height)px; background-color: var(--color-bg-surface); border-radius: var(--radius-card); overflow: hidden;">
+    <ChartComponent @ref="_chart"
+                    Layout="@_layout"
+                    style="width:100%; height:100%;" />
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Symbol { get; set; } = "BTCUSDT";
+    [Parameter, EditorRequired] public string Interval { get; set; } = "5m";
+    [Parameter] public int Height { get; set; } = 400;
+
+    private ChartComponent? _chart;
+    private ISeriesApi<long>? _series;
+
+    private readonly LayoutOptions _layout = new()
+    {
+        Background = new SolidColor { Color = Extensions.ParseColorCode("#111111") },
+        TextColor = Extensions.ParseColorCode("#888888")
+    };
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _chart is null) return;
+
+        await _chart.InitializationCompleted;
+
+        _series = await _chart.AddSeries<CandlestickStyleOptions>(LCSeriesType.Candlestick, new CandlestickStyleOptions
+        {
+            UpColor = Extensions.ParseColorCode("#00d4aa"),
+            DownColor = Extensions.ParseColorCode("#ff4757"),
+            BorderUpColor = Extensions.ParseColorCode("#00d4aa"),
+            BorderDownColor = Extensions.ParseColorCode("#ff4757"),
+            WickUpColor = Extensions.ParseColorCode("#00d4aa"),
+            WickDownColor = Extensions.ParseColorCode("#ff4757")
+        });
+
+        // Initial data from DB
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var candles = await db.Candles
+            .Where(c => c.Asset.Symbol == Symbol && c.TimeFrame.Value == Interval)
+            .OrderBy(c => c.OpenTime)
+            .TakeLast(200)
+            .ToListAsync();
+
+        if (candles.Count > 0)
+        {
+            var data = candles.Select(c => new CandlestickData<long>
+            {
+                Time = new DateTimeOffset(c.OpenTime, TimeSpan.Zero).ToUnixTimeSeconds(),
+                Open = (float)c.Open,
+                High = (float)c.High,
+                Low = (float)c.Low,
+                Close = (float)c.Close
+            }).ToArray();
+
+            await _series.SetData(data);
+        }
+
+        Feed.OnCandleUpdate += OnCandle;
+    }
+
+    private void OnCandle(CandleDto candle)
+    {
+        if (candle.Symbol != Symbol || candle.Interval != Interval) return;
+        UpdateChartAsync(candle);
+    }
+
+    private async void UpdateChartAsync(CandleDto candle)
+    {
+        if (_series is null) return;
+        await InvokeAsync(async () =>
+        {
+            await _series.Update(new CandlestickData<long>
+            {
+                Time = new DateTimeOffset(candle.OpenTime, TimeSpan.Zero).ToUnixTimeSeconds(),
+                Open = (float)candle.Open,
+                High = (float)candle.High,
+                Low = (float)candle.Low,
+                Close = (float)candle.Close
+            });
+        });
+    }
+
+    public void Dispose() => Feed.OnCandleUpdate -= OnCandle;
+}
