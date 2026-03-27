@@ -16,7 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Traxon.CryptoTrader.Domain\Traxon.CryptoTrader.Domain.csproj" />
+    <ProjectReference Include="..\..\src\CryptoTrader\Traxon.CryptoTrader.Domain\Traxon.CryptoTrader.Domain.csproj" />
   </ItemGroup>
 
 </Project>
