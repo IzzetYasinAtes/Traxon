@@ -29,4 +29,7 @@ public sealed record Error(string Code, string Message)
     public static readonly Error InsufficientConfirmation = new("Domain.InsufficientConfirmation", "Not enough indicator confirmations (minimum 3/5 required).");
     public static readonly Error InvalidMarketPrice       = new("Domain.InvalidMarketPrice",       "Market price must be between $0.30 and $0.60.");
     public static readonly Error SignalDirectionMismatch  = new("Domain.SignalDirectionMismatch",  "Fair value direction does not match indicator confirmation direction.");
+    public static readonly Error TradeNotFound          = new("Domain.TradeNotFound",          "Trade with given ID not found.");
+    public static readonly Error EngineNotReady         = new("Domain.EngineNotReady",         "Trading engine is not ready.");
+    public static readonly Error DuplicatePosition      = new("Domain.DuplicatePosition",      "A position for this asset is already open.");
 }

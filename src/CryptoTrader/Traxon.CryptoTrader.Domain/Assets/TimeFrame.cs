@@ -8,6 +8,9 @@ public sealed class TimeFrame : ValueObject
     public int TotalSeconds { get; }
     public TimeSpan Duration => TimeSpan.FromSeconds(TotalSeconds);
 
+    // EF Core parametresiz constructor (owned entity materialization icin)
+    private TimeFrame() { Value = null!; }
+
     private TimeFrame(string value, int totalSeconds)
     {
         Value = value;
