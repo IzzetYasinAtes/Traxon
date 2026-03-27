@@ -6,23 +6,29 @@ namespace Traxon.CryptoTrader.Worker.Workers;
 
 public sealed class MarketDataWorker : BackgroundService
 {
-    private readonly IMarketDataProvider _marketDataProvider;
-    private readonly ICandleBuffer _candleBuffer;
-    private readonly IIndicatorCalculator _indicatorCalculator;
-    private readonly ISignalGenerator _signalGenerator;
-    private readonly ILogger<MarketDataWorker> _logger;
+    private readonly IMarketDataProvider         _marketDataProvider;
+    private readonly ICandleBuffer               _candleBuffer;
+    private readonly IIndicatorCalculator        _indicatorCalculator;
+    private readonly ISignalGenerator            _signalGenerator;
+    private readonly IEnumerable<ITradingEngine> _tradingEngines;
+    private readonly ICandleWriter               _candleWriter;
+    private readonly ILogger<MarketDataWorker>   _logger;
 
     public MarketDataWorker(
         IMarketDataProvider marketDataProvider,
         ICandleBuffer candleBuffer,
         IIndicatorCalculator indicatorCalculator,
         ISignalGenerator signalGenerator,
+        IEnumerable<ITradingEngine> tradingEngines,
+        ICandleWriter candleWriter,
         ILogger<MarketDataWorker> logger)
     {
         _marketDataProvider  = marketDataProvider;
         _candleBuffer        = candleBuffer;
         _indicatorCalculator = indicatorCalculator;
         _signalGenerator     = signalGenerator;
+        _tradingEngines      = tradingEngines;
+        _candleWriter        = candleWriter;
         _logger              = logger;
     }
 
@@ -61,20 +67,24 @@ public sealed class MarketDataWorker : BackgroundService
         await Task.Delay(Timeout.Infinite, stoppingToken);
     }
 
-    private Task OnCandleClosedAsync(Candle candle)
+    private async Task OnCandleClosedAsync(Candle candle)
     {
         _candleBuffer.Add(candle);
+
+        // SQL'e async yaz (fire-and-forget — exception loglanir)
+        _ = _candleWriter.WriteAsync(candle);
 
         if (!_candleBuffer.IsWarmedUp(candle.Asset, candle.TimeFrame, minimumCandles: 30))
         {
             _logger.LogDebug("Buffer not warmed up yet for {Symbol}/{Interval}",
                 candle.Asset.Symbol, candle.TimeFrame.Value);
-            return Task.CompletedTask;
+            return;
         }
 
         var candlesResult = _candleBuffer.GetAll(candle.Asset, candle.TimeFrame);
-        if (candlesResult.IsFailure) return Task.CompletedTask;
+        if (candlesResult.IsFailure) return;
 
+        // Indicator hesapla — tek seferlik (cift hesaplama olmaz)
         var indicatorResult = _indicatorCalculator.Calculate(
             candle.Asset, candle.TimeFrame, candlesResult.Value!);
 
@@ -82,41 +92,55 @@ public sealed class MarketDataWorker : BackgroundService
         {
             _logger.LogWarning("Indicator calc failed for {Symbol}/{Interval}: {Error}",
                 candle.Asset.Symbol, candle.TimeFrame.Value, indicatorResult.Error!.Message);
-            return Task.CompletedTask;
-        }
-
-        var indicators = indicatorResult.Value!;
-        _logger.LogInformation(
-            "{Symbol}/{Interval} — RSI:{Rsi:F1} MACD:{Macd:F6} BB({Lower:F2}/{Upper:F2}) ATR:{Atr:F6} Bulls:{Bulls}/5",
-            candle.Asset.Symbol, candle.TimeFrame.Value,
-            indicators.Rsi.Value,
-            indicators.Macd.Histogram,
-            indicators.BollingerBands.Lower, indicators.BollingerBands.Upper,
-            indicators.Atr.Value,
-            indicators.BullishCount());
-
-        // Signal uret (simulated market price — Faz 3'te Polymarket API'dan gelecek)
-        const decimal simulatedMarketPrice = 0.50m;
-        var signalResult = _signalGenerator.Generate(
-            candle.Asset, candle.TimeFrame, candlesResult.Value!, simulatedMarketPrice);
-
-        if (signalResult.IsSuccess)
-        {
-            var sig = signalResult.Value!;
-            _logger.LogInformation(
-                ">>> SIGNAL: {Symbol}/{Interval} {Direction} | FV:{FV:F3} Edge:{Edge:F3} " +
-                "Kelly:{Kelly:F4} Regime:{Regime} | Mu:{Mu:E3} Sigma:{Sigma:E3}",
-                sig.Asset.Symbol, sig.TimeFrame.Value, sig.Direction,
-                sig.FairValue, sig.Edge, sig.KellyFraction, sig.Regime,
-                sig.MuEstimate, sig.SigmaEstimate);
         }
         else
         {
-            _logger.LogDebug("No signal: {Symbol}/{Interval} — {Reason}",
-                candle.Asset.Symbol, candle.TimeFrame.Value, signalResult.Error!.Code);
+            var indicators = indicatorResult.Value!;
+            _logger.LogInformation(
+                "{Symbol}/{Interval} — RSI:{Rsi:F1} MACD:{Macd:F6} BB({Lower:F2}/{Upper:F2}) ATR:{Atr:F6} Bulls:{Bulls}/5",
+                candle.Asset.Symbol, candle.TimeFrame.Value,
+                indicators.Rsi.Value,
+                indicators.Macd.Histogram,
+                indicators.BollingerBands.Lower, indicators.BollingerBands.Upper,
+                indicators.Atr.Value,
+                indicators.BullishCount());
+
+            // Sinyal uret — precomputed indicator'lar geciriliyor (cift hesaplama yok)
+            const decimal simulatedMarketPrice = 0.50m;
+            var signalResult = _signalGenerator.Generate(
+                candle.Asset, candle.TimeFrame, candlesResult.Value!,
+                simulatedMarketPrice, indicators);
+
+            if (signalResult.IsSuccess)
+            {
+                var sig = signalResult.Value!;
+                _logger.LogInformation(
+                    ">>> SIGNAL: {Symbol}/{Interval} {Direction} | FV:{FV:F3} Edge:{Edge:F3} " +
+                    "Kelly:{Kelly:F4} Regime:{Regime}",
+                    sig.Asset.Symbol, sig.TimeFrame.Value, sig.Direction,
+                    sig.FairValue, sig.Edge, sig.KellyFraction, sig.Regime);
+
+                foreach (var engine in _tradingEngines)
+                {
+                    var openResult = await engine.OpenPositionAsync(sig);
+                    if (openResult.IsFailure)
+                        _logger.LogDebug(
+                            "[{Engine}] OpenPosition skipped: {Reason}",
+                            engine.EngineName, openResult.Error!.Code);
+                }
+            }
+            else
+            {
+                _logger.LogDebug("No signal: {Symbol}/{Interval} — {Reason}",
+                    candle.Asset.Symbol, candle.TimeFrame.Value, signalResult.Error!.Code);
+            }
         }
 
-        return Task.CompletedTask;
+        // Her engine icin open position kontrolu (SL/TP / resolution)
+        foreach (var engine in _tradingEngines)
+        {
+            await engine.CheckPositionsAsync(candle);
+        }
     }
 
     public override async Task StopAsync(CancellationToken cancellationToken)

@@ -8,6 +8,9 @@ public sealed class Asset : ValueObject
     public string BaseAsset { get; }
     public string QuoteAsset { get; }
 
+    // EF Core parametresiz constructor (owned entity materialization icin)
+    private Asset() { Symbol = null!; BaseAsset = null!; QuoteAsset = null!; }
+
     private Asset(string symbol, string baseAsset, string quoteAsset)
     {
         Symbol = symbol;

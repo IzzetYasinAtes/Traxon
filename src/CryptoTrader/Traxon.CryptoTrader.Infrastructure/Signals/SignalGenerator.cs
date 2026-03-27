@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using Traxon.CryptoTrader.Application.Abstractions;
 using Traxon.CryptoTrader.Domain.Assets;
 using Traxon.CryptoTrader.Domain.Common;
+using Traxon.CryptoTrader.Domain.Indicators;
 using Traxon.CryptoTrader.Domain.Market;
 using Traxon.CryptoTrader.Domain.Trading;
 
@@ -110,6 +111,85 @@ public sealed class SignalGenerator : ISignalGenerator
 
         _logger.LogInformation(
             "Signal generated: {Symbol}/{Interval} {Direction} FV:{FV:F3} Market:{Market:F3} Edge:{Edge:F3} Regime:{Regime}",
+            asset.Symbol, timeFrame.Value, direction, fairValue, marketPrice, sizeResult.Edge, regime);
+
+        return Result<Signal>.Success(signal);
+    }
+
+    /// <summary>
+    /// Onceden hesaplanmis indicator'lari kullanarak sinyal uretir — cift hesaplamay onler.
+    /// Adim 3 (indicator hesaplama) skip edilir.
+    /// </summary>
+    public Result<Signal> Generate(
+        Asset asset,
+        TimeFrame timeFrame,
+        IReadOnlyList<Candle> candles,
+        decimal marketPrice,
+        TechnicalIndicators precomputedIndicators)
+    {
+        // Adim 1 — Minimum candle check
+        if (candles.Count < MinCandlesForSignal)
+            return Result<Signal>.Failure(Error.NotEnoughCandles);
+
+        // Adim 2 — Market price range check
+        if (marketPrice < MinMarketPrice || marketPrice > MaxMarketPrice)
+            return Result<Signal>.Failure(Error.InvalidMarketPrice);
+
+        // Adim 3 SKIP — precomputedIndicators kullan
+        var indicators = precomputedIndicators;
+
+        // Adim 4 — Multi-confirmation filter
+        var bullishCount = indicators.BullishCount();
+        var bearishCount = indicators.BearishCount();
+
+        SignalDirection direction;
+        if (bullishCount >= MinConfirmations && bullishCount > bearishCount)
+            direction = SignalDirection.Up;
+        else if (bearishCount >= MinConfirmations && bearishCount > bullishCount)
+            direction = SignalDirection.Down;
+        else
+            return Result<Signal>.Failure(Error.InsufficientConfirmation);
+
+        // Adim 5 — Fair value hesapla
+        var fvResult  = _fairValueCalculator.Calculate(candles, timeFrame);
+        var fairValue = fvResult.FairValue;
+
+        // Adim 6 — Fair value direction uyumu check
+        if (direction == SignalDirection.Up   && fairValue <= 0.5m)
+            return Result<Signal>.Failure(Error.SignalDirectionMismatch);
+        if (direction == SignalDirection.Down && fairValue >= 0.5m)
+            return Result<Signal>.Failure(Error.SignalDirectionMismatch);
+
+        // Adim 7 — Regime detection
+        var volShort = _indicatorCalculator.CalculateParkinsonVolatility(candles, RegimeShortPeriod);
+        var volLong  = candles.Count >= RegimeLongPeriod
+            ? _indicatorCalculator.CalculateParkinsonVolatility(candles, RegimeLongPeriod)
+            : volShort;
+
+        var regime = (volLong > 0 && volShort > HighVolMultiplier * volLong)
+            ? MarketRegime.HighVolatility
+            : MarketRegime.LowVolatility;
+
+        // Adim 8 — Position sizing
+        var sizeResult = _positionSizer.Calculate(fairValue, marketPrice, SimulatedBankroll);
+        if (!sizeResult.MeetsMinimumEdge)
+            return Result<Signal>.Failure(Error.InvalidEdge);
+
+        // Adim 9 — Signal olustur
+        var signal = new Signal(
+            asset:         asset,
+            timeFrame:     timeFrame,
+            direction:     direction,
+            fairValue:     fairValue,
+            marketPrice:   marketPrice,
+            kellyFraction: sizeResult.KellyFraction,
+            muEstimate:    fvResult.Mu,
+            sigmaEstimate: fvResult.Sigma,
+            regime:        regime,
+            indicators:    indicators);
+
+        _logger.LogInformation(
+            "Signal generated (precomputed): {Symbol}/{Interval} {Direction} FV:{FV:F3} Market:{Market:F3} Edge:{Edge:F3} Regime:{Regime}",
             asset.Symbol, timeFrame.Value, direction, fairValue, marketPrice, sizeResult.Edge, regime);
 
         return Result<Signal>.Success(signal);

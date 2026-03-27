@@ -16,7 +16,7 @@ try
         .ConfigureServices((context, services) =>
         {
             services.AddApplication();
-            services.AddInfrastructure();
+            services.AddInfrastructure(context.Configuration);
             services.AddBinanceServices(context.Configuration);
             services.AddHostedService<MarketDataWorker>();
         })
