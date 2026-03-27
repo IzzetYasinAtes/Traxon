@@ -13,11 +13,10 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="FluentAssertions" />
-    <PackageReference Include="NSubstitute" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Traxon.CryptoTrader.Binance\Traxon.CryptoTrader.Binance.csproj" />
+    <ProjectReference Include="..\..\src\Traxon.CryptoTrader.Infrastructure\Traxon.CryptoTrader.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

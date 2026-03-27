@@ -30,14 +30,21 @@ public sealed class MarketDataWorker : BackgroundService
         foreach (var asset in Asset.All)
         foreach (var tf in TimeFrame.All)
         {
-            var candles = await _marketDataProvider.GetHistoricalCandlesAsync(
+            var candlesResult = await _marketDataProvider.GetHistoricalCandlesAsync(
                 asset, tf, limit: 200, stoppingToken);
 
-            foreach (var candle in candles)
+            if (candlesResult.IsFailure)
+            {
+                _logger.LogWarning("Failed to load historical candles for {Symbol}/{Interval}: {Error}",
+                    asset.Symbol, tf.Value, candlesResult.Error!.Message);
+                continue;
+            }
+
+            foreach (var candle in candlesResult.Value!)
                 _candleBuffer.Add(candle);
 
             _logger.LogInformation("Loaded {Count} candles for {Symbol}/{Interval}",
-                candles.Count, asset.Symbol, tf.Value);
+                candlesResult.Value!.Count, asset.Symbol, tf.Value);
         }
 
         _logger.LogInformation("Buffer warm-up complete. Starting WebSocket stream...");
@@ -51,7 +58,7 @@ public sealed class MarketDataWorker : BackgroundService
         await Task.Delay(Timeout.Infinite, stoppingToken);
     }
 
-    private async Task OnCandleClosedAsync(Candle candle)
+    private Task OnCandleClosedAsync(Candle candle)
     {
         _candleBuffer.Add(candle);
 
@@ -59,11 +66,11 @@ public sealed class MarketDataWorker : BackgroundService
         {
             _logger.LogDebug("Buffer not warmed up yet for {Symbol}/{Interval}",
                 candle.Asset.Symbol, candle.TimeFrame.Value);
-            return;
+            return Task.CompletedTask;
         }
 
         var candlesResult = _candleBuffer.GetAll(candle.Asset, candle.TimeFrame);
-        if (candlesResult.IsFailure) return;
+        if (candlesResult.IsFailure) return Task.CompletedTask;
 
         var indicatorResult = _indicatorCalculator.Calculate(
             candle.Asset, candle.TimeFrame, candlesResult.Value!);
@@ -72,7 +79,7 @@ public sealed class MarketDataWorker : BackgroundService
         {
             _logger.LogWarning("Indicator calc failed for {Symbol}/{Interval}: {Error}",
                 candle.Asset.Symbol, candle.TimeFrame.Value, indicatorResult.Error!.Message);
-            return;
+            return Task.CompletedTask;
         }
 
         var indicators = indicatorResult.Value!;
@@ -85,7 +92,7 @@ public sealed class MarketDataWorker : BackgroundService
             indicators.Atr.Value,
             indicators.BullishCount());
 
-        await Task.CompletedTask;
+        return Task.CompletedTask;
     }
 
     public override async Task StopAsync(CancellationToken cancellationToken)

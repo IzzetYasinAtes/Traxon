@@ -1,10 +1,10 @@
 using FluentAssertions;
 using Xunit;
-using Traxon.CryptoTrader.Binance.Buffers;
+using Traxon.CryptoTrader.Infrastructure.Buffers;
 using Traxon.CryptoTrader.Domain.Assets;
 using Traxon.CryptoTrader.Domain.Market;
 
-namespace Traxon.CryptoTrader.Binance.Tests.Buffers;
+namespace Traxon.CryptoTrader.Infrastructure.Tests.Buffers;
 
 public class InMemoryCandleBufferTests
 {

@@ -5,7 +5,7 @@ using Traxon.CryptoTrader.Domain.Assets;
 using Traxon.CryptoTrader.Domain.Market;
 using Traxon.CryptoTrader.Infrastructure.Calculators;
 
-namespace Traxon.CryptoTrader.Binance.Tests.Calculators;
+namespace Traxon.CryptoTrader.Infrastructure.Tests.Calculators;
 
 public class IndicatorCalculatorTests
 {

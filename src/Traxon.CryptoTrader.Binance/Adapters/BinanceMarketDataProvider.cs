@@ -3,10 +3,15 @@ using Binance.Net.Interfaces.Clients;
 using CryptoExchange.Net.Objects.Sockets;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Polly;
+using Polly.CircuitBreaker;
+using Polly.Retry;
+using Polly.Timeout;
 using Traxon.CryptoTrader.Application.Abstractions;
 using Traxon.CryptoTrader.Binance.Mappers;
 using Traxon.CryptoTrader.Binance.Options;
 using Traxon.CryptoTrader.Domain.Assets;
+using Traxon.CryptoTrader.Domain.Common;
 using Traxon.CryptoTrader.Domain.Market;
 
 namespace Traxon.CryptoTrader.Binance.Adapters;
@@ -17,6 +22,7 @@ public sealed class BinanceMarketDataProvider : IMarketDataProvider, IAsyncDispo
     private readonly IBinanceSocketClient _socketClient;
     private readonly ILogger<BinanceMarketDataProvider> _logger;
     private readonly BinanceOptions _options;
+    private readonly ResiliencePipeline _restPipeline;
 
     private readonly List<UpdateSubscription> _subscriptions = [];
     private bool _isConnected;
@@ -33,9 +39,51 @@ public sealed class BinanceMarketDataProvider : IMarketDataProvider, IAsyncDispo
         _socketClient = socketClient;
         _logger = logger;
         _options = options.Value;
+
+        _restPipeline = new ResiliencePipelineBuilder()
+            .AddTimeout(new TimeoutStrategyOptions
+            {
+                Timeout = TimeSpan.FromSeconds(10)
+            })
+            .AddRetry(new RetryStrategyOptions
+            {
+                MaxRetryAttempts  = 3,
+                Delay             = TimeSpan.FromSeconds(2),
+                BackoffType       = DelayBackoffType.Exponential,
+                UseJitter         = true,
+                OnRetry           = args =>
+                {
+                    _logger.LogWarning(
+                        "Binance REST retry {Attempt} after {Delay}ms: {Exception}",
+                        args.AttemptNumber,
+                        args.RetryDelay.TotalMilliseconds,
+                        args.Outcome.Exception?.Message ?? "no exception");
+                    return ValueTask.CompletedTask;
+                }
+            })
+            .AddCircuitBreaker(new CircuitBreakerStrategyOptions
+            {
+                FailureRatio      = 0.5,
+                SamplingDuration  = TimeSpan.FromSeconds(30),
+                MinimumThroughput = 3,
+                BreakDuration     = TimeSpan.FromSeconds(60),
+                OnOpened          = args =>
+                {
+                    _logger.LogError(
+                        "Binance REST circuit breaker OPENED for {Duration}s",
+                        args.BreakDuration.TotalSeconds);
+                    return ValueTask.CompletedTask;
+                },
+                OnClosed = _ =>
+                {
+                    _logger.LogInformation("Binance REST circuit breaker closed");
+                    return ValueTask.CompletedTask;
+                }
+            })
+            .Build();
     }
 
-    public async Task<IReadOnlyList<Candle>> GetHistoricalCandlesAsync(
+    public async Task<Result<IReadOnlyList<Candle>>> GetHistoricalCandlesAsync(
         Asset asset,
         TimeFrame timeFrame,
         int limit,
@@ -43,24 +91,44 @@ public sealed class BinanceMarketDataProvider : IMarketDataProvider, IAsyncDispo
     {
         var interval = ToKlineInterval(timeFrame);
 
-        var result = await _restClient.SpotApi.ExchangeData.GetKlinesAsync(
-            symbol: asset.Symbol,
-            interval: interval,
-            limit: limit,
-            ct: cancellationToken);
-
-        if (!result.Success)
+        try
         {
-            _logger.LogError("Binance REST klines failed for {Symbol}/{Interval}: {Error}",
-                asset.Symbol, timeFrame.Value, result.Error?.Message);
-            return [];
-        }
+            var result = await _restPipeline.ExecuteAsync(
+                async ct => await _restClient.SpotApi.ExchangeData.GetKlinesAsync(
+                    symbol: asset.Symbol,
+                    interval: interval,
+                    limit: limit,
+                    ct: ct),
+                cancellationToken);
 
-        return result.Data
-            .Select(k => BinanceMapper.ToCandle(k, asset, timeFrame))
-            .OrderBy(c => c.OpenTime)
-            .ToList()
-            .AsReadOnly();
+            if (!result.Success)
+            {
+                _logger.LogError("Binance REST klines failed for {Symbol}/{Interval}: {Error}",
+                    asset.Symbol, timeFrame.Value, result.Error?.Message);
+                return Result<IReadOnlyList<Candle>>.Failure(
+                    new Error("Binance.RestFailed", result.Error?.Message ?? "Unknown error"));
+            }
+
+            IReadOnlyList<Candle> candles = result.Data
+                .Select(k => BinanceMapper.ToCandle(k, asset, timeFrame))
+                .OrderBy(c => c.OpenTime)
+                .ToList()
+                .AsReadOnly();
+
+            return Result<IReadOnlyList<Candle>>.Success(candles);
+        }
+        catch (BrokenCircuitException ex)
+        {
+            _logger.LogError(ex, "Binance REST circuit open — skipping {Symbol}/{Interval}", asset.Symbol, timeFrame.Value);
+            return Result<IReadOnlyList<Candle>>.Failure(
+                new Error("Binance.CircuitOpen", "Circuit breaker is open, request rejected."));
+        }
+        catch (TimeoutRejectedException ex)
+        {
+            _logger.LogError(ex, "Binance REST timeout for {Symbol}/{Interval}", asset.Symbol, timeFrame.Value);
+            return Result<IReadOnlyList<Candle>>.Failure(
+                new Error("Binance.Timeout", "REST request timed out."));
+        }
     }
 
     public async Task StartStreamAsync(
