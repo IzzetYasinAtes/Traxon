@@ -152,7 +152,11 @@ public sealed class MarketDataWorker : BackgroundService
                     }
                     else if (openResult.Value is not null)
                     {
-                        _publisher.PublishTradeOpened(openResult.Value.ToDto());
+                        var trade = openResult.Value;
+                        _logger.LogInformation(
+                            "Trade opened: {Engine} {Symbol} {Direction} size:{Size:F2}",
+                            engine.EngineName, sig.Asset.Symbol, sig.Direction, trade.PositionSize);
+                        _publisher.PublishTradeOpened(trade.ToDto());
                     }
                 }
             }
