@@ -10,9 +10,13 @@ namespace Traxon.CryptoTrader.Infrastructure.Calculators;
 public sealed class IndicatorCalculator : IIndicatorCalculator
 {
     private readonly ILogger<IndicatorCalculator> _logger;
+    private readonly IPatternRecognizer _patternRecognizer;
 
-    public IndicatorCalculator(ILogger<IndicatorCalculator> logger) =>
+    public IndicatorCalculator(ILogger<IndicatorCalculator> logger, IPatternRecognizer patternRecognizer)
+    {
         _logger = logger;
+        _patternRecognizer = patternRecognizer;
+    }
 
     public Result<TechnicalIndicators> Calculate(
         Asset asset,
@@ -42,6 +46,8 @@ public sealed class IndicatorCalculator : IIndicatorCalculator
         if (vwapResult.IsFailure)  return Result<TechnicalIndicators>.Failure(vwapResult.Error!);
         if (stochResult.IsFailure) return Result<TechnicalIndicators>.Failure(stochResult.Error!);
 
+        var patternAnalysis = _patternRecognizer.Analyze(candles);
+
         var indicators = new TechnicalIndicators(
             asset: asset,
             timeFrame: timeFrame,
@@ -55,7 +61,8 @@ public sealed class IndicatorCalculator : IIndicatorCalculator
             stochastic: stochResult.Value!,
             fastSma: fastSma,
             slowSma: slowSma,
-            parkinsonVolatility: parkinson);
+            parkinsonVolatility: parkinson,
+            patternAnalysis: patternAnalysis);
 
         return Result<TechnicalIndicators>.Success(indicators);
     }
