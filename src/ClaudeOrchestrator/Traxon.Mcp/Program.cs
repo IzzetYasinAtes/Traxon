@@ -3,6 +3,7 @@ using Microsoft.Extensions.Hosting;
 using ModelContextProtocol.Server;
 using Traxon.Mcp.Storage;
 using Traxon.Mcp.Tools;
+using Traxon.Mssql;
 
 var workspacePath = Environment.GetEnvironmentVariable("TRAXON_WORKSPACE")
     ?? Path.Combine(Directory.GetCurrentDirectory(), "workspace");
@@ -25,7 +26,8 @@ var host = Host.CreateDefaultBuilder(args)
         .WithStdioServerTransport()
         .WithTools<MessagingTools>()
         .WithTools<TaskTools>()
-        .WithTools<ContextTools>();
+        .WithTools<ContextTools>()
+        .WithTools<DatabaseTools>();
     })
     .Build();
 

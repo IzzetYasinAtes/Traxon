@@ -3,6 +3,7 @@
   <Folder Name="/src/ClaudeOrchestrator/">
     <Project Path="src/ClaudeOrchestrator/Traxon.Contracts/Traxon.Contracts.csproj" />
     <Project Path="src/ClaudeOrchestrator/Traxon.Mcp/Traxon.Mcp.csproj" />
+    <Project Path="src/ClaudeOrchestrator/Traxon.Mssql/Traxon.Mssql.csproj" />
   </Folder>
   <Folder Name="/src/CryptoTrader/">
     <Project Path="src/CryptoTrader/Traxon.CryptoTrader.Domain/Traxon.CryptoTrader.Domain.csproj" />

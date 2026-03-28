@@ -4,21 +4,20 @@
       "command": "dotnet",
       "args": ["run", "--project", "src/ClaudeOrchestrator/Traxon.Mcp"],
       "env": {
-        "TRAXON_WORKSPACE": "./workspace"
+        "TRAXON_WORKSPACE": "./workspace",
+        "TRAXON_DB_CONNECTION": "Server=(localdb)\\MSSQLLocalDB;Database=TrAxonCryptoTrader;Trusted_Connection=True;TrustServerCertificate=True"
+      }
+    },
+    "mssql": {
+      "command": "dotnet",
+      "args": ["run", "--project", "src/ClaudeOrchestrator/Traxon.Mssql"],
+      "env": {
+        "MSSQL_CONNECTION_STRING": "Server=(localdb)\\MSSQLLocalDB;Database=TrAxonCryptoTrader;Trusted_Connection=True;TrustServerCertificate=True"
       }
     },
     "playwright": {
       "command": "npx",
       "args": ["-y", "@playwright/mcp"]
-    },
-    "mssql": {
-      "command": "npx",
-      "args": ["-y", "@wener/mssql-mcp"],
-      "env": {
-        "MSSQL_SERVER": "(localdb)\\MSSQLLocalDB",
-        "MSSQL_DATABASE": "TrAxonCryptoTrader",
-        "MSSQL_WINDOWS_AUTH": "true"
-      }
     }
   }
 }

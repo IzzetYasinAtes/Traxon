@@ -1,9 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-
-  <ItemGroup>
-    <ProjectReference Include="..\Traxon.Contracts\Traxon.Contracts.csproj" />
-    <ProjectReference Include="..\Traxon.Mssql\Traxon.Mssql.csproj" />
-  </ItemGroup>
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting" />

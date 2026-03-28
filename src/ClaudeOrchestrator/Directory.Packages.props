@@ -1,6 +1,0 @@
-<Project>
-  <PropertyGroup>
-    <!-- ClaudeOrchestrator projects manage their own package versions -->
-    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
-  </PropertyGroup>
-</Project>
