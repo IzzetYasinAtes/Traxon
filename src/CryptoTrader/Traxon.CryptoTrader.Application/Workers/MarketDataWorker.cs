@@ -85,9 +85,22 @@ public sealed class MarketDataWorker : BackgroundService
     {
         _candleBuffer.Add(candle);
 
-        // Ticker guncelle
+        // Ticker guncelle — onceki close ile karsilastir
+        decimal change = 0m;
+        decimal changePercent = 0m;
+        var bufferResult = _candleBuffer.GetAll(candle.Asset, candle.TimeFrame);
+        if (bufferResult.IsSuccess)
+        {
+            var all = bufferResult.Value!;
+            if (all.Count >= 2)
+            {
+                var previousClose = all[^2].Close;
+                change = candle.Close - previousClose;
+                changePercent = previousClose > 0 ? change / previousClose * 100m : 0m;
+            }
+        }
         _publisher.PublishTickerUpdate(new TickerDto(
-            candle.Asset.Symbol, candle.Close, 0m, 0m, DateTime.UtcNow));
+            candle.Asset.Symbol, candle.Close, change, changePercent, DateTime.UtcNow));
 
         // Candle guncelle
         _publisher.PublishCandleUpdate(candle.ToCandleDto());

@@ -194,7 +194,10 @@ public sealed class AdminDataService(IDbContextFactory<AppDbContext> dbFactory)
         var logFile = Path.Combine(logDir, $"admin-{today}.log");
         if (!File.Exists(logFile)) return [];
 
-        var lines = await File.ReadAllLinesAsync(logFile);
+        await using var fs = new FileStream(logFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        using var reader = new StreamReader(fs);
+        var content = await reader.ReadToEndAsync();
+        var lines = content.Split(Environment.NewLine);
         return lines
             .TakeLast(count)
             .Where(l => !string.IsNullOrWhiteSpace(l))

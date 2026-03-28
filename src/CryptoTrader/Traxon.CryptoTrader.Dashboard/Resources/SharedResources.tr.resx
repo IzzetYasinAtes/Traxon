@@ -14,7 +14,7 @@
 
   <!-- Market Page -->
   <data name="OrderBook" xml:space="preserve"><value>EMİR DEFTERİ</value></data>
-  <data name="OrderBookPlaceholder" xml:space="preserve"><value>Polymarket fiyat verisi Faz 5'te entegre edilecek.</value></data>
+  <data name="OrderBookPlaceholder" xml:space="preserve"><value>Emir defteri verisi mevcut değil — Polymarket entegrasyonu gerekli.</value></data>
   <data name="ActiveSignals" xml:space="preserve"><value>AKTİF SİNYALLER</value></data>
   <data name="RecentTrades" xml:space="preserve"><value>SON İŞLEMLER</value></data>
 
@@ -25,6 +25,9 @@
   <data name="WinRate" xml:space="preserve"><value>Kazanma Oranı</value></data>
   <data name="TotalTrades" xml:space="preserve"><value>İşlemler</value></data>
   <data name="NoPortfolioData" xml:space="preserve"><value>Henüz portföy verisi yok. Worker başladıktan sonra güncellenir.</value></data>
+
+  <!-- Portfolio Summary (Home) -->
+  <data name="PortfolioOverview" xml:space="preserve"><value>PORTFÖY ÖZETİ</value></data>
 
   <!-- Signals Page -->
   <data name="SignalsCount" xml:space="preserve"><value>sinyal</value></data>
