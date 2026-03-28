@@ -104,7 +104,7 @@ public class SignalGeneratorTests
         var sut     = CreateSut();
         var candles = CreateCandles(50);
 
-        var result = sut.Generate(Asset.BTCUSDT, TimeFrame.FiveMinute, candles, marketPrice: 0.70m);
+        var result = sut.Generate(Asset.BTCUSDT, TimeFrame.FiveMinute, candles, marketPrice: 0.90m);
 
         result.IsFailure.Should().BeTrue();
         result.Error!.Code.Should().Be("Domain.InvalidMarketPrice");
