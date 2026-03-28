@@ -31,6 +31,17 @@ public sealed class Portfolio : AggregateRoot<Guid>
         Balance = initialBalance;
     }
 
+    /// <summary>
+    /// Worker restart sonrasi son snapshot'tan portfolio state'i restore eder.
+    /// </summary>
+    public void Restore(decimal balance, decimal totalPnL, int winCount, int lossCount)
+    {
+        Balance   = balance;
+        TotalPnL  = totalPnL;
+        WinCount  = winCount;
+        LossCount = lossCount;
+    }
+
     public Result<Position> OpenPosition(Position position)
     {
         if (position.PositionSize > MaxPositionSize)

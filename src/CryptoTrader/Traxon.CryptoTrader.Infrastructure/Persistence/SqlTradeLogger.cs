@@ -94,6 +94,31 @@ public sealed class SqlTradeLogger : ITradeLogger
         }
     }
 
+    public async Task<PortfolioSnapshotDto?> GetLatestSnapshotAsync(string engineName, CancellationToken ct = default)
+    {
+        try
+        {
+            await using var db = await _dbFactory.CreateDbContextAsync(ct);
+            var snapshot = await db.PortfolioSnapshots
+                .Where(s => s.Engine == engineName)
+                .OrderByDescending(s => s.Timestamp)
+                .FirstOrDefaultAsync(ct);
+
+            if (snapshot is null) return null;
+
+            return new PortfolioSnapshotDto(
+                snapshot.Balance,
+                snapshot.TotalPnL,
+                snapshot.TradeCount,
+                snapshot.WinRate);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load latest snapshot for engine: {Engine}", engineName);
+            return null;
+        }
+    }
+
     public async Task LogPortfolioSnapshotAsync(Portfolio portfolio, CancellationToken ct = default)
     {
         try
