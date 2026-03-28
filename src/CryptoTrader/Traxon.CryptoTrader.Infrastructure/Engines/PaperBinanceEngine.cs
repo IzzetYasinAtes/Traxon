@@ -32,8 +32,9 @@ public sealed class PaperBinanceEngine : ITradingEngine
 
     private const decimal InitialBalance = 10_000m;
     private const decimal SlippageRate   = 0.0005m;
-    private const decimal SlMultiplier   = 1.5m;
-    private const decimal TpMultiplier   = 2.0m;
+    private const decimal SlPercent      = 0.005m;   // 0.5% from entry
+    private const decimal TpPercent      = 0.010m;   // 1.0% from entry
+    private const int     MaxHoldCandles = 10;        // force-close after 10× timeframe durations
 
     public string EngineName => "PaperBinance";
 
@@ -102,22 +103,20 @@ public sealed class PaperBinanceEngine : ITradingEngine
             if (candlesResult.IsFailure)
                 return Result<Trade>.Failure(Error.EngineNotReady);
 
-            var atrResult = _indicatorCalculator.CalculateAtr(candlesResult.Value!);
-            if (atrResult.IsFailure)
-                return Result<Trade>.Failure(Error.EngineNotReady);
-
-            var atr          = atrResult.Value!.Value;
+            var atr          = signal.Indicators.Atr.Value; // kept in snapshot for reference only
             var lastCandle   = candlesResult.Value![^1];
             var entryPrice   = lastCandle.Close * (1 + SlippageRate);
             var positionSize = Math.Min(signal.KellyFraction * _portfolio.Balance, _portfolio.MaxPositionSize);
 
+            // Percentage-based SL/TP: fixed 0.5% SL and 1.0% TP from entry.
+            // ATR-based levels were too wide for short MaxHold windows, causing all trades to exit via MaxHold.
             var sl = signal.Direction == SignalDirection.Up
-                ? entryPrice - (SlMultiplier * atr)
-                : entryPrice + (SlMultiplier * atr);
+                ? entryPrice * (1 - SlPercent)
+                : entryPrice * (1 + SlPercent);
 
             var tp = signal.Direction == SignalDirection.Up
-                ? entryPrice + (TpMultiplier * atr)
-                : entryPrice - (TpMultiplier * atr);
+                ? entryPrice * (1 + TpPercent)
+                : entryPrice * (1 - TpPercent);
 
             var position = new Position(
                 asset:        signal.Asset,
@@ -251,9 +250,13 @@ public sealed class PaperBinanceEngine : ITradingEngine
                     slHit = candle.High >= sl;
                 }
 
-                // Max-hold safety: force-close after 3 full timeframe durations
-                // (protects against wide ATR levels that are never reached)
-                var maxHold = candle.OpenTime - trade.OpenedAt >= candle.TimeFrame.Duration * 3;
+                // Max-hold safety: force-close after MaxHoldCandles full timeframe durations
+                var maxHold = candle.OpenTime - trade.OpenedAt >= candle.TimeFrame.Duration * MaxHoldCandles;
+
+                _logger.LogDebug(
+                    "[PaperBinance] Checking {Symbol}: close={Close:F4} SL={Sl:F4} TP={Tp:F4} " +
+                    "tpHit={TpHit} slHit={SlHit} maxHold={MaxHold}",
+                    trade.Asset.Symbol, candle.Close, sl, tp, tpHit, slHit, maxHold);
 
                 if (!tpHit && !slHit && !maxHold) continue;
 
@@ -263,7 +266,7 @@ public sealed class PaperBinanceEngine : ITradingEngine
             else
             {
                 // SL/TP not available (restored trade with missing snapshot) — use max-hold only
-                if (candle.OpenTime - trade.OpenedAt < candle.TimeFrame.Duration * 3) continue;
+                if (candle.OpenTime - trade.OpenedAt < candle.TimeFrame.Duration * MaxHoldCandles) continue;
                 exitPrice = candle.Close;
                 reason    = "MaxHold";
             }
