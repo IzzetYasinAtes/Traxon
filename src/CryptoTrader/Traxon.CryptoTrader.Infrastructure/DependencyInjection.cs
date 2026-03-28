@@ -7,6 +7,7 @@ using Traxon.CryptoTrader.Infrastructure.Calculators;
 using Traxon.CryptoTrader.Infrastructure.Engines;
 using Traxon.CryptoTrader.Infrastructure.Patterns;
 using Traxon.CryptoTrader.Infrastructure.Persistence;
+using Traxon.CryptoTrader.Application.Options;
 using Traxon.CryptoTrader.Infrastructure.Signals;
 
 namespace Traxon.CryptoTrader.Infrastructure;
@@ -42,11 +43,25 @@ public static class DependencyInjection
         services.AddSingleton<ITradeLogger, SqlTradeLogger>();
         services.AddSingleton<ICandleWriter, SqlCandleWriter>();
 
-        // Trading Engines (Singleton — in-memory portfolio state)
-        services.AddSingleton<PaperPolymarketEngine>();
-        services.AddSingleton<PaperBinanceEngine>();
-        services.AddSingleton<ITradingEngine>(sp => sp.GetRequiredService<PaperPolymarketEngine>());
-        services.AddSingleton<ITradingEngine>(sp => sp.GetRequiredService<PaperBinanceEngine>());
+        // Trading Engines — only register engines listed in EnabledEngines config
+        var enabled = configuration
+            .GetSection($"{TradingEngineOptions.SectionName}:EnabledEngines")
+            .GetChildren()
+            .Select(c => c.Value)
+            .Where(v => v is not null)
+            .ToList();
+
+        if (enabled.Contains("PaperPoly"))
+        {
+            services.AddSingleton<PaperPolymarketEngine>();
+            services.AddSingleton<ITradingEngine>(sp => sp.GetRequiredService<PaperPolymarketEngine>());
+        }
+
+        if (enabled.Contains("PaperBinance"))
+        {
+            services.AddSingleton<PaperBinanceEngine>();
+            services.AddSingleton<ITradingEngine>(sp => sp.GetRequiredService<PaperBinanceEngine>());
+        }
 
         return services;
     }
