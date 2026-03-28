@@ -30,9 +30,9 @@
         <div class="col-span-2">
             <CandlestickChart Symbol="@_selectedSymbol" Interval="@_selectedInterval" Height="420" />
         </div>
-        <div class="rounded-[10px] p-4" style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default);">
+        <div class="rounded-[10px] p-4 flex flex-col items-center justify-center" style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default); min-height: 200px;">
             <h3 class="text-sm font-bold mb-3" style="color: var(--color-text-secondary);">@L["OrderBook"]</h3>
-            <p class="text-xs" style="color: var(--color-text-muted);">@L["OrderBookPlaceholder"]</p>
+            <p class="text-xs text-center" style="color: var(--color-text-muted);">@L["OrderBookPlaceholder"]</p>
         </div>
     </div>
 
@@ -46,6 +46,32 @@
             }
         </div>
     </section>
+
+    <!-- Portfolio Overview -->
+    @if (Feed.Portfolios.Count > 0)
+    {
+        <section>
+            <h2 class="text-sm font-bold mb-3" style="color: var(--color-text-secondary);">@L["PortfolioOverview"]</h2>
+            @foreach (var (engine, portfolio) in Feed.Portfolios)
+            {
+                <div class="mb-3">
+                    <p class="text-xs mb-2" style="color: var(--color-text-muted);">@engine</p>
+                    <div class="grid grid-cols-4 gap-3">
+                        <StatCard Title="@L["Balance"]" Value="@($"${portfolio.Balance:N2}")" />
+                        <StatCard Title="@L["TotalPnL"]"
+                                  Value="@($"{(portfolio.TotalPnL >= 0 ? "+$" : "-$")}{Math.Abs(portfolio.TotalPnL):N2}")"
+                                  Color="@(portfolio.TotalPnL >= 0 ? "var(--color-accent-green)" : "var(--color-accent-red)")" />
+                        <StatCard Title="@L["WinRate"]"
+                                  Value="@($"{portfolio.WinRate * 100:F1}%")"
+                                  Subtitle="@($"{portfolio.WinCount}W / {portfolio.LossCount}L")" />
+                        <StatCard Title="@L["TotalTrades"]"
+                                  Value="@portfolio.TotalTrades.ToString()"
+                                  Subtitle="@($"{portfolio.OpenPositionCount} open")" />
+                    </div>
+                </div>
+            }
+        </section>
+    }
 
     <!-- Recent Trades -->
     <section>
@@ -83,14 +109,17 @@
     {
         Feed.OnSignalGenerated += OnSignal;
         Feed.OnTradeOpened += OnTrade;
+        Feed.OnPortfolioUpdate += OnPortfolio;
     }
 
     private void OnSignal(SignalDto _) => InvokeAsync(StateHasChanged);
     private void OnTrade(TradeDto _) => InvokeAsync(StateHasChanged);
+    private void OnPortfolio(PortfolioDto _) => InvokeAsync(StateHasChanged);
 
     public void Dispose()
     {
         Feed.OnSignalGenerated -= OnSignal;
         Feed.OnTradeOpened -= OnTrade;
+        Feed.OnPortfolioUpdate -= OnPortfolio;
     }
 }

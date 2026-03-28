@@ -14,7 +14,7 @@
 
   <!-- Market Page -->
   <data name="OrderBook" xml:space="preserve"><value>ORDER BOOK</value></data>
-  <data name="OrderBookPlaceholder" xml:space="preserve"><value>Polymarket price data will be integrated in Phase 5.</value></data>
+  <data name="OrderBookPlaceholder" xml:space="preserve"><value>Order book data unavailable — Polymarket integration required.</value></data>
   <data name="ActiveSignals" xml:space="preserve"><value>ACTIVE SIGNALS</value></data>
   <data name="RecentTrades" xml:space="preserve"><value>RECENT TRADES</value></data>
 
@@ -25,6 +25,9 @@
   <data name="WinRate" xml:space="preserve"><value>Win Rate</value></data>
   <data name="TotalTrades" xml:space="preserve"><value>Trades</value></data>
   <data name="NoPortfolioData" xml:space="preserve"><value>No portfolio data yet. Will update after worker starts.</value></data>
+
+  <!-- Portfolio Summary (Home) -->
+  <data name="PortfolioOverview" xml:space="preserve"><value>PORTFOLIO OVERVIEW</value></data>
 
   <!-- Signals Page -->
   <data name="SignalsCount" xml:space="preserve"><value>signals</value></data>

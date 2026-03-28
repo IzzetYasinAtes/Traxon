@@ -30,6 +30,19 @@
         Grid = new Grid
         {
             BorderColor = "#1f1f1f"
+        },
+        Xaxis = new XAxis
+        {
+            Type = XAxisType.Datetime,
+            Labels = new XAxisLabels
+            {
+                DatetimeFormatter = new DatetimeFormatter
+                {
+                    Day = "dd MMM",
+                    Hour = "HH:mm",
+                    Minute = "HH:mm"
+                }
+            }
         }
     };
 
@@ -37,9 +50,10 @@
     {
         await using var db = await DbFactory.CreateDbContextAsync();
         var snapshots = await db.PortfolioSnapshots
-            .OrderBy(p => p.Timestamp)
-            .TakeLast(500)
+            .OrderByDescending(p => p.Timestamp)
+            .Take(500)
             .ToListAsync();
+        snapshots.Reverse();
 
         _series = snapshots
             .GroupBy(p => p.Engine)

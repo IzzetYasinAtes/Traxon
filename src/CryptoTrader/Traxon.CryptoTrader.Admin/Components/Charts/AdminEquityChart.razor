@@ -30,6 +30,19 @@
         Grid = new Grid
         {
             BorderColor = "#1f1f1f"
+        },
+        Xaxis = new XAxis
+        {
+            Type = XAxisType.Datetime,
+            Labels = new XAxisLabels
+            {
+                DatetimeFormatter = new DatetimeFormatter
+                {
+                    Day = "dd MMM",
+                    Hour = "HH:mm",
+                    Minute = "HH:mm"
+                }
+            }
         }
     };
 
