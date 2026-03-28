@@ -167,14 +167,22 @@ public sealed class PaperPolymarketEngine : ITradingEngine
 
     public async Task CheckPositionsAsync(Candle candle, CancellationToken ct = default)
     {
-        var now = DateTime.UtcNow;
-
+        // candle.OpenTime is the exchange-side timestamp of when this candle opened.
+        // A trade is expired if it was opened BEFORE this candle's open time —
+        // meaning at least one full timeframe has elapsed since the position was taken.
+        // This avoids wall-clock drift where (DateTime.UtcNow - trade.OpenedAt) can be
+        // a few milliseconds short of Duration due to variable WebSocket latency.
         var expiredTradeIds = _openTrades.Values
             .Where(t => t.Asset == candle.Asset
                      && t.TimeFrame == candle.TimeFrame
-                     && now - t.OpenedAt >= candle.TimeFrame.Duration)
+                     && candle.OpenTime > t.OpenedAt)
             .Select(t => t.Id)
             .ToList();
+
+        _logger.LogDebug(
+            "[PaperPoly] CheckPositions {Symbol}/{Interval} candle.OpenTime:{OpenTime} openTrades:{Open} expired:{Expired}",
+            candle.Asset.Symbol, candle.TimeFrame.Value,
+            candle.OpenTime, _openTrades.Count, expiredTradeIds.Count);
 
         foreach (var tradeId in expiredTradeIds)
         {

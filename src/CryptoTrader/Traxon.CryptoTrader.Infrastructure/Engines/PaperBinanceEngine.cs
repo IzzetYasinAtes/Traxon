@@ -223,30 +223,50 @@ public sealed class PaperBinanceEngine : ITradingEngine
             .Select(t => t.Id)
             .ToList();
 
+        _logger.LogDebug(
+            "[PaperBinance] CheckPositions {Symbol}/{Interval} candle.OpenTime:{OpenTime} relevant:{Count}",
+            candle.Asset.Symbol, candle.TimeFrame.Value, candle.OpenTime, relevantTradeIds.Count);
+
         foreach (var tradeId in relevantTradeIds)
         {
-            if (!_openTrades.TryGetValue(tradeId, out var trade))      continue;
-            if (!_slTpMap.TryGetValue(tradeId, out var slTp))          continue;
+            if (!_openTrades.TryGetValue(tradeId, out var trade))         continue;
             if (!_tradeToPositionMap.TryGetValue(tradeId, out var posId)) continue;
 
-            var (sl, tp) = slTp;
-            bool tpHit, slHit;
+            string reason;
+            decimal exitPrice;
 
-            if (trade.Direction == SignalDirection.Up)
+            if (_slTpMap.TryGetValue(tradeId, out var slTp))
             {
-                tpHit = candle.High >= tp;
-                slHit = candle.Low  <= sl;
+                var (sl, tp) = slTp;
+                bool tpHit, slHit;
+
+                if (trade.Direction == SignalDirection.Up)
+                {
+                    tpHit = candle.High >= tp;
+                    slHit = candle.Low  <= sl;
+                }
+                else
+                {
+                    tpHit = candle.Low  <= tp;
+                    slHit = candle.High >= sl;
+                }
+
+                // Max-hold safety: force-close after 3 full timeframe durations
+                // (protects against wide ATR levels that are never reached)
+                var maxHold = candle.OpenTime - trade.OpenedAt >= candle.TimeFrame.Duration * 3;
+
+                if (!tpHit && !slHit && !maxHold) continue;
+
+                exitPrice = tpHit ? tp : slHit ? sl : candle.Close;
+                reason    = tpHit ? "TakeProfit" : slHit ? "StopLoss" : "MaxHold";
             }
             else
             {
-                tpHit = candle.Low  <= tp;
-                slHit = candle.High >= sl;
+                // SL/TP not available (restored trade with missing snapshot) — use max-hold only
+                if (candle.OpenTime - trade.OpenedAt < candle.TimeFrame.Duration * 3) continue;
+                exitPrice = candle.Close;
+                reason    = "MaxHold";
             }
-
-            if (!tpHit && !slHit) continue;
-
-            var exitPrice = tpHit ? tp : sl;
-            var reason    = tpHit ? "TakeProfit" : "StopLoss";
 
             if (_openTrades.TryRemove(tradeId, out _))
             {

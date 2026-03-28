@@ -181,6 +181,39 @@ public class PaperBinanceEngineTests
     }
 
     [Fact]
+    public async Task CheckPositions_WhenMaxHoldExceeded_ForceClosesAtCandleClose()
+    {
+        var sut = CreateSut();
+        SetupCandleBufferSuccess(close: 50000m);
+        SetupAtrSuccess(atr: 500m);
+
+        await sut.OpenPositionAsync(CreateUpSignal());
+
+        // entryPrice ≈ 50025, SL = 49275, TP = 51025
+        // Neither SL nor TP hit, but MaxHold (3 × 5m = 15min) exceeded
+        var candle = new Candle(
+            id:          DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            asset:       Asset.BTCUSDT,
+            timeFrame:   TimeFrame.FiveMinute,
+            openTime:    DateTime.UtcNow.AddMinutes(16),  // 16min after trade.OpenedAt (> 15min max)
+            closeTime:   DateTime.UtcNow.AddMinutes(21),
+            open:        50000m,
+            high:        50500m,  // neither SL nor TP hit
+            low:         49500m,
+            close:       50100m,
+            volume:      1000m,
+            quoteVolume: 50000000m,
+            tradeCount:  500,
+            isClosed:    true);
+
+        await sut.CheckPositionsAsync(candle);
+
+        var openTrades = (await sut.GetOpenTradesAsync()).Value!;
+        openTrades.Should().BeEmpty();
+        await _tradeLogger.Received(1).LogTradeClosedAsync(Arg.Any<Trade>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task OpenPosition_WithDuplicateAsset_ReturnsDuplicateError()
     {
         var sut = CreateSut();
