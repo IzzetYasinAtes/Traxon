@@ -10,7 +10,7 @@ using Traxon.CryptoTrader.Infrastructure.Persistence;
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
-    .WriteTo.File("logs/admin-.log", rollingInterval: RollingInterval.Day)
+    .WriteTo.File("logs/admin-.log", rollingInterval: RollingInterval.Day, shared: true)
     .CreateLogger();
 
 try

@@ -7,7 +7,7 @@
                          Items="_series[engine]"
                          Name="@engine"
                          SeriesType="SeriesType.Area"
-                         XValue="@(e => e.Timestamp.ToUnixTimeMilliseconds())"
+                         XValue="@(e => e.Timestamp.UtcDateTime)"
                          YValue="@(e => (decimal)e.Balance)" />
     }
 </ApexChart>
