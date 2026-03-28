@@ -1,5 +1,6 @@
 using Traxon.CryptoTrader.Domain.Abstractions;
 using Traxon.CryptoTrader.Domain.Assets;
+using Traxon.CryptoTrader.Domain.Patterns;
 
 namespace Traxon.CryptoTrader.Domain.Indicators;
 
@@ -26,6 +27,9 @@ public sealed class TechnicalIndicators : ValueObject
     /// <summary>Parkinson volatility estimator</summary>
     public decimal ParkinsonVolatility { get; }
 
+    /// <summary>Candlestick pattern analiz sonucu (null ise henüz hesaplanmadı).</summary>
+    public PatternAnalysis? PatternAnalysis { get; private set; }
+
     public TechnicalIndicators(
         Asset asset,
         TimeFrame timeFrame,
@@ -39,7 +43,8 @@ public sealed class TechnicalIndicators : ValueObject
         StochasticResult stochastic,
         decimal fastSma,
         decimal slowSma,
-        decimal parkinsonVolatility)
+        decimal parkinsonVolatility,
+        PatternAnalysis? patternAnalysis = null)
     {
         Asset = asset;
         TimeFrame = timeFrame;
@@ -54,9 +59,10 @@ public sealed class TechnicalIndicators : ValueObject
         FastSma = fastSma;
         SlowSma = slowSma;
         ParkinsonVolatility = parkinsonVolatility;
+        PatternAnalysis = patternAnalysis;
     }
 
-    /// <summary>Multi-confirmation: kaç indicator bullish yön gösteriyor?</summary>
+    /// <summary>Multi-confirmation: kaç indicator bullish yön gösteriyor? Pattern bonus dahil.</summary>
     public int BullishCount()
     {
         int count = 0;
@@ -65,11 +71,30 @@ public sealed class TechnicalIndicators : ValueObject
         if (Vwap.IsPriceAbove(CurrentPrice)) count++;
         if (IsFastSmaAboveSlow)              count++;
         if (Stochastic.IsKAboveD)            count++;
-        return count;
+
+        // Pattern bonus
+        if (PatternAnalysis is { BullishPatternCount: >= 2 }) count++;
+        if (PatternAnalysis is { BearishPatternCount: >= 2 }) count--;
+
+        return Math.Max(0, count);
     }
 
-    /// <summary>Multi-confirmation: kaç indicator bearish yön gösteriyor?</summary>
-    public int BearishCount() => 5 - BullishCount();
+    /// <summary>Multi-confirmation: kaç indicator bearish yön gösteriyor? Pattern bonus dahil.</summary>
+    public int BearishCount()
+    {
+        int count = 0;
+        if (!Rsi.IsAboveMiddle)               count++;
+        if (!Macd.IsBullish)                  count++;
+        if (!Vwap.IsPriceAbove(CurrentPrice)) count++;
+        if (!IsFastSmaAboveSlow)              count++;
+        if (!Stochastic.IsKAboveD)            count++;
+
+        // Pattern bonus
+        if (PatternAnalysis is { BearishPatternCount: >= 2 }) count++;
+        if (PatternAnalysis is { BullishPatternCount: >= 2 }) count--;
+
+        return Math.Max(0, count);
+    }
 
     protected override IEnumerable<object?> GetEqualityComponents()
     {

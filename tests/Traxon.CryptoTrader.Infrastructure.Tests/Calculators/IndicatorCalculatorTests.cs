@@ -4,13 +4,14 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Traxon.CryptoTrader.Domain.Assets;
 using Traxon.CryptoTrader.Domain.Market;
 using Traxon.CryptoTrader.Infrastructure.Calculators;
+using Traxon.CryptoTrader.Infrastructure.Patterns;
 
 namespace Traxon.CryptoTrader.Infrastructure.Tests.Calculators;
 
 public class IndicatorCalculatorTests
 {
     private readonly IndicatorCalculator _sut =
-        new(NullLogger<IndicatorCalculator>.Instance);
+        new(NullLogger<IndicatorCalculator>.Instance, new PatternRecognizer());
 
     private static List<Candle> GenerateCandles(int count, decimal startPrice = 100m)
     {

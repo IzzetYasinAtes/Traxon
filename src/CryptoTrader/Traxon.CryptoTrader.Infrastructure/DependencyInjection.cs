@@ -5,6 +5,7 @@ using Traxon.CryptoTrader.Application.Abstractions;
 using Traxon.CryptoTrader.Infrastructure.Buffers;
 using Traxon.CryptoTrader.Infrastructure.Calculators;
 using Traxon.CryptoTrader.Infrastructure.Engines;
+using Traxon.CryptoTrader.Infrastructure.Patterns;
 using Traxon.CryptoTrader.Infrastructure.Persistence;
 using Traxon.CryptoTrader.Infrastructure.Signals;
 
@@ -18,6 +19,7 @@ public static class DependencyInjection
     {
         // Core services
         services.AddSingleton<ICandleBuffer>(_ => new InMemoryCandleBuffer(capacity: 200));
+        services.AddSingleton<IPatternRecognizer, PatternRecognizer>();
         services.AddSingleton<IIndicatorCalculator, IndicatorCalculator>();
         services.AddSingleton<IFairValueCalculator, FairValueCalculator>();
         services.AddSingleton<IPositionSizer, PositionSizer>();
