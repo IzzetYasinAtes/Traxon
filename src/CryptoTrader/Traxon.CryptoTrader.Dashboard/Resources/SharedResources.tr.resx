@@ -14,7 +14,7 @@
 
   <!-- Market Page -->
   <data name="OrderBook" xml:space="preserve"><value>EMİR DEFTERİ</value></data>
-  <data name="OrderBookPlaceholder" xml:space="preserve"><value>Emir defteri verisi mevcut değil — Polymarket entegrasyonu gerekli.</value></data>
+  <data name="OrderBookPlaceholder" xml:space="preserve"><value>Emir defteri verisi yükleniyor. Piyasa bağlantısı kurulduğunda derinlik verileri görünecektir.</value></data>
   <data name="ActiveSignals" xml:space="preserve"><value>AKTİF SİNYALLER</value></data>
   <data name="RecentTrades" xml:space="preserve"><value>SON İŞLEMLER</value></data>
 

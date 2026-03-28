@@ -14,7 +14,7 @@
 
   <!-- Market Page -->
   <data name="OrderBook" xml:space="preserve"><value>ORDER BOOK</value></data>
-  <data name="OrderBookPlaceholder" xml:space="preserve"><value>Order book data unavailable — Polymarket integration required.</value></data>
+  <data name="OrderBookPlaceholder" xml:space="preserve"><value>Order book data is loading. Real-time depth will appear when the market feed is connected.</value></data>
   <data name="ActiveSignals" xml:space="preserve"><value>ACTIVE SIGNALS</value></data>
   <data name="RecentTrades" xml:space="preserve"><value>RECENT TRADES</value></data>
 

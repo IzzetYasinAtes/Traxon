@@ -23,14 +23,27 @@ public sealed class AdminDataService(IDbContextFactory<AppDbContext> dbFactory)
         var winRate = (decimal)wins / trades.Count;
         var sharpe = CalculateSharpe(trades.Select(t => (double)(t.PnL ?? 0)).ToList());
 
-        var byEngine = trades
+        // All registered engines (from PortfolioSnapshots) — even those with 0 trades
+        var allEngines = await db.PortfolioSnapshots
+            .Select(p => p.Engine)
+            .Distinct()
+            .ToListAsync();
+
+        var tradesByEngine = trades
             .GroupBy(t => t.Engine)
-            .Select(g =>
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var byEngine = allEngines
+            .Select(engine =>
             {
-                var engineWins = g.Count(t => t.Outcome == TradeOutcome.Win);
-                var enginePnl = g.Sum(t => t.PnL ?? 0);
-                var engineSharpe = CalculateSharpe(g.Select(t => (double)(t.PnL ?? 0)).ToList());
-                return new EngineStats(g.Key, g.Count(), engineWins, enginePnl, engineSharpe);
+                if (tradesByEngine.TryGetValue(engine, out var engineTrades))
+                {
+                    var engineWins = engineTrades.Count(t => t.Outcome == TradeOutcome.Win);
+                    var enginePnl = engineTrades.Sum(t => t.PnL ?? 0);
+                    var engineSharpe = CalculateSharpe(engineTrades.Select(t => (double)(t.PnL ?? 0)).ToList());
+                    return new EngineStats(engine, engineTrades.Count, engineWins, enginePnl, engineSharpe);
+                }
+                return new EngineStats(engine, 0, 0, 0, 0);
             })
             .ToList();
 
