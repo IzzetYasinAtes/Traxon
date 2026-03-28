@@ -105,8 +105,16 @@ public sealed class MarketDataWorker : BackgroundService
         // Candle guncelle
         _publisher.PublishCandleUpdate(candle.ToCandleDto());
 
-        // SQL'e async yaz (fire-and-forget — exception loglanir)
-        _ = _candleWriter.WriteAsync(candle);
+        // SQL'e async yaz (fire-and-forget — hata sinyal uretimini ENGELLEMEMELI)
+        _ = Task.Run(async () =>
+        {
+            try { await _candleWriter.WriteAsync(candle); }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Candle write failed for {Symbol}, signal generation continues",
+                    candle.Asset.Symbol);
+            }
+        });
 
         if (!_candleBuffer.IsWarmedUp(candle.Asset, candle.TimeFrame, minimumCandles: 30))
         {
