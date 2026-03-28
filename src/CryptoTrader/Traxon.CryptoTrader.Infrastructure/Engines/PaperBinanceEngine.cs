@@ -23,6 +23,12 @@ public sealed class PaperBinanceEngine : ITradingEngine
     private readonly ConcurrentDictionary<Guid, Guid>                   _tradeToPositionMap = new();
     private readonly ConcurrentDictionary<Guid, (decimal sl, decimal tp)> _slTpMap          = new();
     private readonly SemaphoreSlim                                       _lock               = new(1, 1);
+    private readonly SemaphoreSlim                                       _initLock           = new(1, 1);
+    private volatile bool                                                _initialized;
+
+    private sealed record SlTpSnapshot(
+        [property: System.Text.Json.Serialization.JsonPropertyName("sl")] decimal Sl,
+        [property: System.Text.Json.Serialization.JsonPropertyName("tp")] decimal Tp);
 
     private const decimal InitialBalance = 10_000m;
     private const decimal SlippageRate   = 0.0005m;
@@ -44,10 +50,48 @@ public sealed class PaperBinanceEngine : ITradingEngine
         _portfolio           = new Portfolio(EngineName, InitialBalance);
     }
 
+    /// <summary>
+    /// Worker restart sonrasi in-memory state'i DB'den restore eder (bir kez).
+    /// _openTrades ve _slTpMap restore edilerek SL/TP kontrolu da calisir.
+    /// </summary>
+    private async Task EnsureInitializedAsync(CancellationToken ct)
+    {
+        if (_initialized) return;
+        await _initLock.WaitAsync(ct);
+        try
+        {
+            if (_initialized) return;
+            var openTrades = await _tradeLogger.GetOpenTradesAsync(EngineName, ct);
+            foreach (var trade in openTrades ?? [])
+            {
+                _openTrades[trade.Id] = trade;
+                _tradeToPositionMap[trade.Id] = Guid.Empty; // position in-memory'de yok
+
+                try
+                {
+                    var snap = System.Text.Json.JsonSerializer.Deserialize<SlTpSnapshot>(trade.IndicatorSnapshot);
+                    if (snap is not null)
+                        _slTpMap[trade.Id] = (snap.Sl, snap.Tp);
+                }
+                catch
+                {
+                    // JSON parse hatasi: trade duplicate engeller ama SL/TP kontrolu calismaz
+                }
+            }
+            _initialized = true;
+        }
+        finally
+        {
+            _initLock.Release();
+        }
+    }
+
     public async Task<Result<Trade>> OpenPositionAsync(
         Signal signal,
         CancellationToken ct = default)
     {
+        await EnsureInitializedAsync(ct);
+
         await _lock.WaitAsync(ct);
         try
         {

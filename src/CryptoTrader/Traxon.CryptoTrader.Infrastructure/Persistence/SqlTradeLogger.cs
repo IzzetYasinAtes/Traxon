@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Traxon.CryptoTrader.Application.Abstractions;
 using Traxon.CryptoTrader.Domain.Trading;
 using Traxon.CryptoTrader.Infrastructure.Persistence.Models;
+using TradeStatus = Traxon.CryptoTrader.Domain.Trading.TradeStatus;
 
 namespace Traxon.CryptoTrader.Infrastructure.Persistence;
 
@@ -74,6 +75,22 @@ public sealed class SqlTradeLogger : ITradeLogger
             _logger.LogError(ex,
                 "Failed to persist trade closed: {TradeId} {Engine}",
                 trade.Id, trade.Engine);
+        }
+    }
+
+    public async Task<IReadOnlyList<Trade>> GetOpenTradesAsync(string engineName, CancellationToken ct = default)
+    {
+        try
+        {
+            await using var db = await _dbFactory.CreateDbContextAsync(ct);
+            return await db.Trades
+                .Where(t => t.Engine == engineName && t.Status == TradeStatus.Open)
+                .ToListAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load open trades for engine: {Engine}", engineName);
+            return Array.Empty<Trade>();
         }
     }
 
