@@ -25,7 +25,8 @@ var host = Host.CreateDefaultBuilder(args)
         .WithStdioServerTransport()
         .WithTools<MessagingTools>()
         .WithTools<TaskTools>()
-        .WithTools<ContextTools>();
+        .WithTools<ContextTools>()
+        .WithTools<DatabaseTools>();
     })
     .Build();
 

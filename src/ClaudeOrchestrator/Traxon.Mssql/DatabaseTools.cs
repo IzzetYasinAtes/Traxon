@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 using Microsoft.Data.SqlClient;
 using ModelContextProtocol.Server;
 
-namespace Traxon.Mcp.Tools;
+namespace Traxon.Mssql;
 
 [McpServerToolType]
 public partial class DatabaseTools
@@ -20,7 +20,7 @@ public partial class DatabaseTools
 
     private static string GetConnectionString()
     {
-        return Environment.GetEnvironmentVariable("TRAXON_DB_CONNECTION") ?? DefaultConnectionString;
+        return Environment.GetEnvironmentVariable("MSSQL_CONNECTION_STRING") ?? DefaultConnectionString;
     }
 
     [McpServerTool(Name = "sql_query"), Description("Execute a SQL query against the database. SELECT returns JSON rows. INSERT/UPDATE/DELETE returns affected row count. DROP/TRUNCATE/ALTER/CREATE are blocked.")]

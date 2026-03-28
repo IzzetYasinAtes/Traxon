@@ -8,6 +8,13 @@
         "TRAXON_DB_CONNECTION": "Server=(localdb)\\MSSQLLocalDB;Database=TrAxonCryptoTrader;Trusted_Connection=True;TrustServerCertificate=True"
       }
     },
+    "mssql": {
+      "command": "dotnet",
+      "args": ["run", "--project", "src/ClaudeOrchestrator/Traxon.Mssql"],
+      "env": {
+        "MSSQL_CONNECTION_STRING": "Server=(localdb)\\MSSQLLocalDB;Database=TrAxonCryptoTrader;Trusted_Connection=True;TrustServerCertificate=True"
+      }
+    },
     "playwright": {
       "command": "npx",
       "args": ["-y", "@playwright/mcp"]
