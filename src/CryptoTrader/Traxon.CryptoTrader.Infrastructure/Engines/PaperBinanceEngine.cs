@@ -63,11 +63,36 @@ public sealed class PaperBinanceEngine : ITradingEngine
         try
         {
             if (_initialized) return;
+            // Restore portfolio state from latest snapshot
+            var snapshot = await _tradeLogger.GetLatestSnapshotAsync(EngineName, ct);
+            if (snapshot is not null)
+            {
+                var winCount  = snapshot.WinRate.HasValue && snapshot.TradeCount > 0
+                    ? (int)Math.Round(snapshot.WinRate.Value * snapshot.TradeCount)
+                    : 0;
+                var lossCount = snapshot.TradeCount - winCount;
+                _portfolio.Restore(snapshot.Balance, snapshot.TotalPnL, winCount, lossCount);
+                _logger.LogInformation(
+                    "[PaperBinance] Portfolio restored: Balance:{Balance:F2} PnL:{PnL:F2} W:{Win} L:{Loss}",
+                    snapshot.Balance, snapshot.TotalPnL, winCount, lossCount);
+            }
+
             var openTrades = await _tradeLogger.GetOpenTradesAsync(EngineName, ct);
             foreach (var trade in openTrades ?? [])
             {
                 _openTrades[trade.Id] = trade;
-                _tradeToPositionMap[trade.Id] = Guid.Empty; // position in-memory'de yok
+
+                // Restore open position in portfolio so exposure tracking works
+                var position = new Position(
+                    asset:        trade.Asset,
+                    timeFrame:    trade.TimeFrame,
+                    direction:    trade.Direction,
+                    entryPrice:   trade.EntryPrice,
+                    positionSize: trade.PositionSize,
+                    stopLoss:     null,
+                    takeProfit:   null);
+                _portfolio.OpenPosition(position);
+                _tradeToPositionMap[trade.Id] = position.Id;
 
                 try
                 {
@@ -168,6 +193,7 @@ public sealed class PaperBinanceEngine : ITradingEngine
             _slTpMap[trade.Id]            = (sl, tp);
 
             await _tradeLogger.LogTradeOpenedAsync(trade, ct);
+            await _tradeLogger.LogPortfolioSnapshotAsync(_portfolio, ct);
 
             _logger.LogInformation(
                 "[PaperBinance] Trade OPENED: {Symbol}/{Interval} {Direction} " +
