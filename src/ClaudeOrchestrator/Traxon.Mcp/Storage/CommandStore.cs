@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Traxon.Contracts;
 
 namespace Traxon.Mcp.Storage;
@@ -8,7 +9,8 @@ public class CommandStore
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, allowIntegerValues: true) }
     };
 
     private readonly string _commandsDir;
@@ -28,10 +30,17 @@ public class CommandStore
 
         foreach (var file in Directory.GetFiles(_commandsDir, "*.json").Order())
         {
-            var json = File.ReadAllText(file);
-            var command = JsonSerializer.Deserialize<Command>(json, JsonOptions);
-            if (command is not null && !command.Processed)
-                commands.Add(command);
+            try
+            {
+                var json = File.ReadAllText(file);
+                var command = JsonSerializer.Deserialize<Command>(json, JsonOptions);
+                if (command is not null && !command.Processed)
+                    commands.Add(command);
+            }
+            catch (JsonException)
+            {
+                // Skip corrupted command files
+            }
         }
 
         return commands;
