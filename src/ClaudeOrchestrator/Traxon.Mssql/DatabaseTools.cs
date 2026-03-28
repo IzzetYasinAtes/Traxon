@@ -203,10 +203,7 @@ public partial class DatabaseTools
 
         var limitedSql = TopLimitRegex().IsMatch(sql)
             ? sql
-            : TopLimitRegex().Replace(sql, m => m.Value + $" TOP {rowLimit}", 1);
-
-        if (limitedSql == sql)
-            limitedSql = SelectRegex().Replace(sql, $"SELECT TOP {rowLimit}", 1);
+            : SelectRegex().Replace(sql, $"SELECT TOP {rowLimit}", 1);
 
         await using var command = new SqlCommand(limitedSql, connection);
         command.CommandTimeout = 30;
