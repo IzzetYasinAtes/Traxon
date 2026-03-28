@@ -1,9 +1,10 @@
 @page "/trades"
 @inject ILiveFeedService Feed
+@inject IStringLocalizer<SharedResources> L
 @implements IDisposable
 
 <div>
-    <h1 class="text-lg font-bold mb-4">Trades</h1>
+    <h1 class="text-lg font-bold mb-4">@L["Trades"]</h1>
 
     <!-- Tabs: Open | All -->
     <div class="flex gap-2 mb-4">
@@ -23,13 +24,13 @@
         <table class="w-full text-sm">
             <thead>
                 <tr class="text-xs" style="color: var(--color-text-muted); border-bottom: 1px solid var(--color-border-default);">
-                    <th class="py-2 px-3 text-left">Symbol</th>
-                    <th class="py-2 px-3 text-left">Dir</th>
-                    <th class="py-2 px-3 text-left">Engine</th>
-                    <th class="py-2 px-3 text-left">Entry</th>
-                    <th class="py-2 px-3 text-left">PnL</th>
-                    <th class="py-2 px-3 text-left">Status</th>
-                    <th class="py-2 px-3 text-left">Time</th>
+                    <th class="py-2 px-3 text-left">@L["Symbol"]</th>
+                    <th class="py-2 px-3 text-left">@L["Direction"]</th>
+                    <th class="py-2 px-3 text-left">@L["Engine"]</th>
+                    <th class="py-2 px-3 text-left">@L["Entry"]</th>
+                    <th class="py-2 px-3 text-left">@L["PnL"]</th>
+                    <th class="py-2 px-3 text-left">@L["Status"]</th>
+                    <th class="py-2 px-3 text-left">@L["Time"]</th>
                 </tr>
             </thead>
             <tbody>

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+
+  <!-- Navigation -->
+  <data name="Market" xml:space="preserve"><value>Market</value></data>
+  <data name="Signals" xml:space="preserve"><value>Signals</value></data>
+  <data name="Trades" xml:space="preserve"><value>Trades</value></data>
+  <data name="Portfolio" xml:space="preserve"><value>Portfolio</value></data>
+  <data name="Running" xml:space="preserve"><value>RUNNING</value></data>
+
+  <!-- Market Page -->
+  <data name="OrderBook" xml:space="preserve"><value>ORDER BOOK</value></data>
+  <data name="OrderBookPlaceholder" xml:space="preserve"><value>Polymarket price data will be integrated in Phase 5.</value></data>
+  <data name="ActiveSignals" xml:space="preserve"><value>ACTIVE SIGNALS</value></data>
+  <data name="RecentTrades" xml:space="preserve"><value>RECENT TRADES</value></data>
+
+  <!-- Portfolio Page -->
+  <data name="EquityCurve" xml:space="preserve"><value>EQUITY CURVE</value></data>
+  <data name="Balance" xml:space="preserve"><value>Balance</value></data>
+  <data name="TotalPnL" xml:space="preserve"><value>Total PnL</value></data>
+  <data name="WinRate" xml:space="preserve"><value>Win Rate</value></data>
+  <data name="TotalTrades" xml:space="preserve"><value>Trades</value></data>
+  <data name="NoPortfolioData" xml:space="preserve"><value>No portfolio data yet. Will update after worker starts.</value></data>
+
+  <!-- Signals Page -->
+  <data name="SignalsCount" xml:space="preserve"><value>signals</value></data>
+
+  <!-- Table Headers -->
+  <data name="Symbol" xml:space="preserve"><value>Symbol</value></data>
+  <data name="Direction" xml:space="preserve"><value>Dir</value></data>
+  <data name="Engine" xml:space="preserve"><value>Engine</value></data>
+  <data name="Entry" xml:space="preserve"><value>Entry</value></data>
+  <data name="PnL" xml:space="preserve"><value>PnL</value></data>
+  <data name="Status" xml:space="preserve"><value>Status</value></data>
+  <data name="Time" xml:space="preserve"><value>Time</value></data>
+
+  <!-- Common -->
+  <data name="Loading" xml:space="preserve"><value>Loading...</value></data>
+  <data name="NoData" xml:space="preserve"><value>No data</value></data>
+  <data name="Open" xml:space="preserve"><value>OPEN</value></data>
+  <data name="All" xml:space="preserve"><value>ALL</value></data>
+</root>

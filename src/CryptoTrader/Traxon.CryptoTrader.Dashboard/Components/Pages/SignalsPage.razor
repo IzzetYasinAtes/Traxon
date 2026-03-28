@@ -1,11 +1,12 @@
 @page "/signals"
 @inject ILiveFeedService Feed
+@inject IStringLocalizer<SharedResources> L
 @implements IDisposable
 
 <div>
     <div class="flex items-center justify-between mb-4">
-        <h1 class="text-lg font-bold">Signals</h1>
-        <span class="text-sm" style="color: var(--color-text-muted);">@Feed.RecentSignals.Count sinyaller</span>
+        <h1 class="text-lg font-bold">@L["Signals"]</h1>
+        <span class="text-sm" style="color: var(--color-text-muted);">@Feed.RecentSignals.Count @L["SignalsCount"]</span>
     </div>
 
     <!-- Filters -->

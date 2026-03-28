@@ -1,41 +1,42 @@
 @page "/trades"
 @rendermode InteractiveServer
 @inject AdminDataService DataService
+@inject IStringLocalizer<SharedResources> L
 
 <div class="flex flex-col gap-4">
     <div class="flex items-center justify-between">
-        <h1 class="text-lg font-bold">Trade History</h1>
-        <span class="text-xs" style="color: var(--color-text-muted);">@_totalCount trades total</span>
+        <h1 class="text-lg font-bold">@L["TradeHistory"]</h1>
+        <span class="text-xs" style="color: var(--color-text-muted);">@_totalCount @L["TradesTotal"]</span>
     </div>
 
     <!-- Filters -->
     <div class="flex gap-3 flex-wrap items-end">
         <div>
-            <p class="text-xs mb-1" style="color: var(--color-text-muted);">Engine</p>
+            <p class="text-xs mb-1" style="color: var(--color-text-muted);">@L["Engine"]</p>
             <select @bind="_filterEngine"
                     style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default); color: var(--color-text-primary); border-radius: 6px; padding: 4px 8px; font-size: 12px;">
-                <option value="">All Engines</option>
+                <option value="">@L["AllEngines"]</option>
                 <option value="PaperPolymarket">PaperPolymarket</option>
                 <option value="PaperBinance">PaperBinance</option>
             </select>
         </div>
         <div>
-            <p class="text-xs mb-1" style="color: var(--color-text-muted);">Outcome</p>
+            <p class="text-xs mb-1" style="color: var(--color-text-muted);">@L["Outcome"]</p>
             <select @bind="_filterOutcome"
                     style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default); color: var(--color-text-primary); border-radius: 6px; padding: 4px 8px; font-size: 12px;">
-                <option value="">All</option>
-                <option value="Win">Win</option>
-                <option value="Loss">Loss</option>
+                <option value="">@L["All"]</option>
+                <option value="Win">@L["Win"]</option>
+                <option value="Loss">@L["Loss"]</option>
             </select>
         </div>
         <div>
-            <p class="text-xs mb-1" style="color: var(--color-text-muted);">Symbol</p>
+            <p class="text-xs mb-1" style="color: var(--color-text-muted);">@L["Symbol"]</p>
             <input type="text" placeholder="BTCUSDT" @bind="_filterSymbol"
                    style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default); color: var(--color-text-primary); border-radius: 6px; padding: 4px 8px; font-size: 12px; width: 100px;" />
         </div>
         <button @onclick="ApplyFilterAsync"
                 style="background-color: rgba(168,85,247,0.15); border: 1px solid rgba(168,85,247,0.3); color: var(--color-accent-purple); border-radius: 6px; padding: 5px 12px; font-size: 12px; cursor: pointer;">
-            Filter
+            @L["Filter"]
         </button>
     </div>
 
@@ -45,18 +46,18 @@
         <table class="w-full text-xs">
             <thead>
                 <tr style="color: var(--color-text-muted); border-bottom: 1px solid var(--color-border-default);">
-                    <th class="py-2 px-3 text-left">Engine</th>
-                    <th class="py-2 px-3 text-left">Symbol</th>
-                    <th class="py-2 px-3 text-left">TF</th>
-                    <th class="py-2 px-3 text-left">Dir</th>
-                    <th class="py-2 px-3 text-right">Entry</th>
-                    <th class="py-2 px-3 text-right">Exit</th>
+                    <th class="py-2 px-3 text-left">@L["Engine"]</th>
+                    <th class="py-2 px-3 text-left">@L["Symbol"]</th>
+                    <th class="py-2 px-3 text-left">@L["TimeFrame"]</th>
+                    <th class="py-2 px-3 text-left">@L["Direction"]</th>
+                    <th class="py-2 px-3 text-right">@L["Entry"]</th>
+                    <th class="py-2 px-3 text-right">@L["Exit"]</th>
                     <th class="py-2 px-3 text-right">FV</th>
                     <th class="py-2 px-3 text-right">Edge</th>
-                    <th class="py-2 px-3 text-right">PnL</th>
-                    <th class="py-2 px-3 text-left">Outcome</th>
-                    <th class="py-2 px-3 text-left">Regime</th>
-                    <th class="py-2 px-3 text-left">Time</th>
+                    <th class="py-2 px-3 text-right">@L["PnL"]</th>
+                    <th class="py-2 px-3 text-left">@L["Outcome"]</th>
+                    <th class="py-2 px-3 text-left">@L["Regime"]</th>
+                    <th class="py-2 px-3 text-left">@L["Time"]</th>
                 </tr>
             </thead>
             <tbody>
@@ -92,7 +93,7 @@
                 }
                 @if (_trades.Count == 0)
                 {
-                    <tr><td colspan="12" class="py-8 text-center" style="color: var(--color-text-muted);">Veri yok</td></tr>
+                    <tr><td colspan="12" class="py-8 text-center" style="color: var(--color-text-muted);">@L["NoData"]</td></tr>
                 }
             </tbody>
         </table>
@@ -101,10 +102,10 @@
         <div class="px-4 py-2 flex items-center gap-4 text-xs"
              style="color: var(--color-text-muted); border-top: 1px solid var(--color-border-default);">
             <button @onclick="PrevPageAsync" disabled="@(_page == 0)"
-                    style="color: @(_page == 0 ? "var(--color-text-muted)" : "var(--color-accent-purple)"); cursor: pointer;">← Prev</button>
-            <span>Page @(_page + 1) / @Math.Max(1, _totalPages)</span>
+                    style="color: @(_page == 0 ? "var(--color-text-muted)" : "var(--color-accent-purple)"); cursor: pointer;">@L["Prev"]</button>
+            <span>@L["Page"] @(_page + 1) / @Math.Max(1, _totalPages)</span>
             <button @onclick="NextPageAsync" disabled="@(_page >= _totalPages - 1)"
-                    style="color: @(_page >= _totalPages - 1 ? "var(--color-text-muted)" : "var(--color-accent-purple)"); cursor: pointer;">Next →</button>
+                    style="color: @(_page >= _totalPages - 1 ? "var(--color-text-muted)" : "var(--color-accent-purple)"); cursor: pointer;">@L["Next"]</button>
         </div>
     </div>
 </div>
