@@ -1,5 +1,4 @@
 @using LightweightCharts.Blazor.Charts
-@using LightweightCharts.Blazor.Customization.Chart
 @using LightweightCharts.Blazor.Customization.Series
 @using LightweightCharts.Blazor.DataItems
 @using LightweightCharts.Blazor.Series
@@ -11,8 +10,7 @@
 
 <div style="width:100%; height:@(Height)px; background-color: var(--color-bg-surface); border-radius: var(--radius-card); overflow: hidden;">
     <ChartComponent @ref="_chart"
-                    Layout="@_layout"
-                    style="width:100%; height:100%;" />
+                    CssStyle="width:100%; height:100%;" />
 </div>
 
 @code {
@@ -22,12 +20,6 @@
 
     private ChartComponent? _chart;
     private ISeriesApi<long>? _series;
-
-    private readonly LayoutOptions _layout = new()
-    {
-        Background = new SolidColor { Color = Extensions.ParseColorCode("#111111") },
-        TextColor = Extensions.ParseColorCode("#888888")
-    };
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -45,13 +37,14 @@
             WickDownColor = Extensions.ParseColorCode("#ff4757")
         });
 
-        // Initial data from DB
+        // Initial data from DB — OrderByDescending + Take to avoid TakeLast (not translatable to SQL)
         await using var db = await DbFactory.CreateDbContextAsync();
         var candles = await db.Candles
             .Where(c => c.Asset.Symbol == Symbol && c.TimeFrame.Value == Interval)
-            .OrderBy(c => c.OpenTime)
-            .TakeLast(200)
+            .OrderByDescending(c => c.OpenTime)
+            .Take(200)
             .ToListAsync();
+        candles.Reverse();
 
         if (candles.Count > 0)
         {
