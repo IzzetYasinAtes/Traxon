@@ -22,6 +22,8 @@
     <PackageVersion Include="Serilog.Extensions.Hosting" Version="8.0.0" />
     <PackageVersion Include="Serilog.Sinks.Console" Version="6.0.0" />
     <PackageVersion Include="Serilog.Sinks.File" Version="6.0.0" />
+    <!-- Infrastructure - HTTP -->
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.3" />
     <!-- Application Workers -->
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.3" />
     <!-- Dashboard UI -->
