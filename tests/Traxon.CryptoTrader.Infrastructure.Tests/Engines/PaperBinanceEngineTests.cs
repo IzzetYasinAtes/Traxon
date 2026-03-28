@@ -112,8 +112,8 @@ public class PaperBinanceEngineTests
         result.IsSuccess.Should().BeTrue();
         var trade = result.Value!;
         // entryPrice = 50000 * (1 + 0.0005) = 50025
-        // SL = entryPrice - (1.5 * 500) = 50025 - 750 = 49275
-        // TP = entryPrice + (2.0 * 500) = 50025 + 1000 = 51025
+        // SL = entryPrice * (1 - 0.005) = 50025 * 0.995 = 49774.875
+        // TP = entryPrice * (1 + 0.010) = 50025 * 1.010 = 50525.25
         trade.IndicatorSnapshot.Should().Contain("sl");
         trade.IndicatorSnapshot.Should().Contain("tp");
         await _tradeLogger.Received(1).LogTradeOpenedAsync(Arg.Any<Trade>(), Arg.Any<CancellationToken>());
@@ -128,9 +128,9 @@ public class PaperBinanceEngineTests
 
         await sut.OpenPositionAsync(CreateUpSignal());
 
-        // entryPrice ≈ 50025, TP = 51025
-        // candle.High = 51100 > 51025 → TP hit
-        var candle = CreateCandle(high: 51100m, low: 49500m);
+        // entryPrice ≈ 50025, TP = 50025 * 1.010 = 50525.25
+        // candle.High = 51100 > 50525.25 → TP hit
+        var candle = CreateCandle(high: 51100m, low: 49900m);
         await sut.CheckPositionsAsync(candle);
 
         var openTrades = (await sut.GetOpenTradesAsync()).Value!;
@@ -149,8 +149,8 @@ public class PaperBinanceEngineTests
 
         await sut.OpenPositionAsync(CreateUpSignal());
 
-        // entryPrice ≈ 50025, SL = 49275
-        // candle.Low = 49000 < 49275 → SL hit
+        // entryPrice ≈ 50025, SL = 50025 * 0.995 = 49774.875
+        // candle.Low = 49000 < 49774.875 → SL hit
         var candle = CreateCandle(high: 50100m, low: 49000m);
         await sut.CheckPositionsAsync(candle);
 
@@ -170,9 +170,9 @@ public class PaperBinanceEngineTests
 
         await sut.OpenPositionAsync(CreateUpSignal());
 
-        // entryPrice ≈ 50025, SL = 49275, TP = 51025
-        // candle range: 49500 - 50500 → ne SL ne TP
-        var candle = CreateCandle(high: 50500m, low: 49500m);
+        // entryPrice ≈ 50025, SL = 49774.875, TP = 50525.25
+        // candle range: 49900 - 50400 → ne SL ne TP
+        var candle = CreateCandle(high: 50400m, low: 49900m);
         await sut.CheckPositionsAsync(candle);
 
         var openTrades = (await sut.GetOpenTradesAsync()).Value!;
@@ -189,17 +189,17 @@ public class PaperBinanceEngineTests
 
         await sut.OpenPositionAsync(CreateUpSignal());
 
-        // entryPrice ≈ 50025, SL = 49275, TP = 51025
-        // Neither SL nor TP hit, but MaxHold (3 × 5m = 15min) exceeded
+        // entryPrice ≈ 50025, SL = 49774.875, TP = 50525.25
+        // Neither SL nor TP hit, but MaxHold (10 × 5m = 50min) exceeded
         var candle = new Candle(
             id:          DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
             asset:       Asset.BTCUSDT,
             timeFrame:   TimeFrame.FiveMinute,
-            openTime:    DateTime.UtcNow.AddMinutes(16),  // 16min after trade.OpenedAt (> 15min max)
-            closeTime:   DateTime.UtcNow.AddMinutes(21),
+            openTime:    DateTime.UtcNow.AddMinutes(51),  // 51min after trade.OpenedAt (> 50min max)
+            closeTime:   DateTime.UtcNow.AddMinutes(56),
             open:        50000m,
-            high:        50500m,  // neither SL nor TP hit
-            low:         49500m,
+            high:        50400m,  // neither SL nor TP hit
+            low:         49900m,
             close:       50100m,
             volume:      1000m,
             quoteVolume: 50000000m,
