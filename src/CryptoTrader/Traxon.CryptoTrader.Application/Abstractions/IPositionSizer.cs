@@ -16,5 +16,6 @@ public interface IPositionSizer
     PositionSizeResult Calculate(
         decimal fairValue,
         decimal marketPrice,
-        decimal bankroll);
+        decimal bankroll,
+        bool isLowVolatility = false);
 }
