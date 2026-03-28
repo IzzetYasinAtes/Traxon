@@ -20,8 +20,8 @@ public sealed class SignalGenerator : ISignalGenerator
     private const int     RegimeShortPeriod        = 12;
     private const int     RegimeLongPeriod         = 144;
     private const decimal HighVolMultiplier        = 1.5m;
-    private const decimal MinMarketPrice           = 0.48m;
-    private const decimal MaxMarketPrice           = 0.62m;
+    private const decimal MinMarketPrice           = 0.30m;
+    private const decimal MaxMarketPrice           = 0.80m;
     /// <summary>
     /// Kisa vadeli kripto icin asimetrik esik: UP icin 2+ yeterli, DOWN icin
     /// net bearish cogunluk (bullish &lt; 2) gerekir. Bu sekilde neutral markette
