@@ -170,6 +170,97 @@ public class PaperPolymarketEngineTests
     }
 
     [Fact]
+    public async Task CheckPositions_WhenCandleOpenedAfterTrade_BullishCandle_ClosesAsWin()
+    {
+        var sut    = CreateSut();
+        var signal = CreateUpSignal();
+        await sut.OpenPositionAsync(signal);
+
+        // candle.OpenTime is AFTER trade.OpenedAt → trade has expired (one full period elapsed)
+        var candle = new Candle(
+            id:          DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            asset:       Asset.BTCUSDT,
+            timeFrame:   TimeFrame.FiveMinute,
+            openTime:    DateTime.UtcNow.AddSeconds(1),   // future → after trade.OpenedAt
+            closeTime:   DateTime.UtcNow.AddSeconds(301),
+            open:        100m,
+            high:        110m,
+            low:         90m,
+            close:       105m, // bullish → UP signal wins
+            volume:      1000m,
+            quoteVolume: 100000m,
+            tradeCount:  500,
+            isClosed:    true);
+
+        await sut.CheckPositionsAsync(candle);
+
+        var openTrades = (await sut.GetOpenTradesAsync()).Value!;
+        openTrades.Should().BeEmpty();
+        await _tradeLogger.Received(1).LogTradeClosedAsync(
+            Arg.Is<Trade>(t => t.Outcome == TradeOutcome.Win), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CheckPositions_WhenCandleOpenedAfterTrade_BearishCandle_DownSignalWins()
+    {
+        var sut    = CreateSut();
+        var signal = CreateDownSignal(); // DOWN on ETHUSDT
+        await sut.OpenPositionAsync(signal);
+
+        var candle = new Candle(
+            id:          DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            asset:       Asset.ETHUSDT,
+            timeFrame:   TimeFrame.FiveMinute,
+            openTime:    DateTime.UtcNow.AddSeconds(1),
+            closeTime:   DateTime.UtcNow.AddSeconds(301),
+            open:        100m,
+            high:        105m,
+            low:         85m,
+            close:       90m, // bearish → DOWN signal wins
+            volume:      1000m,
+            quoteVolume: 100000m,
+            tradeCount:  500,
+            isClosed:    true);
+
+        await sut.CheckPositionsAsync(candle);
+
+        var openTrades = (await sut.GetOpenTradesAsync()).Value!;
+        openTrades.Should().BeEmpty();
+        await _tradeLogger.Received(1).LogTradeClosedAsync(
+            Arg.Is<Trade>(t => t.Outcome == TradeOutcome.Win), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CheckPositions_WhenCandleOpenedAfterTrade_BullishCandle_DownSignalLoses()
+    {
+        var sut    = CreateSut();
+        var signal = CreateDownSignal(); // DOWN on ETHUSDT
+        await sut.OpenPositionAsync(signal);
+
+        var candle = new Candle(
+            id:          DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            asset:       Asset.ETHUSDT,
+            timeFrame:   TimeFrame.FiveMinute,
+            openTime:    DateTime.UtcNow.AddSeconds(1),
+            closeTime:   DateTime.UtcNow.AddSeconds(301),
+            open:        100m,
+            high:        110m,
+            low:         95m,
+            close:       105m, // bullish → DOWN signal loses
+            volume:      1000m,
+            quoteVolume: 100000m,
+            tradeCount:  500,
+            isClosed:    true);
+
+        await sut.CheckPositionsAsync(candle);
+
+        var openTrades = (await sut.GetOpenTradesAsync()).Value!;
+        openTrades.Should().BeEmpty();
+        await _tradeLogger.Received(1).LogTradeClosedAsync(
+            Arg.Is<Trade>(t => t.Outcome == TradeOutcome.Loss), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task GetPortfolio_ReturnsCorrectInitialBalance()
     {
         var sut = CreateSut();
