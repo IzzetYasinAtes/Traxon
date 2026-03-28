@@ -39,6 +39,7 @@ try
     builder.Services.AddSingleton<IMarketEventPublisher>(sp => sp.GetRequiredService<LiveFeedService>());
 
     // Background services
+    builder.Services.AddHostedService<LiveFeedSeederService>();   // DB'den son trade'leri yukle
     builder.Services.AddHostedService<MarketDataWorker>();
     builder.Services.AddHostedService<PortfolioRefreshService>();
 
