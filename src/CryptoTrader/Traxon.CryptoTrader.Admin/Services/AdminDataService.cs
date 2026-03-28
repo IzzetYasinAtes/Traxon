@@ -52,9 +52,10 @@ public sealed class AdminDataService(IDbContextFactory<AppDbContext> dbFactory)
     {
         await using var db = await dbFactory.CreateDbContextAsync();
         var snapshots = await db.PortfolioSnapshots
-            .OrderBy(p => p.Timestamp)
-            .TakeLast(1000)
+            .OrderByDescending(p => p.Timestamp)
+            .Take(1000)
             .ToListAsync();
+        snapshots.Reverse();
         return snapshots
             .Select(p => new EquityPoint(p.Engine, new DateTimeOffset(p.Timestamp, TimeSpan.Zero), p.Balance))
             .ToList();
