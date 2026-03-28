@@ -18,7 +18,7 @@ public class AssetTests
     [InlineData("SOLUSDT")]
     [InlineData("XRPUSDT")]
     [InlineData("DOGEUSDT")]
-    [InlineData("HYPEUSDT")]
+    [InlineData("AVAXUSDT")]
     [InlineData("BNBUSDT")]
     public void FromSymbol_ShouldReturn_CorrectAsset(string symbol)
     {

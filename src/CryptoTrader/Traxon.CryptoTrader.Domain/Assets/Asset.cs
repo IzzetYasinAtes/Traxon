@@ -23,10 +23,10 @@ public sealed class Asset : ValueObject
     public static readonly Asset SOLUSDT  = new("SOLUSDT",  "SOL",  "USDT");
     public static readonly Asset XRPUSDT  = new("XRPUSDT",  "XRP",  "USDT");
     public static readonly Asset DOGEUSDT = new("DOGEUSDT", "DOGE", "USDT");
-    public static readonly Asset HYPEUSDT = new("HYPEUSDT", "HYPE", "USDT");
+    public static readonly Asset AVAXUSDT = new("AVAXUSDT", "HYPE", "USDT");
     public static readonly Asset BNBUSDT  = new("BNBUSDT",  "BNB",  "USDT");
 
-    public static readonly IReadOnlyList<Asset> All = [BTCUSDT, ETHUSDT, SOLUSDT, XRPUSDT, DOGEUSDT, HYPEUSDT, BNBUSDT];
+    public static readonly IReadOnlyList<Asset> All = [BTCUSDT, ETHUSDT, SOLUSDT, XRPUSDT, DOGEUSDT, AVAXUSDT, BNBUSDT];
 
     public static Asset? FromSymbol(string symbol) =>
         All.FirstOrDefault(a => a.Symbol.Equals(symbol, StringComparison.OrdinalIgnoreCase));

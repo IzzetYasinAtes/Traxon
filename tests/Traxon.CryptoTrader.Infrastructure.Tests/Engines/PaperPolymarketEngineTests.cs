@@ -123,7 +123,7 @@ public class PaperPolymarketEngineTests
         }
 
         // 6. trade — MaxExposure asili
-        var extraSignal = new Signal(Asset.HYPEUSDT, TimeFrame.FiveMinute, SignalDirection.Up,
+        var extraSignal = new Signal(Asset.AVAXUSDT, TimeFrame.FiveMinute, SignalDirection.Up,
             0.62m, 0.50m, 0.05m, 0.001m, 0.02m, MarketRegime.LowVolatility, MakeBullishIndicators());
         var result = await sut.OpenPositionAsync(extraSignal);
 

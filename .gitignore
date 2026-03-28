@@ -429,3 +429,4 @@ workspace/commands/processed/*
 workspace/artifacts/*
 !workspace/artifacts/.gitkeep
 workspace/state.json
+tailwindcss.exe
