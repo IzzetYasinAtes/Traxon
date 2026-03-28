@@ -23,32 +23,34 @@ public sealed class SqlCandleWriter : ICandleWriter
         try
         {
             await using var db = await _dbFactory.CreateDbContextAsync(ct);
-            var exists = await db.Candles.AnyAsync(c => c.Id == candle.Id, ct);
 
-            if (!exists)
-            {
-                db.Candles.Add(candle);
-                await db.SaveChangesAsync(ct);
-            }
-        }
-        catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
-            when (IsDuplicateKeyException(ex))
-        {
-            // Race condition: same candle inserted concurrently — expected, skip silently
-            _logger.LogDebug("Candle already exists (concurrent insert), skipping: {Symbol}/{Interval} {OpenTime}",
-                candle.Asset.Symbol, candle.TimeFrame.Value, candle.OpenTime);
+            // UPSERT via raw SQL — no race condition, no AnyAsync round-trip
+            await db.Database.ExecuteSqlRawAsync(
+                @"IF NOT EXISTS (SELECT 1 FROM Candles WHERE Id = @p0)
+                  INSERT INTO Candles (Id, Symbol, [Interval], OpenTime, CloseTime,
+                      [Open], High, Low, [Close], Volume, QuoteVolume, TradeCount, IsClosed)
+                  VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6, @p7, @p8, @p9, @p10, @p11, @p12)",
+                candle.Id,
+                candle.Asset.Symbol,
+                candle.TimeFrame.Value,
+                candle.OpenTime,
+                candle.CloseTime,
+                candle.Open,
+                candle.High,
+                candle.Low,
+                candle.Close,
+                candle.Volume,
+                candle.QuoteVolume,
+                candle.TradeCount,
+                candle.IsClosed);
         }
         catch (OperationCanceledException) { /* shutdown */ }
         catch (Exception ex)
         {
+            // Log but never throw — candle persistence must not block signal generation
             _logger.LogWarning(ex,
                 "Failed to write candle to DB: {Symbol}/{Interval} {OpenTime}",
                 candle.Asset.Symbol, candle.TimeFrame.Value, candle.OpenTime);
         }
     }
-
-    private static bool IsDuplicateKeyException(Microsoft.EntityFrameworkCore.DbUpdateException ex)
-        => ex.InnerException?.Message.Contains("duplicate key", StringComparison.OrdinalIgnoreCase) == true
-        || ex.InnerException?.Message.Contains("PRIMARY KEY", StringComparison.OrdinalIgnoreCase) == true
-        || ex.InnerException?.Message.Contains("UNIQUE", StringComparison.OrdinalIgnoreCase) == true;
 }
