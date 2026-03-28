@@ -1,13 +1,14 @@
 @page "/config"
 @rendermode InteractiveServer
 @inject ConfigService ConfigSvc
+@inject IStringLocalizer<SharedResources> L
 
 <div class="flex flex-col gap-6">
-    <h1 class="text-lg font-bold">Configuration</h1>
+    <h1 class="text-lg font-bold">@L["Configuration"]</h1>
 
     <div class="rounded-[10px] p-5 max-w-lg"
          style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default);">
-        <h2 class="text-sm font-bold mb-4" style="color: var(--color-text-secondary);">TRADING PARAMETERS</h2>
+        <h2 class="text-sm font-bold mb-4" style="color: var(--color-text-secondary);">@L["TradingParameters"]</h2>
 
         <div class="flex flex-col gap-1">
             <ConfigRow Label="Min Edge" Description="Minimum required edge to take a trade (e.g. 0.05 = 5%)">
@@ -38,7 +39,7 @@
 
         <!-- Engine Toggles -->
         <div class="mt-5 pt-4" style="border-top: 1px solid var(--color-border-default);">
-            <h3 class="text-xs font-bold mb-3" style="color: var(--color-text-muted);">ENGINE TOGGLES</h3>
+            <h3 class="text-xs font-bold mb-3" style="color: var(--color-text-muted);">@L["EngineToggles"]</h3>
             <div class="flex gap-6">
                 <label class="flex items-center gap-2 text-sm cursor-pointer">
                     <input type="checkbox" @bind="_paperPolyEnabled" />
@@ -54,15 +55,15 @@
         <div class="mt-6 flex items-center gap-3">
             <button @onclick="SaveConfig"
                     style="background-color:rgba(168,85,247,0.15); border:1px solid rgba(168,85,247,0.3); color:var(--color-accent-purple); border-radius:6px; padding:6px 16px; font-size:13px; cursor:pointer;">
-                Apply
+                @L["Apply"]
             </button>
             <button @onclick="ResetConfig"
                     style="background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-secondary); border-radius:6px; padding:6px 16px; font-size:13px; cursor:pointer;">
-                Reset
+                @L["Reset"]
             </button>
             @if (_saved)
             {
-                <span class="text-xs" style="color: var(--color-accent-green);">✓ Applied</span>
+                <span class="text-xs" style="color: var(--color-accent-green);">@L["Applied"]</span>
             }
         </div>
     </div>

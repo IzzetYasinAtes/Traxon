@@ -1,5 +1,6 @@
 @page "/"
 @inject ILiveFeedService Feed
+@inject IStringLocalizer<SharedResources> L
 @implements IDisposable
 
 <div class="flex flex-col gap-4">
@@ -30,14 +31,14 @@
             <CandlestickChart Symbol="@_selectedSymbol" Interval="@_selectedInterval" Height="420" />
         </div>
         <div class="rounded-[10px] p-4" style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default);">
-            <h3 class="text-sm font-bold mb-3" style="color: var(--color-text-secondary);">ORDER BOOK</h3>
-            <p class="text-xs" style="color: var(--color-text-muted);">Polymarket fiyat verisi Faz 5'te entegre edilecek.</p>
+            <h3 class="text-sm font-bold mb-3" style="color: var(--color-text-secondary);">@L["OrderBook"]</h3>
+            <p class="text-xs" style="color: var(--color-text-muted);">@L["OrderBookPlaceholder"]</p>
         </div>
     </div>
 
     <!-- Active Signals -->
     <section>
-        <h2 class="text-sm font-bold mb-3" style="color: var(--color-text-secondary);">ACTIVE SIGNALS</h2>
+        <h2 class="text-sm font-bold mb-3" style="color: var(--color-text-secondary);">@L["ActiveSignals"]</h2>
         <div class="grid grid-cols-4 gap-3">
             @foreach (var signal in Feed.RecentSignals.TakeLast(8).Reverse())
             {
@@ -48,18 +49,18 @@
 
     <!-- Recent Trades -->
     <section>
-        <h2 class="text-sm font-bold mb-3" style="color: var(--color-text-secondary);">RECENT TRADES</h2>
+        <h2 class="text-sm font-bold mb-3" style="color: var(--color-text-secondary);">@L["RecentTrades"]</h2>
         <div class="rounded-[10px] overflow-hidden" style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default);">
             <table class="w-full text-sm">
                 <thead>
                     <tr class="text-xs" style="color: var(--color-text-muted); border-bottom: 1px solid var(--color-border-default);">
-                        <th class="py-2 px-3 text-left">Symbol</th>
-                        <th class="py-2 px-3 text-left">Dir</th>
-                        <th class="py-2 px-3 text-left">Engine</th>
-                        <th class="py-2 px-3 text-left">Entry</th>
-                        <th class="py-2 px-3 text-left">PnL</th>
-                        <th class="py-2 px-3 text-left">Status</th>
-                        <th class="py-2 px-3 text-left">Time</th>
+                        <th class="py-2 px-3 text-left">@L["Symbol"]</th>
+                        <th class="py-2 px-3 text-left">@L["Direction"]</th>
+                        <th class="py-2 px-3 text-left">@L["Engine"]</th>
+                        <th class="py-2 px-3 text-left">@L["Entry"]</th>
+                        <th class="py-2 px-3 text-left">@L["PnL"]</th>
+                        <th class="py-2 px-3 text-left">@L["Status"]</th>
+                        <th class="py-2 px-3 text-left">@L["Time"]</th>
                     </tr>
                 </thead>
                 <tbody>

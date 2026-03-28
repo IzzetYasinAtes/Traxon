@@ -1,36 +1,37 @@
 @page "/"
 @rendermode InteractiveServer
 @inject AdminDataService DataService
+@inject IStringLocalizer<SharedResources> L
 
 <div class="flex flex-col gap-6">
-    <h1 class="text-lg font-bold">Performance Overview</h1>
+    <h1 class="text-lg font-bold">@L["PerformanceOverview"]</h1>
 
     @if (_summary == null)
     {
-        <p class="text-sm" style="color: var(--color-text-muted);">Yukleniyor...</p>
+        <p class="text-sm" style="color: var(--color-text-muted);">@L["Loading"]</p>
     }
     else
     {
         <!-- KPI Cards -->
         <div class="grid grid-cols-4 gap-3">
-            <StatCard Title="WIN RATE"
+            <StatCard Title="@L["WinRate"]"
                       Value="@($"{_summary.WinRate * 100:F1}%")"
                       Color="@(_summary.WinRate >= 0.5m ? "var(--color-accent-green)" : "var(--color-accent-red)")" />
-            <StatCard Title="TOTAL PnL"
+            <StatCard Title="@L["TotalPnL"]"
                       Value="@($"{(_summary.TotalPnL >= 0 ? "+$" : "-$")}{Math.Abs(_summary.TotalPnL):N2}")"
                       Color="@(_summary.TotalPnL >= 0 ? "var(--color-accent-green)" : "var(--color-accent-red)")" />
-            <StatCard Title="SHARPE RATIO"
+            <StatCard Title="@L["SharpeRatio"]"
                       Value="@($"{_summary.SharpeRatio:F2}")"
                       Color="@(_summary.SharpeRatio >= 1 ? "var(--color-accent-green)" : "var(--color-text-primary)")" />
-            <StatCard Title="TOTAL TRADES"
+            <StatCard Title="@L["TotalTrades"]"
                       Value="@_summary.TotalTrades.ToString()"
-                      Subtitle="@($"{_summary.WinCount} wins")" />
+                      Subtitle="@($"{_summary.WinCount} {L["Wins"]}")" />
         </div>
 
         <!-- Equity Curve -->
         <div class="rounded-[10px] p-4"
              style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default);">
-            <h2 class="text-sm font-bold mb-3" style="color: var(--color-text-secondary);">EQUITY CURVE</h2>
+            <h2 class="text-sm font-bold mb-3" style="color: var(--color-text-secondary);">@L["EquityCurve"]</h2>
             <AdminEquityChart Points="_equityPoints" />
         </div>
 
@@ -38,16 +39,16 @@
         <div class="rounded-[10px] overflow-hidden"
              style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default);">
             <div class="px-4 py-3" style="border-bottom: 1px solid var(--color-border-default);">
-                <h2 class="text-sm font-bold" style="color: var(--color-text-secondary);">ENGINE COMPARISON</h2>
+                <h2 class="text-sm font-bold" style="color: var(--color-text-secondary);">@L["EngineComparison"]</h2>
             </div>
             <table class="w-full text-sm">
                 <thead>
                     <tr class="text-xs" style="color: var(--color-text-muted);">
-                        <th class="py-2 px-4 text-left">Engine</th>
-                        <th class="py-2 px-4 text-right">Trades</th>
-                        <th class="py-2 px-4 text-right">Win Rate</th>
-                        <th class="py-2 px-4 text-right">PnL</th>
-                        <th class="py-2 px-4 text-right">Sharpe</th>
+                        <th class="py-2 px-4 text-left">@L["Engine"]</th>
+                        <th class="py-2 px-4 text-right">@L["Trades"]</th>
+                        <th class="py-2 px-4 text-right">@L["WinRate"]</th>
+                        <th class="py-2 px-4 text-right">@L["PnL"]</th>
+                        <th class="py-2 px-4 text-right">@L["Sharpe"]</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -67,7 +68,7 @@
                     }
                     @if (_summary.ByEngine.Count == 0)
                     {
-                        <tr><td colspan="5" class="py-6 text-center text-xs" style="color: var(--color-text-muted);">Veri yok</td></tr>
+                        <tr><td colspan="5" class="py-6 text-center text-xs" style="color: var(--color-text-muted);">@L["NoData"]</td></tr>
                     }
                 </tbody>
             </table>

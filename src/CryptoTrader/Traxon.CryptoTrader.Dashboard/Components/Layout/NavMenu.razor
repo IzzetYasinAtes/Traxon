@@ -1,12 +1,13 @@
 @implements IDisposable
+@inject IStringLocalizer<SharedResources> L
 
 <nav class="flex-shrink-0 flex flex-col py-4 gap-1 w-14 hover:w-52 transition-all duration-300 overflow-hidden group"
      style="background-color: var(--color-bg-elevated); border-right: 1px solid var(--color-border-default);">
 
-    <NavLinkItem Href="/" Icon="📊" Label="Market" />
-    <NavLinkItem Href="/signals" Icon="⚡" Label="Signals" />
-    <NavLinkItem Href="/trades" Icon="📋" Label="Trades" />
-    <NavLinkItem Href="/portfolio" Icon="💼" Label="Portfolio" />
+    <NavLinkItem Href="/" Icon="📊" Label="@L["Market"]" />
+    <NavLinkItem Href="/signals" Icon="⚡" Label="@L["Signals"]" />
+    <NavLinkItem Href="/trades" Icon="📋" Label="@L["Trades"]" />
+    <NavLinkItem Href="/portfolio" Icon="💼" Label="@L["Portfolio"]" />
 
     <div class="flex-1"></div>
 
@@ -15,7 +16,7 @@
     {
         <div class="flex items-center gap-2 px-4 py-2 text-xs" style="color: var(--color-text-muted);">
             <span class="w-2 h-2 rounded-full animate-pulse" style="background-color: var(--color-accent-green);"></span>
-            <span class="opacity-0 group-hover:opacity-100 transition-opacity">RUNNING</span>
+            <span class="opacity-0 group-hover:opacity-100 transition-opacity">@L["Running"]</span>
         </div>
     }
 </nav>

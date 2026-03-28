@@ -1,16 +1,17 @@
 @page "/engines"
 @rendermode InteractiveServer
 @inject AdminDataService DataService
+@inject IStringLocalizer<SharedResources> L
 
 <div class="flex flex-col gap-6">
     <div class="flex items-center justify-between">
-        <h1 class="text-lg font-bold">Engine Status</h1>
-        <button @onclick="RefreshAsync" style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default); color: var(--color-text-secondary); border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer;">↻ Refresh</button>
+        <h1 class="text-lg font-bold">@L["EngineStatus"]</h1>
+        <button @onclick="RefreshAsync" style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default); color: var(--color-text-secondary); border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer;">@L["Refresh"]</button>
     </div>
 
     @if (_engines.Count == 0)
     {
-        <p class="text-sm" style="color: var(--color-text-muted);">Henuz engine snapshot yok. Worker basladiktan sonra guncellenir.</p>
+        <p class="text-sm" style="color: var(--color-text-muted);">@L["NoEngineSnapshot"]</p>
     }
     else
     {
@@ -32,26 +33,26 @@
 
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <p class="text-xs" style="color: var(--color-text-muted);">BALANCE</p>
+                            <p class="text-xs" style="color: var(--color-text-muted);">@L["Balance"]</p>
                             <p class="text-xl font-mono font-bold">$@engine.Balance.ToString("N2")</p>
                         </div>
                         <div>
-                            <p class="text-xs" style="color: var(--color-text-muted);">TOTAL PnL</p>
+                            <p class="text-xs" style="color: var(--color-text-muted);">@L["TotalPnL"]</p>
                             <p class="text-xl font-mono font-bold"
                                style="color: @(engine.TotalPnL >= 0 ? "var(--color-accent-green)" : "var(--color-accent-red)")">
                                 @($"{(engine.TotalPnL >= 0 ? "+$" : "-$")}{Math.Abs(engine.TotalPnL):N2}")
                             </p>
                         </div>
                         <div>
-                            <p class="text-xs" style="color: var(--color-text-muted);">WIN RATE</p>
+                            <p class="text-xs" style="color: var(--color-text-muted);">@L["WinRate"]</p>
                             <p class="text-base font-mono">@($"{engine.WinRate * 100:F1}%")</p>
                         </div>
                         <div>
-                            <p class="text-xs" style="color: var(--color-text-muted);">OPEN POSITIONS</p>
+                            <p class="text-xs" style="color: var(--color-text-muted);">@L["OpenPositions"]</p>
                             <p class="text-base font-mono">@engine.OpenPositions</p>
                         </div>
                         <div class="col-span-2">
-                            <p class="text-xs" style="color: var(--color-text-muted);">TRADES / LAST UPDATE</p>
+                            <p class="text-xs" style="color: var(--color-text-muted);">@L["TradesLastUpdate"]</p>
                             <p class="text-xs font-mono" style="color: var(--color-text-secondary);">@engine.TradeCount trades — @engine.LastUpdated.ToString("yyyy-MM-dd HH:mm") UTC</p>
                         </div>
                     </div>

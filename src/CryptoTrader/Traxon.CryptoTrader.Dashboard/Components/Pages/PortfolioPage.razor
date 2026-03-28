@@ -1,9 +1,10 @@
 @page "/portfolio"
 @inject ILiveFeedService Feed
+@inject IStringLocalizer<SharedResources> L
 @implements IDisposable
 
 <div class="flex flex-col gap-6">
-    <h1 class="text-lg font-bold">Portfolio</h1>
+    <h1 class="text-lg font-bold">@L["Portfolio"]</h1>
 
     <!-- Per-engine stat cards -->
     @foreach (var (engine, portfolio) in Feed.Portfolios)
@@ -11,14 +12,14 @@
         <div>
             <h2 class="text-sm font-bold mb-3" style="color: var(--color-text-secondary);">@engine</h2>
             <div class="grid grid-cols-4 gap-3">
-                <StatCard Title="Balance" Value="@($"${portfolio.Balance:N2}")" />
-                <StatCard Title="Total PnL"
+                <StatCard Title="@L["Balance"]" Value="@($"${portfolio.Balance:N2}")" />
+                <StatCard Title="@L["TotalPnL"]"
                           Value="@($"{(portfolio.TotalPnL >= 0 ? "+$" : "-$")}{Math.Abs(portfolio.TotalPnL):N2}")"
                           Color="@(portfolio.TotalPnL >= 0 ? "var(--color-accent-green)" : "var(--color-accent-red)")" />
-                <StatCard Title="Win Rate"
+                <StatCard Title="@L["WinRate"]"
                           Value="@($"{portfolio.WinRate * 100:F1}%")"
                           Subtitle="@($"{portfolio.WinCount}W / {portfolio.LossCount}L")" />
-                <StatCard Title="Trades"
+                <StatCard Title="@L["TotalTrades"]"
                           Value="@portfolio.TotalTrades.ToString()"
                           Subtitle="@($"{portfolio.OpenPositionCount} open")" />
             </div>
@@ -27,12 +28,12 @@
 
     @if (Feed.Portfolios.Count == 0)
     {
-        <div class="text-sm" style="color: var(--color-text-muted);">Henuz portfolio verisi yok. Worker basladiktan sonra guncellenir.</div>
+        <div class="text-sm" style="color: var(--color-text-muted);">@L["NoPortfolioData"]</div>
     }
 
     <!-- Equity Curve -->
     <div class="rounded-[10px] p-4" style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default);">
-        <h2 class="text-sm font-bold mb-3" style="color: var(--color-text-secondary);">EQUITY CURVE</h2>
+        <h2 class="text-sm font-bold mb-3" style="color: var(--color-text-secondary);">@L["EquityCurve"]</h2>
         <EquityChart />
     </div>
 </div>
