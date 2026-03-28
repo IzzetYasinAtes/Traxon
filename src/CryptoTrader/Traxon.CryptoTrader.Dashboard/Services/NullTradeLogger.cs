@@ -10,4 +10,6 @@ internal sealed class NullTradeLogger : ITradeLogger
     public Task LogTradeOpenedAsync(Trade trade, CancellationToken ct = default) => Task.CompletedTask;
     public Task LogTradeClosedAsync(Trade trade, CancellationToken ct = default) => Task.CompletedTask;
     public Task LogPortfolioSnapshotAsync(Portfolio portfolio, CancellationToken ct = default) => Task.CompletedTask;
+    public Task<IReadOnlyList<Trade>> GetOpenTradesAsync(string engineName, CancellationToken ct = default)
+        => Task.FromResult<IReadOnlyList<Trade>>(Array.Empty<Trade>());
 }

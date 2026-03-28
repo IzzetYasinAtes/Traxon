@@ -227,4 +227,69 @@ public class PaperPolymarketEngineTests
         result.IsFailure.Should().BeTrue();
         result.Error!.Code.Should().Be("Domain.TradeNotFound");
     }
+
+    [Fact]
+    public async Task OpenPosition_AfterRestart_WithDbOpenTrade_ReturnsDuplicateError()
+    {
+        // Worker restart senaryosu: DB'de ayni asset icin acik trade var
+        var existingTrade = new Trade(
+            engine:            "PaperPoly",
+            asset:             Asset.BTCUSDT,
+            timeFrame:         TimeFrame.FiveMinute,
+            direction:         SignalDirection.Up,
+            entryPrice:        0.51m,
+            fairValue:         0.62m,
+            edge:              0.12m,
+            positionSize:      500m,
+            kellyFraction:     0.05m,
+            muEstimate:        0.001m,
+            sigmaEstimate:     0.02m,
+            regime:            MarketRegime.LowVolatility,
+            indicatorSnapshot: "{}",
+            entryReason:       "test");
+
+        _tradeLogger
+            .GetOpenTradesAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<Trade>>(new[] { existingTrade }));
+
+        var sut    = CreateSut();
+        var signal = CreateUpSignal(); // BTCUSDT, ayni asset
+
+        var result = await sut.OpenPositionAsync(signal);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error!.Code.Should().Be("Domain.DuplicatePosition");
+    }
+
+    [Fact]
+    public async Task OpenPosition_AfterRestart_WithDbOpenTradeForDifferentAsset_Succeeds()
+    {
+        // Farkli asset icin DB'de acik trade varsa, yeni asset icin trade acilabiimeli
+        var existingTrade = new Trade(
+            engine:            "PaperPoly",
+            asset:             Asset.ETHUSDT,
+            timeFrame:         TimeFrame.FiveMinute,
+            direction:         SignalDirection.Up,
+            entryPrice:        0.51m,
+            fairValue:         0.62m,
+            edge:              0.12m,
+            positionSize:      500m,
+            kellyFraction:     0.05m,
+            muEstimate:        0.001m,
+            sigmaEstimate:     0.02m,
+            regime:            MarketRegime.LowVolatility,
+            indicatorSnapshot: "{}",
+            entryReason:       "test");
+
+        _tradeLogger
+            .GetOpenTradesAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<Trade>>(new[] { existingTrade }));
+
+        var sut    = CreateSut();
+        var signal = CreateUpSignal(); // BTCUSDT — farkli asset
+
+        var result = await sut.OpenPositionAsync(signal);
+
+        result.IsSuccess.Should().BeTrue();
+    }
 }

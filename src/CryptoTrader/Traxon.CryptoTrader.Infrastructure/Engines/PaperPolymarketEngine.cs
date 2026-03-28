@@ -21,6 +21,8 @@ public sealed class PaperPolymarketEngine : ITradingEngine
     private readonly ConcurrentDictionary<Guid, Trade>     _openTrades        = new();
     private readonly ConcurrentDictionary<Guid, Guid>      _tradeToPositionMap = new();
     private readonly SemaphoreSlim                          _lock              = new(1, 1);
+    private readonly SemaphoreSlim                          _initLock          = new(1, 1);
+    private volatile bool                                   _initialized;
 
     private const decimal InitialBalance = 10_000m;
     private const decimal Slippage       = 0.01m;
@@ -36,10 +38,37 @@ public sealed class PaperPolymarketEngine : ITradingEngine
         _portfolio   = new Portfolio(EngineName, InitialBalance);
     }
 
+    /// <summary>
+    /// Worker restart sonrasi in-memory _openTrades'i DB'den restore eder (bir kez).
+    /// Bu sayede restart'tan sonra ayni asset icin duplicate trade acilmaz.
+    /// </summary>
+    private async Task EnsureInitializedAsync(CancellationToken ct)
+    {
+        if (_initialized) return;
+        await _initLock.WaitAsync(ct);
+        try
+        {
+            if (_initialized) return;
+            var openTrades = await _tradeLogger.GetOpenTradesAsync(EngineName, ct);
+            foreach (var trade in openTrades ?? [])
+            {
+                _openTrades[trade.Id] = trade;
+                _tradeToPositionMap[trade.Id] = Guid.Empty; // position in-memory'de yok, portfolio etkisi olmaz
+            }
+            _initialized = true;
+        }
+        finally
+        {
+            _initLock.Release();
+        }
+    }
+
     public async Task<Result<Trade>> OpenPositionAsync(
         Signal signal,
         CancellationToken ct = default)
     {
+        await EnsureInitializedAsync(ct);
+
         await _lock.WaitAsync(ct);
         try
         {

@@ -206,4 +206,41 @@ public class PaperBinanceEngineTests
         result.IsFailure.Should().BeTrue();
         result.Error!.Code.Should().Be("Domain.EngineNotReady");
     }
+
+    [Fact]
+    public async Task OpenPosition_AfterRestart_WithDbOpenTrade_ReturnsDuplicateError()
+    {
+        // Worker restart senaryosu: DB'de ayni asset icin acik trade var
+        var slTpJson = """{"rsi":65,"macd_hist":50,"atr":500,"sl":49275,"tp":51025,"regime":"LowVolatility","bullish":3}""";
+        var existingTrade = new Trade(
+            engine:            "PaperBinance",
+            asset:             Asset.BTCUSDT,
+            timeFrame:         TimeFrame.FiveMinute,
+            direction:         SignalDirection.Up,
+            entryPrice:        50025m,
+            fairValue:         0.62m,
+            edge:              0.12m,
+            positionSize:      500m,
+            kellyFraction:     0.05m,
+            muEstimate:        0.001m,
+            sigmaEstimate:     0.02m,
+            regime:            MarketRegime.LowVolatility,
+            indicatorSnapshot: slTpJson,
+            entryReason:       "test");
+
+        _tradeLogger
+            .GetOpenTradesAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<Trade>>(new[] { existingTrade }));
+
+        SetupCandleBufferSuccess();
+        SetupAtrSuccess();
+
+        var sut    = CreateSut();
+        var signal = CreateUpSignal(); // BTCUSDT — ayni asset
+
+        var result = await sut.OpenPositionAsync(signal);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error!.Code.Should().Be("Domain.DuplicatePosition");
+    }
 }
