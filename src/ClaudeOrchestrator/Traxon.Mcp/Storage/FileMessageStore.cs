@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Traxon.Contracts;
 
 namespace Traxon.Mcp.Storage;
@@ -8,7 +9,8 @@ public class FileMessageStore
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, allowIntegerValues: true) }
     };
 
     private readonly string _messagesDir;
@@ -54,12 +56,19 @@ public class FileMessageStore
 
         foreach (var file in Directory.GetFiles(_messagesDir, "*.json").Order())
         {
-            var json = File.ReadAllText(file);
-            var message = JsonSerializer.Deserialize<Message>(json, JsonOptions);
-            if (message is null) continue;
-            if (message.Sequence <= sinceSequence) continue;
-            if (message.To == forAgent)
-                messages.Add(message);
+            try
+            {
+                var json = File.ReadAllText(file);
+                var message = JsonSerializer.Deserialize<Message>(json, JsonOptions);
+                if (message is null) continue;
+                if (message.Sequence <= sinceSequence) continue;
+                if (message.To == forAgent)
+                    messages.Add(message);
+            }
+            catch (JsonException)
+            {
+                // Skip corrupted message files
+            }
         }
 
         return messages;
@@ -71,10 +80,17 @@ public class FileMessageStore
 
         foreach (var file in Directory.GetFiles(_messagesDir, "*.json").Order())
         {
-            var json = File.ReadAllText(file);
-            var message = JsonSerializer.Deserialize<Message>(json, JsonOptions);
-            if (message is not null)
-                messages.Add(message);
+            try
+            {
+                var json = File.ReadAllText(file);
+                var message = JsonSerializer.Deserialize<Message>(json, JsonOptions);
+                if (message is not null)
+                    messages.Add(message);
+            }
+            catch (JsonException)
+            {
+                // Skip corrupted message files
+            }
         }
 
         return messages;

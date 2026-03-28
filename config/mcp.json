@@ -13,9 +13,11 @@
     },
     "mssql": {
       "command": "npx",
-      "args": ["-y", "@vat-mcp/mssql-service"],
+      "args": ["-y", "@wener/mssql-mcp"],
       "env": {
-        "MSSQL_CONNECTION_STRING": "Server=localhost;Database=TraxonDb;User Id=sa;Password=YourPassword;TrustServerCertificate=true"
+        "MSSQL_SERVER": "(localdb)\\MSSQLLocalDB",
+        "MSSQL_DATABASE": "TrAxonCryptoTrader",
+        "MSSQL_WINDOWS_AUTH": "true"
       }
     }
   }

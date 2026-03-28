@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Traxon.Contracts;
 using TaskStatus = Traxon.Contracts.TaskStatus;
 
@@ -9,7 +10,8 @@ public class TaskStore
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, allowIntegerValues: true) }
     };
 
     private readonly string _tasksDir;
@@ -25,8 +27,15 @@ public class TaskStore
         var filePath = Path.Combine(_tasksDir, $"{taskId}.json");
         if (!File.Exists(filePath)) return null;
 
-        var json = File.ReadAllText(filePath);
-        return JsonSerializer.Deserialize<TaskDefinition>(json, JsonOptions);
+        try
+        {
+            var json = File.ReadAllText(filePath);
+            return JsonSerializer.Deserialize<TaskDefinition>(json, JsonOptions);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     public TaskDefinition Save(TaskDefinition task)
@@ -52,10 +61,17 @@ public class TaskStore
 
         foreach (var file in Directory.GetFiles(_tasksDir, "*.json"))
         {
-            var json = File.ReadAllText(file);
-            var task = JsonSerializer.Deserialize<TaskDefinition>(json, JsonOptions);
-            if (task is not null)
-                tasks.Add(task);
+            try
+            {
+                var json = File.ReadAllText(file);
+                var task = JsonSerializer.Deserialize<TaskDefinition>(json, JsonOptions);
+                if (task is not null)
+                    tasks.Add(task);
+            }
+            catch (JsonException)
+            {
+                // Skip corrupted task files
+            }
         }
 
         return tasks;
