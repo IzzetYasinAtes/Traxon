@@ -84,6 +84,10 @@ public sealed class SignalGenerator : ISignalGenerator
         var fvResult  = _fairValueCalculator.Calculate(candles, timeFrame);
         var fairValue = fvResult.FairValue;
 
+        // Adim 5b — Fair value range check (FV tradeable aralikta mi?)
+        if (fairValue < MinMarketPrice || fairValue > MaxMarketPrice)
+            return Result<Signal>.Failure(Error.FairValueOutOfRange);
+
         // NOT: Adim 6 (fair value direction uyumu) kaldirildi.
         // Black-Scholes momentum modeli trending piyasalarda tek yone bias uretir
         // (ayı piyasasinda FV < 0.5 → tum UP sinyalleri bloklanir).
@@ -162,6 +166,10 @@ public sealed class SignalGenerator : ISignalGenerator
         // Adim 5 — Fair value hesapla
         var fvResult  = _fairValueCalculator.Calculate(candles, timeFrame);
         var fairValue = fvResult.FairValue;
+
+        // Adim 5b — Fair value range check (FV tradeable aralikta mi?)
+        if (fairValue < MinMarketPrice || fairValue > MaxMarketPrice)
+            return Result<Signal>.Failure(Error.FairValueOutOfRange);
 
         // NOT: Adim 6 (fair value direction uyumu) kaldirildi — bias'i onlemek icin.
 

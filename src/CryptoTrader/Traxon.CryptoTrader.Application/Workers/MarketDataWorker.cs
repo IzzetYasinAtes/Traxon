@@ -43,7 +43,7 @@ public sealed class MarketDataWorker : BackgroundService
     {
         _logger.LogInformation("MarketDataWorker starting — loading historical candles...");
 
-        foreach (var asset in Asset.All)
+        foreach (var asset in Asset.Tradeable)
         foreach (var tf in TimeFrame.All)
         {
             var candlesResult = await _marketDataProvider.GetHistoricalCandlesAsync(
@@ -73,7 +73,7 @@ public sealed class MarketDataWorker : BackgroundService
             StartedAt: DateTime.UtcNow));
 
         await _marketDataProvider.StartStreamAsync(
-            assets: Asset.All,
+            assets: Asset.Tradeable,
             timeFrames: TimeFrame.All,
             onCandleClosed: OnCandleClosedAsync,
             cancellationToken: stoppingToken);
