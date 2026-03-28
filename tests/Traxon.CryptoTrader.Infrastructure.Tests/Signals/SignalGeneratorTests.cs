@@ -132,8 +132,10 @@ public class SignalGeneratorTests
     }
 
     [Fact]
-    public void Generate_WhenFairValueDirectionMismatch_ReturnsSignalDirectionMismatchFailure()
+    public void Generate_BullishIndicatorsWithLowFairValue_ReturnsUpSignal()
     {
+        // Bias fix: UP sinyalleri artik FV < 0.5 oldugunda da uretilmeli.
+        // Onceden SignalDirectionMismatch ile bloklaniyordu.
         var sut     = CreateSut();
         var candles = CreateCandles(50);
 
@@ -143,11 +145,13 @@ public class SignalGeneratorTests
             .Returns(new FairValueResult(0.45m, -0.003m, 0.02m, -0.25m));
         _indicatorCalc.CalculateParkinsonVolatility(Arg.Any<IReadOnlyList<Candle>>(), Arg.Any<int>())
             .Returns(0.02m);
+        _positionSizer.Calculate(Arg.Any<decimal>(), Arg.Any<decimal>(), Arg.Any<decimal>())
+            .Returns(new PositionSizeResult(0.06m, 300m, 0.05m, true));
 
         var result = sut.Generate(Asset.BTCUSDT, TimeFrame.FiveMinute, candles, marketPrice: 0.50m);
 
-        result.IsFailure.Should().BeTrue();
-        result.Error!.Code.Should().Be("Domain.SignalDirectionMismatch");
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Direction.Should().Be(SignalDirection.Up);
     }
 
     [Fact]

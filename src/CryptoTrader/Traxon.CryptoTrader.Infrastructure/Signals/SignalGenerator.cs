@@ -75,13 +75,12 @@ public sealed class SignalGenerator : ISignalGenerator
         var fvResult  = _fairValueCalculator.Calculate(candles, timeFrame);
         var fairValue = fvResult.FairValue;
 
-        // Adim 6 — Fair value direction uyumu check
-        if (direction == SignalDirection.Up   && fairValue <= 0.5m)
-            return Result<Signal>.Failure(Error.SignalDirectionMismatch);
-        if (direction == SignalDirection.Down && fairValue >= 0.5m)
-            return Result<Signal>.Failure(Error.SignalDirectionMismatch);
+        // NOT: Adim 6 (fair value direction uyumu) kaldirildi.
+        // Black-Scholes momentum modeli trending piyasalarda tek yone bias uretir
+        // (ayı piyasasinda FV < 0.5 → tum UP sinyalleri bloklanir).
+        // Yon, Step 4 multi-confirmation filter ile belirlenir; FV position sizing icin kullanilir.
 
-        // Adim 7 — Regime detection
+        // Adim 6 — Regime detection
         var volShort = _indicatorCalculator.CalculateParkinsonVolatility(candles, RegimeShortPeriod);
         var volLong  = candles.Count >= RegimeLongPeriod
             ? _indicatorCalculator.CalculateParkinsonVolatility(candles, RegimeLongPeriod)
@@ -91,12 +90,12 @@ public sealed class SignalGenerator : ISignalGenerator
             ? MarketRegime.HighVolatility
             : MarketRegime.LowVolatility;
 
-        // Adim 8 — Position sizing
+        // Adim 7 — Position sizing
         var sizeResult = _positionSizer.Calculate(fairValue, marketPrice, SimulatedBankroll);
         if (!sizeResult.MeetsMinimumEdge)
             return Result<Signal>.Failure(Error.InvalidEdge);
 
-        // Adim 9 — Signal olustur
+        // Adim 8 — Signal olustur
         var signal = new Signal(
             asset:         asset,
             timeFrame:     timeFrame,
@@ -110,8 +109,8 @@ public sealed class SignalGenerator : ISignalGenerator
             indicators:    indicators);
 
         _logger.LogInformation(
-            "Signal generated: {Symbol}/{Interval} {Direction} FV:{FV:F3} Market:{Market:F3} Edge:{Edge:F3} Regime:{Regime}",
-            asset.Symbol, timeFrame.Value, direction, fairValue, marketPrice, sizeResult.Edge, regime);
+            "Signal generated: {Symbol}/{Interval} {Direction} FV:{FV:F3} Market:{Market:F3} Edge:{Edge:F3} Regime:{Regime} Bulls:{Bulls}/5",
+            asset.Symbol, timeFrame.Value, direction, fairValue, marketPrice, sizeResult.Edge, regime, indicators.BullishCount());
 
         return Result<Signal>.Success(signal);
     }
@@ -154,13 +153,9 @@ public sealed class SignalGenerator : ISignalGenerator
         var fvResult  = _fairValueCalculator.Calculate(candles, timeFrame);
         var fairValue = fvResult.FairValue;
 
-        // Adim 6 — Fair value direction uyumu check
-        if (direction == SignalDirection.Up   && fairValue <= 0.5m)
-            return Result<Signal>.Failure(Error.SignalDirectionMismatch);
-        if (direction == SignalDirection.Down && fairValue >= 0.5m)
-            return Result<Signal>.Failure(Error.SignalDirectionMismatch);
+        // NOT: Adim 6 (fair value direction uyumu) kaldirildi — bias'i onlemek icin.
 
-        // Adim 7 — Regime detection
+        // Adim 6 — Regime detection
         var volShort = _indicatorCalculator.CalculateParkinsonVolatility(candles, RegimeShortPeriod);
         var volLong  = candles.Count >= RegimeLongPeriod
             ? _indicatorCalculator.CalculateParkinsonVolatility(candles, RegimeLongPeriod)
@@ -170,12 +165,12 @@ public sealed class SignalGenerator : ISignalGenerator
             ? MarketRegime.HighVolatility
             : MarketRegime.LowVolatility;
 
-        // Adim 8 — Position sizing
+        // Adim 7 — Position sizing
         var sizeResult = _positionSizer.Calculate(fairValue, marketPrice, SimulatedBankroll);
         if (!sizeResult.MeetsMinimumEdge)
             return Result<Signal>.Failure(Error.InvalidEdge);
 
-        // Adim 9 — Signal olustur
+        // Adim 8 — Signal olustur
         var signal = new Signal(
             asset:         asset,
             timeFrame:     timeFrame,
@@ -189,8 +184,8 @@ public sealed class SignalGenerator : ISignalGenerator
             indicators:    indicators);
 
         _logger.LogInformation(
-            "Signal generated (precomputed): {Symbol}/{Interval} {Direction} FV:{FV:F3} Market:{Market:F3} Edge:{Edge:F3} Regime:{Regime}",
-            asset.Symbol, timeFrame.Value, direction, fairValue, marketPrice, sizeResult.Edge, regime);
+            "Signal generated (precomputed): {Symbol}/{Interval} {Direction} FV:{FV:F3} Market:{Market:F3} Edge:{Edge:F3} Regime:{Regime} Bulls:{Bulls}/5",
+            asset.Symbol, timeFrame.Value, direction, fairValue, marketPrice, sizeResult.Edge, regime, indicators.BullishCount());
 
         return Result<Signal>.Success(signal);
     }
