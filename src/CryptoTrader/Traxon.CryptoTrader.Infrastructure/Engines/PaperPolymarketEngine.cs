@@ -26,6 +26,8 @@ public sealed class PaperPolymarketEngine : ITradingEngine
 
     private const decimal InitialBalance = 10_000m;
     private const decimal Slippage       = 0.01m;
+    private const decimal MinEntryPrice  = 0.30m;
+    private const decimal MaxEntryPrice  = 0.60m;
 
     public string EngineName => "PaperPoly";
 
@@ -75,7 +77,16 @@ public sealed class PaperPolymarketEngine : ITradingEngine
             if (_openTrades.Values.Any(t => t.Asset == signal.Asset))
                 return Result<Trade>.Failure(Error.DuplicatePosition);
 
-            var entryPrice   = signal.MarketPrice + Slippage;
+            // Dynamic entry price based on FairValue to improve edge capture.
+            // FV > 0.5 (UP trade): aim to buy below FV, cap at 0.60.
+            // FV < 0.5 (DOWN trade): aim to buy YES at low price, cap at 0.30 floor.
+            decimal rawEntry;
+            if (signal.FairValue > 0.5m)
+                rawEntry = signal.FairValue - signal.Edge / 2m;
+            else
+                rawEntry = 1m - signal.FairValue - signal.Edge / 2m;
+
+            var entryPrice = Math.Clamp(rawEntry + Slippage, MinEntryPrice, MaxEntryPrice);
             var positionSize = Math.Min(signal.KellyFraction * _portfolio.Balance, _portfolio.MaxPositionSize);
 
             var position = new Position(

@@ -16,12 +16,12 @@ public class PortfolioTests
     public void OpenPosition_ShouldReduceBalance()
     {
         var portfolio = new Portfolio("PaperPoly", 1000m);
-        var position  = MakePosition(50m);
+        var position  = MakePosition(15m); // < 2% of $1000 = $20 MaxPositionSize
 
         var result = portfolio.OpenPosition(position);
 
         result.IsSuccess.Should().BeTrue();
-        portfolio.Balance.Should().Be(950m);
+        portfolio.Balance.Should().Be(985m);
         portfolio.OpenPositions.Should().HaveCount(1);
     }
 
@@ -29,7 +29,7 @@ public class PortfolioTests
     public void OpenPosition_ShouldFail_WhenExceedsMaxPosition()
     {
         var portfolio    = new Portfolio("PaperPoly", 1000m);
-        var bigPosition  = MakePosition(60m);
+        var bigPosition  = MakePosition(25m); // > 2% of $1000 = $20 MaxPositionSize
 
         var result = portfolio.OpenPosition(bigPosition);
 
@@ -40,7 +40,7 @@ public class PortfolioTests
     public void ClosePosition_ShouldUpdateWinCount_OnWin()
     {
         var portfolio = new Portfolio("PaperPoly", 1000m);
-        var position  = MakePosition(50m);
+        var position  = MakePosition(15m); // < 2% of $1000 = $20 MaxPositionSize
         portfolio.OpenPosition(position);
 
         portfolio.ClosePosition(position.Id, pnl: 10m, outcome: TradeOutcome.Win);
