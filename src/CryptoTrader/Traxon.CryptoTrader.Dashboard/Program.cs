@@ -29,9 +29,18 @@ try
     builder.Services.AddBinanceServices(builder.Configuration);
 
     // Dashboard only shows live feed — Worker handles DB persistence.
-    // Override SQL writers with no-ops to prevent duplicate trades/candles.
+    // Override SQL writers with no-ops to prevent duplicate candle writes.
     builder.Services.AddSingleton<ITradeLogger, NullTradeLogger>();
     builder.Services.AddSingleton<ICandleWriter, NullCandleWriter>();
+
+    // Dashboard trade ACMAMALI — sadece goruntuleme yapar.
+    // AddInfrastructure'in kaydettigi ITradingEngine'leri kaldir:
+    // MarketDataWorker signal uretmeye devam eder ama hicbir engine'e iletmez.
+    var engineDescriptors = builder.Services
+        .Where(d => d.ServiceType == typeof(ITradingEngine))
+        .ToList();
+    foreach (var descriptor in engineDescriptors)
+        builder.Services.Remove(descriptor);
 
     // LiveFeedService: ILiveFeedService + IMarketEventPublisher (same singleton)
     builder.Services.AddSingleton<LiveFeedService>();

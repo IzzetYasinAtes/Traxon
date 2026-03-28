@@ -16,14 +16,20 @@ public sealed class SignalGenerator : ISignalGenerator
     private readonly IPositionSizer          _positionSizer;
     private readonly ILogger<SignalGenerator> _logger;
 
-    private const int     MinCandlesForSignal = 50;
-    private const int     RegimeShortPeriod   = 12;
-    private const int     RegimeLongPeriod    = 144;
-    private const decimal HighVolMultiplier   = 1.5m;
-    private const decimal MinMarketPrice      = 0.30m;
-    private const decimal MaxMarketPrice      = 0.60m;
-    private const int     MinConfirmations    = 3;
-    private const decimal SimulatedBankroll   = 10_000m;
+    private const int     MinCandlesForSignal      = 50;
+    private const int     RegimeShortPeriod        = 12;
+    private const int     RegimeLongPeriod         = 144;
+    private const decimal HighVolMultiplier        = 1.5m;
+    private const decimal MinMarketPrice           = 0.30m;
+    private const decimal MaxMarketPrice           = 0.60m;
+    /// <summary>
+    /// Kisa vadeli kripto icin asimetrik esik: UP icin 2+ yeterli, DOWN icin
+    /// net bearish cogunluk (bullish &lt; 2) gerekir. Bu sekilde neutral markette
+    /// DOWN bias azaltilir.
+    /// </summary>
+    private const int     MinBullishConfirmations  = 2;
+    private const int     MinBearishConfirmations  = 4;  // bullishCount &lt; 2 → bearishCount &gt;= 4
+    private const decimal SimulatedBankroll        = 10_000m;
 
     public SignalGenerator(
         IIndicatorCalculator indicatorCalculator,
@@ -59,14 +65,17 @@ public sealed class SignalGenerator : ISignalGenerator
 
         var indicators = indicatorsResult.Value!;
 
-        // Adim 4 — Multi-confirmation filter
+        // Adim 4 — Multi-confirmation filter (asimetrik esik)
+        // Kisa vadeli kripto genellikle nötr — DOWN bias'ini onlemek icin UP eigi daha dusuk.
+        // UP: 2+ bullish indicator yeterli (net bearish cogunluk gerekmez)
+        // DOWN: bullish < 2 (yani bearish >= 4) gerekir
         var bullishCount = indicators.BullishCount();
         var bearishCount = indicators.BearishCount();
 
         SignalDirection direction;
-        if (bullishCount >= MinConfirmations && bullishCount > bearishCount)
+        if (bullishCount >= MinBullishConfirmations)
             direction = SignalDirection.Up;
-        else if (bearishCount >= MinConfirmations && bearishCount > bullishCount)
+        else if (bearishCount >= MinBearishConfirmations)
             direction = SignalDirection.Down;
         else
             return Result<Signal>.Failure(Error.InsufficientConfirmation);
@@ -137,14 +146,14 @@ public sealed class SignalGenerator : ISignalGenerator
         // Adim 3 SKIP — precomputedIndicators kullan
         var indicators = precomputedIndicators;
 
-        // Adim 4 — Multi-confirmation filter
+        // Adim 4 — Multi-confirmation filter (asimetrik esik, DOWN bias azaltmak icin)
         var bullishCount = indicators.BullishCount();
         var bearishCount = indicators.BearishCount();
 
         SignalDirection direction;
-        if (bullishCount >= MinConfirmations && bullishCount > bearishCount)
+        if (bullishCount >= MinBullishConfirmations)
             direction = SignalDirection.Up;
-        else if (bearishCount >= MinConfirmations && bearishCount > bullishCount)
+        else if (bearishCount >= MinBearishConfirmations)
             direction = SignalDirection.Down;
         else
             return Result<Signal>.Failure(Error.InsufficientConfirmation);

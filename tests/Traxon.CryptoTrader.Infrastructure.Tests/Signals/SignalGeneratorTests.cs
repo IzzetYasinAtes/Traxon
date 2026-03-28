@@ -175,14 +175,14 @@ public class SignalGeneratorTests
         var sut     = CreateSut();
         var candles = CreateCandles(50);
 
-        // 3 bearish (VWAP, SMA, Stochastic), 2 bullish (RSI, MACD) — bearish direction
+        // Tum 5 indicator bearish — yeni asimetrik mantikta DOWN icin bullishCount < 2 gerekiyor
         var bearishIndicators = new TechnicalIndicators(
             asset: Asset.BTCUSDT,
             timeFrame: TimeFrame.FiveMinute,
             calculatedAt: DateTime.UtcNow,
             currentPrice: 0.50m,
-            rsi: new RsiResult(65m),              // bullish
-            macd: new MacdResult(0.01m, 0.005m, 0.005m), // bullish
+            rsi: new RsiResult(35m),              // bearish (< 50)
+            macd: new MacdResult(-0.01m, 0.005m, -0.005m), // bearish (histogram < 0)
             bollingerBands: new BollingerBandsResult(0.55m, 0.50m, 0.45m),
             atr: new AtrResult(0.01m),
             vwap: new VwapResult(0.52m),          // bearish (price 0.50 < vwap 0.52)
