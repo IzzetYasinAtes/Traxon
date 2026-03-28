@@ -3,6 +3,7 @@ using Microsoft.Extensions.Hosting;
 using ModelContextProtocol.Server;
 using Traxon.Mcp.Storage;
 using Traxon.Mcp.Tools;
+using Traxon.Mssql;
 
 var workspacePath = Environment.GetEnvironmentVariable("TRAXON_WORKSPACE")
     ?? Path.Combine(Directory.GetCurrentDirectory(), "workspace");

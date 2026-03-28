@@ -31,6 +31,9 @@
     <PackageVersion Include="Blazor-ApexCharts" Version="4.0.0" />
     <!-- Presentation -->
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.3" />
+    <!-- MCP / Database Tools -->
+    <PackageVersion Include="Microsoft.Data.SqlClient" Version="6.0.2" />
+    <PackageVersion Include="ModelContextProtocol" Version="1.1.0" />
     <!-- Tests -->
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" />

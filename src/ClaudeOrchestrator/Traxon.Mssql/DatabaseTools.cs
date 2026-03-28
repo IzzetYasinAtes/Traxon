@@ -20,7 +20,9 @@ public partial class DatabaseTools
 
     private static string GetConnectionString()
     {
-        return Environment.GetEnvironmentVariable("MSSQL_CONNECTION_STRING") ?? DefaultConnectionString;
+        return Environment.GetEnvironmentVariable("TRAXON_DB_CONNECTION")
+            ?? Environment.GetEnvironmentVariable("MSSQL_CONNECTION_STRING")
+            ?? DefaultConnectionString;
     }
 
     [McpServerTool(Name = "sql_query"), Description("Execute a SQL query against the database. SELECT returns JSON rows. INSERT/UPDATE/DELETE returns affected row count. DROP/TRUNCATE/ALTER/CREATE are blocked.")]
@@ -79,8 +81,6 @@ public partial class DatabaseTools
             await using var reader = await command.ExecuteReaderAsync();
 
             var sb = new StringBuilder();
-            sb.AppendLine("# Database Schema\n");
-
             string? currentTable = null;
 
             while (await reader.ReadAsync())
@@ -91,7 +91,11 @@ public partial class DatabaseTools
 
                 if (fullName != currentTable)
                 {
-                    if (currentTable is not null) sb.AppendLine();
+                    if (currentTable is null)
+                        sb.AppendLine("# Database Schema\n");
+                    else
+                        sb.AppendLine();
+
                     sb.AppendLine($"## {fullName}");
                     sb.AppendLine("| Column | Type | Nullable |");
                     sb.AppendLine("|--------|------|----------|");
@@ -195,7 +199,16 @@ public partial class DatabaseTools
 
     private static async Task<string> ExecuteSelectAsync(SqlConnection connection, string sql)
     {
-        await using var command = new SqlCommand(sql, connection);
+        const int rowLimit = 1000;
+
+        var limitedSql = TopLimitRegex().IsMatch(sql)
+            ? sql
+            : TopLimitRegex().Replace(sql, m => m.Value + $" TOP {rowLimit}", 1);
+
+        if (limitedSql == sql)
+            limitedSql = SelectRegex().Replace(sql, $"SELECT TOP {rowLimit}", 1);
+
+        await using var command = new SqlCommand(limitedSql, connection);
         command.CommandTimeout = 30;
         await using var reader = await command.ExecuteReaderAsync();
 
@@ -214,7 +227,12 @@ public partial class DatabaseTools
         if (rows.Count == 0)
             return "Query returned 0 rows.";
 
-        return JsonSerializer.Serialize(rows, new JsonSerializerOptions { WriteIndented = true });
+        var result = JsonSerializer.Serialize(rows, new JsonSerializerOptions { WriteIndented = true });
+
+        if (rows.Count >= rowLimit)
+            result += $"\n\n(1000 satir limiti uygulandi)";
+
+        return result;
     }
 
     private static async Task<string> ExecuteDmlAsync(SqlConnection connection, string sql)
@@ -227,4 +245,10 @@ public partial class DatabaseTools
 
     [GeneratedRegex(@"\b\w+\b")]
     private static partial Regex WordBoundaryRegex();
+
+    [GeneratedRegex(@"\bSELECT\s+TOP\s+\d+", RegexOptions.IgnoreCase)]
+    private static partial Regex TopLimitRegex();
+
+    [GeneratedRegex(@"\bSELECT\b", RegexOptions.IgnoreCase)]
+    private static partial Regex SelectRegex();
 }
