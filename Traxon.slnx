@@ -1,4 +1,5 @@
 <Solution>
+  <Folder Name="/src/" />
   <Folder Name="/src/ClaudeOrchestrator/">
     <Project Path="src/ClaudeOrchestrator/Traxon.Contracts/Traxon.Contracts.csproj" />
     <Project Path="src/ClaudeOrchestrator/Traxon.Mcp/Traxon.Mcp.csproj" />
@@ -14,6 +15,7 @@
     <Project Path="src/CryptoTrader/Traxon.CryptoTrader.Admin/Traxon.CryptoTrader.Admin.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Traxon.CryptoTrader.Binance.Tests/Traxon.CryptoTrader.Binance.Tests.csproj" />
     <Project Path="tests/Traxon.CryptoTrader.Domain.Tests/Traxon.CryptoTrader.Domain.Tests.csproj" />
     <Project Path="tests/Traxon.CryptoTrader.Application.Tests/Traxon.CryptoTrader.Application.Tests.csproj" />
     <Project Path="tests/Traxon.CryptoTrader.Infrastructure.Tests/Traxon.CryptoTrader.Infrastructure.Tests.csproj" />
