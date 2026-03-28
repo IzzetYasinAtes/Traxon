@@ -28,6 +28,11 @@ try
     builder.Services.AddInfrastructure(builder.Configuration);
     builder.Services.AddBinanceServices(builder.Configuration);
 
+    // Dashboard only shows live feed — Worker handles DB persistence.
+    // Override SQL writers with no-ops to prevent duplicate trades/candles.
+    builder.Services.AddSingleton<ITradeLogger, NullTradeLogger>();
+    builder.Services.AddSingleton<ICandleWriter, NullCandleWriter>();
+
     // LiveFeedService: ILiveFeedService + IMarketEventPublisher (same singleton)
     builder.Services.AddSingleton<LiveFeedService>();
     builder.Services.AddSingleton<ILiveFeedService>(sp => sp.GetRequiredService<LiveFeedService>());

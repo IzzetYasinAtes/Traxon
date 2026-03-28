@@ -1,43 +1,79 @@
-@using LightweightCharts.Blazor.Charts
-@using LightweightCharts.Blazor.Customization.Series
-@using LightweightCharts.Blazor.DataItems
-@using LightweightCharts.Blazor.Series
-@using LightweightCharts.Blazor.Utilities
-@using LCSeriesType = LightweightCharts.Blazor.Customization.Enums.SeriesType
-@inject ILiveFeedService Feed
+@using Microsoft.EntityFrameworkCore
 @inject IDbContextFactory<Traxon.CryptoTrader.Infrastructure.Persistence.AppDbContext> DbFactory
-@implements IDisposable
 
 <div style="width:100%; height:@(Height)px; background-color: var(--color-bg-surface); border-radius: var(--radius-card); overflow: hidden;">
-    <ChartComponent @ref="_chart"
-                    CssStyle="width:100%; height:100%;" />
+    <div id="@_chartId" style="width:100%; height:100%;"></div>
 </div>
+
+@if (_candleDataJson is not null)
+{
+    <script>
+        (function() {
+            var id = '@_chartId';
+            var candleData = @((MarkupString)_candleDataJson);
+
+            function tryInit() {
+                var el = document.getElementById(id);
+                if (!el || typeof LightweightCharts === 'undefined') {
+                    setTimeout(tryInit, 50);
+                    return;
+                }
+                var chart = LightweightCharts.createChart(el, {
+                    layout: {
+                        background: { color: 'transparent' },
+                        textColor: '#a0a0a0'
+                    },
+                    grid: {
+                        vertLines: { color: '#2a2a2a' },
+                        horzLines: { color: '#2a2a2a' }
+                    },
+                    timeScale: { timeVisible: true, secondsVisible: false }
+                });
+                chart.resize(el.parentElement.offsetWidth || 800, el.parentElement.offsetHeight || @Height);
+                var series = chart.addSeries(LightweightCharts.CandlestickSeries, {
+                    upColor: '#00d4aa',
+                    downColor: '#ff4757',
+                    borderUpColor: '#00d4aa',
+                    borderDownColor: '#ff4757',
+                    wickUpColor: '#00d4aa',
+                    wickDownColor: '#ff4757'
+                });
+                series.setData(candleData);
+                window['__traxonChart_' + id] = { chart: chart, series: series };
+
+                // Resize chart on window resize
+                window.addEventListener('resize', function() {
+                    if (el.parentElement) {
+                        chart.resize(el.parentElement.offsetWidth, el.parentElement.offsetHeight);
+                    }
+                });
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', tryInit);
+            } else {
+                tryInit();
+            }
+        })();
+    </script>
+}
+else
+{
+    <div style="display:flex; align-items:center; justify-content:center; height:100%; color: var(--color-text-muted); font-size: 0.75rem;">
+        No candle data available
+    </div>
+}
 
 @code {
     [Parameter, EditorRequired] public string Symbol { get; set; } = "BTCUSDT";
     [Parameter, EditorRequired] public string Interval { get; set; } = "5m";
     [Parameter] public int Height { get; set; } = 400;
 
-    private ChartComponent? _chart;
-    private ISeriesApi<long>? _series;
+    private readonly string _chartId = "chart" + Guid.NewGuid().ToString("N");
+    private string? _candleDataJson;
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    protected override async Task OnInitializedAsync()
     {
-        if (!firstRender || _chart is null) return;
-
-        await _chart.InitializationCompleted;
-
-        _series = await _chart.AddSeries<CandlestickStyleOptions>(LCSeriesType.Candlestick, new CandlestickStyleOptions
-        {
-            UpColor = Extensions.ParseColorCode("#00d4aa"),
-            DownColor = Extensions.ParseColorCode("#ff4757"),
-            BorderUpColor = Extensions.ParseColorCode("#00d4aa"),
-            BorderDownColor = Extensions.ParseColorCode("#ff4757"),
-            WickUpColor = Extensions.ParseColorCode("#00d4aa"),
-            WickDownColor = Extensions.ParseColorCode("#ff4757")
-        });
-
-        // Initial data from DB — OrderByDescending + Take to avoid TakeLast (not translatable to SQL)
         await using var db = await DbFactory.CreateDbContextAsync();
         var candles = await db.Candles
             .Where(c => c.Asset.Symbol == Symbol && c.TimeFrame.Value == Interval)
@@ -48,42 +84,15 @@
 
         if (candles.Count > 0)
         {
-            var data = candles.Select(c => new CandlestickData<long>
+            var data = candles.Select(c => new
             {
-                Time = new DateTimeOffset(c.OpenTime, TimeSpan.Zero).ToUnixTimeSeconds(),
-                Open = (float)c.Open,
-                High = (float)c.High,
-                Low = (float)c.Low,
-                Close = (float)c.Close
-            }).ToArray();
-
-            await _series.SetData(data);
-        }
-
-        Feed.OnCandleUpdate += OnCandle;
-    }
-
-    private void OnCandle(CandleDto candle)
-    {
-        if (candle.Symbol != Symbol || candle.Interval != Interval) return;
-        UpdateChartAsync(candle);
-    }
-
-    private async void UpdateChartAsync(CandleDto candle)
-    {
-        if (_series is null) return;
-        await InvokeAsync(async () =>
-        {
-            await _series.Update(new CandlestickData<long>
-            {
-                Time = new DateTimeOffset(candle.OpenTime, TimeSpan.Zero).ToUnixTimeSeconds(),
-                Open = (float)candle.Open,
-                High = (float)candle.High,
-                Low = (float)candle.Low,
-                Close = (float)candle.Close
+                time = new DateTimeOffset(c.OpenTime, TimeSpan.Zero).ToUnixTimeSeconds(),
+                open = (float)c.Open,
+                high = (float)c.High,
+                low = (float)c.Low,
+                close = (float)c.Close
             });
-        });
+            _candleDataJson = System.Text.Json.JsonSerializer.Serialize(data);
+        }
     }
-
-    public void Dispose() => Feed.OnCandleUpdate -= OnCandle;
 }
