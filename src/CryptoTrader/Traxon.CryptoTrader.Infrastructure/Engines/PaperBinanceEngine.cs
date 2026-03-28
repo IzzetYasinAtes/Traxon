@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
 using Traxon.CryptoTrader.Application.Abstractions;
+using Traxon.CryptoTrader.Domain.Assets;
 using Traxon.CryptoTrader.Domain.Common;
 using Traxon.CryptoTrader.Domain.Market;
 using Traxon.CryptoTrader.Domain.Trading;
@@ -32,8 +33,8 @@ public sealed class PaperBinanceEngine : ITradingEngine
 
     private const decimal InitialBalance = 10_000m;
     private const decimal SlippageRate   = 0.0005m;
-    private const decimal SlPercent      = 0.005m;   // 0.5% from entry
-    private const decimal TpPercent      = 0.010m;   // 1.0% from entry
+    private const decimal SlPercent      = 0.004m;   // 0.4% from entry
+    private const decimal TpPercent      = 0.012m;   // 1.2% from entry
     private const int     MaxHoldCandles = 10;        // force-close after 10× timeframe durations
 
     public string EngineName => "PaperBinance";
@@ -96,6 +97,10 @@ public sealed class PaperBinanceEngine : ITradingEngine
         await _lock.WaitAsync(ct);
         try
         {
+            // Analyst v1: PaperBinance sadece 5m timeframe kullanir
+            if (signal.TimeFrame != TimeFrame.FiveMinute)
+                return Result<Trade>.Failure(Error.InsufficientConfirmation);
+
             if (_openTrades.Values.Any(t => t.Asset == signal.Asset))
                 return Result<Trade>.Failure(Error.DuplicatePosition);
 

@@ -18,7 +18,7 @@ public sealed class ConfigService
 
 public record TradingConfig
 {
-    public decimal MinEdge { get; init; } = 0.05m;
+    public decimal MinEdge { get; init; } = 0.12m;
     public decimal KellyFraction { get; init; } = 0.25m;
     public decimal MaxPositionSize { get; init; } = 50m;
     public decimal Bankroll { get; init; } = 1000m;

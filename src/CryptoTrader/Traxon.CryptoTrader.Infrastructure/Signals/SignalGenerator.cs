@@ -20,15 +20,15 @@ public sealed class SignalGenerator : ISignalGenerator
     private const int     RegimeShortPeriod        = 12;
     private const int     RegimeLongPeriod         = 144;
     private const decimal HighVolMultiplier        = 1.5m;
-    private const decimal MinMarketPrice           = 0.30m;
-    private const decimal MaxMarketPrice           = 0.60m;
+    private const decimal MinMarketPrice           = 0.48m;
+    private const decimal MaxMarketPrice           = 0.62m;
     /// <summary>
     /// Kisa vadeli kripto icin asimetrik esik: UP icin 2+ yeterli, DOWN icin
     /// net bearish cogunluk (bullish &lt; 2) gerekir. Bu sekilde neutral markette
     /// DOWN bias azaltilir.
     /// </summary>
     private const int     MinBullishConfirmations  = 2;
-    private const int     MinBearishConfirmations  = 4;  // bullishCount &lt; 2 → bearishCount &gt;= 4
+    private const int     MinBearishConfirmations  = 99; // DOWN direction devre disi — Analyst v1 onerisi
     private const decimal SimulatedBankroll        = 10_000m;
 
     public SignalGenerator(
@@ -100,7 +100,8 @@ public sealed class SignalGenerator : ISignalGenerator
             : MarketRegime.LowVolatility;
 
         // Adim 7 — Position sizing
-        var sizeResult = _positionSizer.Calculate(fairValue, marketPrice, SimulatedBankroll);
+        var isLowVol = regime == MarketRegime.LowVolatility;
+        var sizeResult = _positionSizer.Calculate(fairValue, marketPrice, SimulatedBankroll, isLowVol);
         if (!sizeResult.MeetsMinimumEdge)
             return Result<Signal>.Failure(Error.InvalidEdge);
 
@@ -175,7 +176,8 @@ public sealed class SignalGenerator : ISignalGenerator
             : MarketRegime.LowVolatility;
 
         // Adim 7 — Position sizing
-        var sizeResult = _positionSizer.Calculate(fairValue, marketPrice, SimulatedBankroll);
+        var isLowVol = regime == MarketRegime.LowVolatility;
+        var sizeResult = _positionSizer.Calculate(fairValue, marketPrice, SimulatedBankroll, isLowVol);
         if (!sizeResult.MeetsMinimumEdge)
             return Result<Signal>.Failure(Error.InvalidEdge);
 
