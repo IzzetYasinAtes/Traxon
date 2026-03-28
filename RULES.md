@@ -31,13 +31,27 @@ Tum agent'lar internetten arastirma yapabilir (WebSearch, WebFetch) — bilmedik
 - Business kararlari verir (hangi pattern, hangi yaklasim, hangi teknoloji)
 - **Kod YAZMAZ** — sadece planlar ve review eder
 
-### Developer (Gelistirici + Tester)
+### Developer (Gelistirici)
 - Architect'in planini uygular, kod yazar
-- TUM testlerden sorumludur: unit test, integration test, E2E test
 - Feature branch olusturur, commit atar, merge eder
-- dotnet build ve dotnet test ile dogrular
-- Playwright ile E2E test yapar (gerektiginde)
+- dotnet build ile dogrular
+- **Test YAPMAZ** — testler Tester agent'in gorevidir
 - **Mimari karar VERMEZ** — Architect'in planina uyar, sapma varsa sorar
+
+### Tester (QA Test Agent)
+- TUM testlerden sorumludur: unit test, integration test, E2E test
+- Playwright MCP ile UI test yapar (tum sayfalar, screenshot)
+- MSSQL ile veritabani tutarliligini kontrol eder
+- Sorunlari Commander'a raporlar (TestReport / BugReport)
+- **Kod YAZMAZ** — sadece test eder ve raporlar
+
+### Analyst (Strateji Analisti)
+- Paper trading performansini analiz eder (PnL, win rate, Sharpe)
+- WebSearch ile yeni stratejiler arastirir
+- Kar optimizasyonu icin parametre onerileri sunar
+- En iyi konfigurasyonu takip eder (workspace/analyst/best-config.json)
+- Commander'a AnalysisReport / ConfigRecommendation gonderir
+- **Kod YAZMAZ** — sadece analiz eder ve onerir
 
 ---
 
@@ -50,9 +64,13 @@ Tum agent'lar internetten arastirma yapabilir (WebSearch, WebFetch) — bilmedik
 | Veritabani schema tasarimi | Architect |
 | Teknoloji/paket secimi | Architect |
 | Kod yazmak, dosya olusturmak | Developer |
-| Test yazmak ve calistirmak | Developer |
+| Test yazmak ve calistirmak | Tester |
+| UI test (Playwright) | Tester |
+| Veritabani tutarliligi | Tester |
 | Branch olusturma, commit, merge | Developer |
-| Bug fix stratejisi | Architect planlar, Developer uygular |
+| Bug fix stratejisi | Architect planlar, Developer uygular, Tester dogrular |
+| Strateji analizi ve optimizasyon | Analyst |
+| Kar/zarar takibi | Analyst |
 | Workflow yonetimi, agent koordinasyonu | Commander |
 | Kullanici ile iletisim | Commander |
 
@@ -61,9 +79,9 @@ Tum agent'lar internetten arastirma yapabilir (WebSearch, WebFetch) — bilmedik
 ## Iletisim Kurallari
 
 - Tum agent'lar MCP tool'lari uzerinden iletisim kurar (send_message, get_messages)
-- `from` parametresinde kendi rolunu kullan (Architect, Developer, Commander)
-- Architect ve Developer birbirlerine direkt mesaj gonderir
-- Commander her iki agent'a da mesaj gonderebilir
+- `from` parametresinde kendi rolunu kullan (Architect, Developer, Commander, Tester, Analyst)
+- Agent'lar birbirlerine direkt mesaj gonderir
+- Commander tum agent'lara mesaj gonderebilir
 - Acil/oncelikli durumlarda subject'e "URGENT:" ekle
 - Mesajlar Turkce yazilir
 
@@ -124,10 +142,12 @@ Core → Domain → Application → Infrastructure → Presentation
 
 | Test Turu | Sorumlu | Araclar | Ne Zaman |
 |-----------|---------|---------|----------|
-| Unit Test | Developer | xUnit + FluentAssertions | Her public metod |
-| Integration Test | Developer | xUnit + TestContainers | Her dis servis entegrasyonu |
-| E2E Test | Developer | Playwright MCP | Web uygulamasi varsa |
+| Unit Test | Tester | xUnit + FluentAssertions + dotnet test | Her implementation sonrasi |
+| Integration Test | Tester | xUnit + TestContainers | Her dis servis entegrasyonu |
+| E2E / UI Test | Tester | Playwright MCP | Her deployment sonrasi |
+| DB Tutarliligi | Tester | MSSQL MCP sorgulari | Her test dongusunde |
 | Code Review | Architect | Read + Grep + git diff | Her implementation sonrasi |
+| Strateji Analizi | Analyst | MSSQL + WebSearch | Periyodik (saatlik) |
 
 ---
 
@@ -137,7 +157,7 @@ Core → Domain → Application → Infrastructure → Presentation
 - Kucuk, anlamli commit'ler
 - Review onaylandiktan sonra main'e merge: `git merge --no-ff`
 - PR OLUSTURMA — direkt merge
-- `git push`, `git remote`, `gh` YASAK (sadece local)
+- Her merge sonrasi `git push origin main` yap
 
 ---
 

@@ -1,0 +1,30 @@
+{
+  "configId": "initial",
+  "recordedAt": "2026-03-28T00:00:00Z",
+  "parameters": {
+    "minEdge": 0.05,
+    "kellyMultiplier": 0.15,
+    "maxPositionFraction": 0.02,
+    "maxExposureFraction": 0.12,
+    "minConfirmation": 2,
+    "rsiPeriod": 14,
+    "macdFast": 12,
+    "macdSlow": 26,
+    "macdSignal": 9,
+    "bollingerPeriod": 20,
+    "bollingerStdDev": 2.0,
+    "atrPeriod": 14,
+    "stopLossPercent": 0.5,
+    "takeProfitPercent": 1.0
+  },
+  "performance": {
+    "totalPnl": 0,
+    "winRate": 0,
+    "sharpeRatio": 0,
+    "maxDrawdown": 0,
+    "totalTrades": 0,
+    "profitFactor": 0,
+    "measurementPeriodHours": 0
+  },
+  "source": "Initial default configuration"
+}

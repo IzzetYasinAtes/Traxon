@@ -10,5 +10,9 @@ public enum MessageType
     Approval,
     Question,
     Answer,
-    Error
+    Error,
+    TestReport,
+    BugReport,
+    AnalysisReport,
+    ConfigRecommendation
 }

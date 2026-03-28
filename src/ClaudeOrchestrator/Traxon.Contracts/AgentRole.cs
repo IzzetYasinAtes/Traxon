@@ -4,5 +4,7 @@ public enum AgentRole
 {
     Architect,
     Developer,
-    Commander
+    Commander,
+    Tester,
+    Analyst
 }
