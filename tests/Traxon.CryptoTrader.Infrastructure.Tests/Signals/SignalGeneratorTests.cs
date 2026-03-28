@@ -142,7 +142,7 @@ public class SignalGeneratorTests
         _indicatorCalc.Calculate(Arg.Any<Asset>(), Arg.Any<TimeFrame>(), Arg.Any<IReadOnlyList<Candle>>())
             .Returns(Result<TechnicalIndicators>.Success(MakeBullishIndicators()));
         _fairValueCalc.Calculate(Arg.Any<IReadOnlyList<Candle>>(), Arg.Any<TimeFrame>())
-            .Returns(new FairValueResult(0.45m, -0.003m, 0.02m, -0.25m));
+            .Returns(new FairValueResult(0.49m, -0.003m, 0.02m, -0.25m));
         _indicatorCalc.CalculateParkinsonVolatility(Arg.Any<IReadOnlyList<Candle>>(), Arg.Any<int>())
             .Returns(0.02m);
         _positionSizer.Calculate(Arg.Any<decimal>(), Arg.Any<decimal>(), Arg.Any<decimal>(), Arg.Any<bool>())

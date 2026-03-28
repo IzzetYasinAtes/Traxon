@@ -28,6 +28,12 @@ public sealed class Asset : ValueObject
 
     public static readonly IReadOnlyList<Asset> All = [BTCUSDT, ETHUSDT, SOLUSDT, XRPUSDT, DOGEUSDT, AVAXUSDT, BNBUSDT];
 
+    /// <summary>Trade edilmemesi gereken asset'ler (performans analizi sonucu disarida birakildi).</summary>
+    public static readonly IReadOnlyList<Asset> Excluded = [DOGEUSDT, AVAXUSDT];
+
+    /// <summary>Aktif trade edilebilir asset'ler (All - Excluded).</summary>
+    public static readonly IReadOnlyList<Asset> Tradeable = All.Where(a => !Excluded.Contains(a)).ToList().AsReadOnly();
+
     public static Asset? FromSymbol(string symbol) =>
         All.FirstOrDefault(a => a.Symbol.Equals(symbol, StringComparison.OrdinalIgnoreCase));
 
