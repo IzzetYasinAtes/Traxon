@@ -62,7 +62,7 @@ public class SignalGeneratorTests
             .Returns(Result<TechnicalIndicators>.Success(MakeBullishIndicators()));
         _fairValueCalc.Calculate(Arg.Any<IReadOnlyList<Candle>>(), Arg.Any<TimeFrame>())
             .Returns(new FairValueResult(0.62m, 0.005m, 0.02m, 0.3m));
-        _positionSizer.Calculate(Arg.Any<decimal>(), Arg.Any<decimal>(), Arg.Any<decimal>())
+        _positionSizer.Calculate(Arg.Any<decimal>(), Arg.Any<decimal>(), Arg.Any<decimal>(), Arg.Any<bool>())
             .Returns(new PositionSizeResult(0.06m, 300m, 0.12m, true));
         _indicatorCalc.CalculateParkinsonVolatility(Arg.Any<IReadOnlyList<Candle>>(), Arg.Any<int>())
             .Returns(0.02m);
@@ -120,7 +120,7 @@ public class SignalGeneratorTests
             .Returns(Result<TechnicalIndicators>.Success(MakeBullishIndicators()));
         _fairValueCalc.Calculate(Arg.Any<IReadOnlyList<Candle>>(), Arg.Any<TimeFrame>())
             .Returns(new FairValueResult(0.51m, 0.001m, 0.02m, 0.05m));
-        _positionSizer.Calculate(Arg.Any<decimal>(), Arg.Any<decimal>(), Arg.Any<decimal>())
+        _positionSizer.Calculate(Arg.Any<decimal>(), Arg.Any<decimal>(), Arg.Any<decimal>(), Arg.Any<bool>())
             .Returns(new PositionSizeResult(0m, 0m, 0.01m, false));
         _indicatorCalc.CalculateParkinsonVolatility(Arg.Any<IReadOnlyList<Candle>>(), Arg.Any<int>())
             .Returns(0.02m);
@@ -145,7 +145,7 @@ public class SignalGeneratorTests
             .Returns(new FairValueResult(0.45m, -0.003m, 0.02m, -0.25m));
         _indicatorCalc.CalculateParkinsonVolatility(Arg.Any<IReadOnlyList<Candle>>(), Arg.Any<int>())
             .Returns(0.02m);
-        _positionSizer.Calculate(Arg.Any<decimal>(), Arg.Any<decimal>(), Arg.Any<decimal>())
+        _positionSizer.Calculate(Arg.Any<decimal>(), Arg.Any<decimal>(), Arg.Any<decimal>(), Arg.Any<bool>())
             .Returns(new PositionSizeResult(0.06m, 300m, 0.05m, true));
 
         var result = sut.Generate(Asset.BTCUSDT, TimeFrame.FiveMinute, candles, marketPrice: 0.50m);
@@ -170,41 +170,35 @@ public class SignalGeneratorTests
     }
 
     [Fact]
-    public void Generate_WithBearishSignalAndSufficientEdge_ReturnsDownSignal()
+    public void Generate_WithBearishSignal_ReturnsInsufficientConfirmation_BecauseDownDisabled()
     {
+        // DOWN direction kasitli olarak devre disi (MinBearishConfirmations=99).
+        // Tum bearish indicator'lar olsa bile InsufficientConfirmation donmeli.
         var sut     = CreateSut();
         var candles = CreateCandles(50);
 
-        // Tum 5 indicator bearish — yeni asimetrik mantikta DOWN icin bullishCount < 2 gerekiyor
         var bearishIndicators = new TechnicalIndicators(
             asset: Asset.BTCUSDT,
             timeFrame: TimeFrame.FiveMinute,
             calculatedAt: DateTime.UtcNow,
             currentPrice: 0.50m,
-            rsi: new RsiResult(35m),              // bearish (< 50)
-            macd: new MacdResult(-0.01m, 0.005m, -0.005m), // bearish (histogram < 0)
+            rsi: new RsiResult(35m),
+            macd: new MacdResult(-0.01m, 0.005m, -0.005m),
             bollingerBands: new BollingerBandsResult(0.55m, 0.50m, 0.45m),
             atr: new AtrResult(0.01m),
-            vwap: new VwapResult(0.52m),          // bearish (price 0.50 < vwap 0.52)
-            stochastic: new StochasticResult(30m, 40m), // bearish (K < D)
-            fastSma: 0.48m,                       // bearish (fast < slow)
+            vwap: new VwapResult(0.52m),
+            stochastic: new StochasticResult(30m, 40m),
+            fastSma: 0.48m,
             slowSma: 0.51m,
             parkinsonVolatility: 0.02m);
 
         _indicatorCalc.Calculate(Arg.Any<Asset>(), Arg.Any<TimeFrame>(), Arg.Any<IReadOnlyList<Candle>>())
             .Returns(Result<TechnicalIndicators>.Success(bearishIndicators));
-        // FV < 0.5 → DOWN direction match
-        _fairValueCalc.Calculate(Arg.Any<IReadOnlyList<Candle>>(), Arg.Any<TimeFrame>())
-            .Returns(new FairValueResult(0.38m, -0.003m, 0.02m, -0.25m));
-        _positionSizer.Calculate(Arg.Any<decimal>(), Arg.Any<decimal>(), Arg.Any<decimal>())
-            .Returns(new PositionSizeResult(0.06m, 300m, 0.12m, true));
-        _indicatorCalc.CalculateParkinsonVolatility(Arg.Any<IReadOnlyList<Candle>>(), Arg.Any<int>())
-            .Returns(0.02m);
 
         var result = sut.Generate(Asset.BTCUSDT, TimeFrame.FiveMinute, candles, marketPrice: 0.50m);
 
-        result.IsSuccess.Should().BeTrue();
-        result.Value!.Direction.Should().Be(SignalDirection.Down);
+        result.IsFailure.Should().BeTrue();
+        result.Error!.Code.Should().Be("Domain.InsufficientConfirmation");
     }
 
     [Fact]
@@ -217,7 +211,7 @@ public class SignalGeneratorTests
         // indicatorCalc.Calculate CAGRILMAMALI
         _fairValueCalc.Calculate(Arg.Any<IReadOnlyList<Candle>>(), Arg.Any<TimeFrame>())
             .Returns(new FairValueResult(0.62m, 0.005m, 0.02m, 0.3m));
-        _positionSizer.Calculate(Arg.Any<decimal>(), Arg.Any<decimal>(), Arg.Any<decimal>())
+        _positionSizer.Calculate(Arg.Any<decimal>(), Arg.Any<decimal>(), Arg.Any<decimal>(), Arg.Any<bool>())
             .Returns(new PositionSizeResult(0.06m, 300m, 0.12m, true));
         _indicatorCalc.CalculateParkinsonVolatility(Arg.Any<IReadOnlyList<Candle>>(), Arg.Any<int>())
             .Returns(0.02m);

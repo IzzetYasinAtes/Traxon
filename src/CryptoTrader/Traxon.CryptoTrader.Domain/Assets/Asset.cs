@@ -26,7 +26,7 @@ public sealed class Asset : ValueObject
     public static readonly Asset AVAXUSDT = new("AVAXUSDT", "HYPE", "USDT");
     public static readonly Asset BNBUSDT  = new("BNBUSDT",  "BNB",  "USDT");
 
-    public static readonly IReadOnlyList<Asset> All = [BTCUSDT, ETHUSDT, SOLUSDT, XRPUSDT, BNBUSDT];
+    public static readonly IReadOnlyList<Asset> All = [BTCUSDT, ETHUSDT, SOLUSDT, XRPUSDT, DOGEUSDT, AVAXUSDT, BNBUSDT];
 
     public static Asset? FromSymbol(string symbol) =>
         All.FirstOrDefault(a => a.Symbol.Equals(symbol, StringComparison.OrdinalIgnoreCase));
