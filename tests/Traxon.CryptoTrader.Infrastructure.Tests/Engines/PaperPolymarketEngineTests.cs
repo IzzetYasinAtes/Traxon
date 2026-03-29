@@ -110,10 +110,10 @@ public class PaperPolymarketEngineTests
     {
         var sut = CreateSut();
 
-        // Portfolio'yu doldur (max exposure %5, max position %0.5 => 10 trade dolduruyor)
+        // Portfolio'yu doldur (max exposure %15, max position %2 => ~7-8 trade dolduruyor)
         // Her trade kelly * balance, MaxPositionSize ile sinirli
-        // MaxPositionSize = balance * 0.005 = $50
-        // MaxExposure = balance * 0.05 = $500 (~10 trade x $50 dynamic)
+        // MaxPositionSize = balance * 0.02 = $200
+        // MaxExposure = balance * 0.15 = $1500 (~7 trade x $200 dynamic)
         var assets = new[]
         {
             Asset.BTCUSDT, Asset.ETHUSDT, Asset.SOLUSDT, Asset.XRPUSDT, Asset.DOGEUSDT,
