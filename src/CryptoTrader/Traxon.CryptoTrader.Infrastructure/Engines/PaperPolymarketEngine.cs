@@ -102,17 +102,11 @@ public sealed class PaperPolymarketEngine : ITradingEngine
             if (_openTrades.Values.Any(t => t.Asset == signal.Asset))
                 return Result<Trade>.Failure(Error.DuplicatePosition);
 
-            // Dynamic entry price — agresif edge capture (Analyst v4).
-            // edge * 0.8 ile entry dusurulur (ornek: FV=0.59, Edge=0.10 → raw=0.51, +slip=0.52).
-            // MaxEntryPrice=0.55 hard cap ile kazanc/kayip orani iyilestirilir.
-            decimal rawEntry;
-            if (signal.FairValue > 0.5m)
-                rawEntry = signal.FairValue - signal.Edge * 0.8m;
-            else
-                rawEntry = 1m - signal.FairValue - signal.Edge * 0.8m;
-
-            var entryPrice = Math.Clamp(rawEntry + Slippage, MinEntryPrice, MaxEntryPrice);
-            var positionSize = Math.Min(signal.KellyFraction * _portfolio.Balance, _portfolio.MaxPositionSize);
+            // Sabit dusuk entry — breakeven WR %40, kazanc/kayip orani +%150/-%100.
+            // Entry 0.40 ile: kazancta (1.00-0.40)/0.40 = +%150, kayipta -%100.
+            var rawEntry = 0.40m;
+            var entryPrice = rawEntry + Slippage;
+            var positionSize = Math.Min(signal.KellyFraction * _portfolio.Balance, Math.Min(_portfolio.MaxPositionSize, 100m));
 
             var position = new Position(
                 asset:        signal.Asset,
