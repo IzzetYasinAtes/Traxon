@@ -39,6 +39,26 @@ public sealed class MarketDataWorker : BackgroundService
         _logger              = logger;
     }
 
+    /// <summary>TimeFrame bazli backfill limit: 1m→120, 5m→500, 15m→500, 1h→48.</summary>
+    private static int GetBackfillLimit(TimeFrame tf) => tf.Value switch
+    {
+        "1m"  => 120,
+        "5m"  => 500,
+        "15m" => 500,
+        "1h"  => 48,
+        _     => 200
+    };
+
+    /// <summary>TimeFrame bazli warmup esigi: 1m→30, 5m→100, 15m→100, 1h→24.</summary>
+    private static int GetWarmupThreshold(TimeFrame tf) => tf.Value switch
+    {
+        "1m"  => 30,
+        "5m"  => 100,
+        "15m" => 100,
+        "1h"  => 24,
+        _     => 50
+    };
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("MarketDataWorker starting — loading historical candles...");
@@ -47,7 +67,7 @@ public sealed class MarketDataWorker : BackgroundService
         foreach (var tf in TimeFrame.All)
         {
             var candlesResult = await _marketDataProvider.GetHistoricalCandlesAsync(
-                asset, tf, limit: 200, stoppingToken);
+                asset, tf, limit: GetBackfillLimit(tf), stoppingToken);
 
             if (candlesResult.IsFailure)
             {
@@ -116,7 +136,11 @@ public sealed class MarketDataWorker : BackgroundService
             }
         });
 
-        if (!_candleBuffer.IsWarmedUp(candle.Asset, candle.TimeFrame, minimumCandles: 30))
+        // 1m ve 1h candle'lar sadece buffer'a eklenir — sinyal uretimi yapilmaz
+        if (candle.TimeFrame == TimeFrame.OneMinute || candle.TimeFrame == TimeFrame.OneHour)
+            return;
+
+        if (!_candleBuffer.IsWarmedUp(candle.Asset, candle.TimeFrame, minimumCandles: GetWarmupThreshold(candle.TimeFrame)))
         {
             _logger.LogDebug("Buffer not warmed up yet for {Symbol}/{Interval}",
                 candle.Asset.Symbol, candle.TimeFrame.Value);
@@ -147,18 +171,24 @@ public sealed class MarketDataWorker : BackgroundService
                 indicators.BullishCount());
 
             const decimal simulatedMarketPrice = 0.50m;
-            var signalResult = _signalGenerator.Generate(
+
+            // 1h candle'lari buffer'dan al (trend dogrulama icin)
+            var hourlyResult = _candleBuffer.GetAll(candle.Asset, TimeFrame.TrendTimeFrame);
+            var hourlyCandles = hourlyResult.IsSuccess ? hourlyResult.Value : null;
+
+            var signalResult = _signalGenerator.GenerateV2(
                 candle.Asset, candle.TimeFrame, candlesResult.Value!,
-                simulatedMarketPrice, indicators);
+                simulatedMarketPrice, indicators, hourlyCandles);
 
             if (signalResult.IsSuccess)
             {
                 var sig = signalResult.Value!;
                 _logger.LogInformation(
-                    ">>> SIGNAL: {Symbol}/{Interval} {Direction} | FV:{FV:F3} Edge:{Edge:F3} " +
-                    "Kelly:{Kelly:F4} Regime:{Regime}",
+                    ">>> SIGNAL V2: {Symbol}/{Interval} {Direction} | Score:{Score:F3} FV:{FV:F3} Edge:{Edge:F3} " +
+                    "Kelly:{Kelly:F4} Regime:{Regime} Trend1h:{Trend} Vol:{Vol}",
                     sig.Asset.Symbol, sig.TimeFrame.Value, sig.Direction,
-                    sig.FairValue, sig.Edge, sig.KellyFraction, sig.Regime);
+                    sig.Score?.FinalScore, sig.FairValue, sig.Edge, sig.KellyFraction, sig.Regime,
+                    sig.Score?.HourlyTrendConfirmed, sig.Score?.VolumeConfirmed);
 
                 _publisher.PublishSignalGenerated(sig.ToDto());
 

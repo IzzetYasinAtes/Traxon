@@ -18,8 +18,15 @@ public static class DependencyInjection
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        // Core services
-        services.AddSingleton<ICandleBuffer>(_ => new InMemoryCandleBuffer(capacity: 200));
+        // Core services — TF bazli kapasite: 1m→120, 5m→500, 15m→500, 1h→48
+        var candleCapacities = new Dictionary<string, int>
+        {
+            ["1m"]  = 120,
+            ["5m"]  = 500,
+            ["15m"] = 500,
+            ["1h"]  = 48
+        };
+        services.AddSingleton<ICandleBuffer>(_ => new InMemoryCandleBuffer(candleCapacities, defaultCapacity: 200));
         services.AddSingleton<IPatternRecognizer, PatternRecognizer>();
         services.AddSingleton<IIndicatorCalculator, IndicatorCalculator>();
         services.AddSingleton<IFairValueCalculator, FairValueCalculator>();

@@ -198,8 +198,10 @@ public sealed class BinanceMarketDataProvider : IMarketDataProvider, IAsyncDispo
 
     private static KlineInterval ToKlineInterval(TimeFrame tf) => tf.Value switch
     {
+        "1m"  => KlineInterval.OneMinute,
         "5m"  => KlineInterval.FiveMinutes,
         "15m" => KlineInterval.FifteenMinutes,
+        "1h"  => KlineInterval.OneHour,
         _     => throw new ArgumentOutOfRangeException(nameof(tf), $"Unsupported timeframe: {tf.Value}")
     };
 
