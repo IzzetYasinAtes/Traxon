@@ -170,10 +170,10 @@ public class SignalGeneratorTests
     }
 
     [Fact]
-    public void Generate_WithBearishSignal_ReturnsDownSignal()
+    public void Generate_WithBearishSignal_ReturnsInsufficientConfirmation()
     {
-        // DOWN direction aktif (MinBearishConfirmations=4, Analyst v3).
-        // 4+ bearish indicator ile DOWN sinyal uretilmeli.
+        // DOWN kapatildi (MinBearishConfirmations=99, Analyst v4).
+        // Bearish indicator'lar ile bile DOWN sinyal uretilemez.
         var sut     = CreateSut();
         var candles = CreateCandles();
 
@@ -194,52 +194,43 @@ public class SignalGeneratorTests
 
         _indicatorCalc.Calculate(Arg.Any<Asset>(), Arg.Any<TimeFrame>(), Arg.Any<IReadOnlyList<Candle>>())
             .Returns(Result<TechnicalIndicators>.Success(bearishIndicators));
-        _fairValueCalc.Calculate(Arg.Any<IReadOnlyList<Candle>>(), Arg.Any<TimeFrame>())
-            .Returns(new FairValueResult(0.38m, -0.005m, 0.02m, -0.3m));
-        _positionSizer.Calculate(Arg.Any<decimal>(), Arg.Any<decimal>(), Arg.Any<decimal>(), Arg.Any<bool>())
-            .Returns(new PositionSizeResult(0.06m, 300m, 0.12m, true));
-        _indicatorCalc.CalculateParkinsonVolatility(Arg.Any<IReadOnlyList<Candle>>(), Arg.Any<int>())
-            .Returns(0.02m);
-
-        var result = sut.Generate(Asset.BTCUSDT, TimeFrame.FiveMinute, candles, marketPrice: 0.50m);
-
-        result.IsSuccess.Should().BeTrue();
-        result.Value!.Direction.Should().Be(SignalDirection.Down);
-    }
-
-    [Fact]
-    public void Generate_WithDownSignalAndHighFairValue_ReturnsFairValueTooHighForDown()
-    {
-        // DOWN sinyal icin FV <= 0.52 zorunlu (Analyst v3).
-        var sut     = CreateSut();
-        var candles = CreateCandles();
-
-        var bearishIndicators = new TechnicalIndicators(
-            asset: Asset.BTCUSDT,
-            timeFrame: TimeFrame.FiveMinute,
-            calculatedAt: DateTime.UtcNow,
-            currentPrice: 0.50m,
-            rsi: new RsiResult(35m),
-            macd: new MacdResult(-0.01m, 0.005m, -0.005m),
-            bollingerBands: new BollingerBandsResult(0.55m, 0.50m, 0.45m),
-            atr: new AtrResult(0.01m),
-            vwap: new VwapResult(0.52m),
-            stochastic: new StochasticResult(30m, 40m),
-            fastSma: 0.48m,
-            slowSma: 0.51m,
-            parkinsonVolatility: 0.02m);
-
-        _indicatorCalc.Calculate(Arg.Any<Asset>(), Arg.Any<TimeFrame>(), Arg.Any<IReadOnlyList<Candle>>())
-            .Returns(Result<TechnicalIndicators>.Success(bearishIndicators));
-        _fairValueCalc.Calculate(Arg.Any<IReadOnlyList<Candle>>(), Arg.Any<TimeFrame>())
-            .Returns(new FairValueResult(0.60m, 0.005m, 0.02m, 0.3m));
-        _indicatorCalc.CalculateParkinsonVolatility(Arg.Any<IReadOnlyList<Candle>>(), Arg.Any<int>())
-            .Returns(0.02m);
 
         var result = sut.Generate(Asset.BTCUSDT, TimeFrame.FiveMinute, candles, marketPrice: 0.50m);
 
         result.IsFailure.Should().BeTrue();
-        result.Error!.Code.Should().Be("Domain.FairValueTooHighForDown");
+        result.Error!.Code.Should().Be("Domain.InsufficientConfirmation");
+    }
+
+    [Fact]
+    public void Generate_WithBearishIndicators_AlwaysReturnsInsufficientConfirmation()
+    {
+        // DOWN kapatildi (MinBearishConfirmations=99, Analyst v4).
+        // FairValue kontrolune bile ulasamaz, confirmation'da durur.
+        var sut     = CreateSut();
+        var candles = CreateCandles();
+
+        var bearishIndicators = new TechnicalIndicators(
+            asset: Asset.BTCUSDT,
+            timeFrame: TimeFrame.FiveMinute,
+            calculatedAt: DateTime.UtcNow,
+            currentPrice: 0.50m,
+            rsi: new RsiResult(35m),
+            macd: new MacdResult(-0.01m, 0.005m, -0.005m),
+            bollingerBands: new BollingerBandsResult(0.55m, 0.50m, 0.45m),
+            atr: new AtrResult(0.01m),
+            vwap: new VwapResult(0.52m),
+            stochastic: new StochasticResult(30m, 40m),
+            fastSma: 0.48m,
+            slowSma: 0.51m,
+            parkinsonVolatility: 0.02m);
+
+        _indicatorCalc.Calculate(Arg.Any<Asset>(), Arg.Any<TimeFrame>(), Arg.Any<IReadOnlyList<Candle>>())
+            .Returns(Result<TechnicalIndicators>.Success(bearishIndicators));
+
+        var result = sut.Generate(Asset.BTCUSDT, TimeFrame.FiveMinute, candles, marketPrice: 0.50m);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error!.Code.Should().Be("Domain.InsufficientConfirmation");
     }
 
     [Fact]
