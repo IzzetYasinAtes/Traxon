@@ -33,8 +33,8 @@ public sealed class PaperBinanceEngine : ITradingEngine
 
     private const decimal InitialBalance = 10_000m;
     private const decimal SlippageRate   = 0.0005m;
-    private const decimal SlPercent      = 0.004m;   // 0.4% from entry
-    private const decimal TpPercent      = 0.012m;   // 1.2% from entry
+    private const decimal SlPercent      = 0.008m;   // 0.8% from entry
+    private const decimal TpPercent      = 0.016m;   // 1.6% from entry (1:2 ratio)
     private const int     MaxHoldCandles = 10;        // force-close after 10× timeframe durations
 
     public string EngineName => "PaperBinance";
