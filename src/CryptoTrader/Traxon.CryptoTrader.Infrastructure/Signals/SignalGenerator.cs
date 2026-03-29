@@ -27,7 +27,7 @@ public sealed class SignalGenerator : ISignalGenerator
     /// net bearish cogunluk (bullish &lt; 2) gerekir. Bu sekilde neutral markette
     /// DOWN bias azaltilir.
     /// </summary>
-    private const int     MinBullishConfirmations  = 2;
+    private const int     MinBullishConfirmations  = 3;
     private const int     MinBearishConfirmations  = 99; // DOWN direction devre disi — Analyst v1 onerisi
     private const decimal SimulatedBankroll        = 10_000m;
 
@@ -88,10 +88,9 @@ public sealed class SignalGenerator : ISignalGenerator
         if (fairValue < MinMarketPrice || fairValue > MaxMarketPrice)
             return Result<Signal>.Failure(Error.FairValueOutOfRange);
 
-        // NOT: Adim 6 (fair value direction uyumu) kaldirildi.
-        // Black-Scholes momentum modeli trending piyasalarda tek yone bias uretir
-        // (ayı piyasasinda FV < 0.5 → tum UP sinyalleri bloklanir).
-        // Yon, Step 4 multi-confirmation filter ile belirlenir; FV position sizing icin kullanilir.
+        // Adim 5c — UP sinyaller icin FV >= 0.48 zorunlu (Analyst v2 onerisi)
+        if (direction == SignalDirection.Up && fairValue < 0.48m)
+            return Result<Signal>.Failure(Error.FairValueTooLowForUp);
 
         // Adim 6 — Regime detection
         var volShort = _indicatorCalculator.CalculateParkinsonVolatility(candles, RegimeShortPeriod);
@@ -171,7 +170,9 @@ public sealed class SignalGenerator : ISignalGenerator
         if (fairValue < MinMarketPrice || fairValue > MaxMarketPrice)
             return Result<Signal>.Failure(Error.FairValueOutOfRange);
 
-        // NOT: Adim 6 (fair value direction uyumu) kaldirildi — bias'i onlemek icin.
+        // Adim 5c — UP sinyaller icin FV >= 0.48 zorunlu (Analyst v2 onerisi)
+        if (direction == SignalDirection.Up && fairValue < 0.48m)
+            return Result<Signal>.Failure(Error.FairValueTooLowForUp);
 
         // Adim 6 — Regime detection
         var volShort = _indicatorCalculator.CalculateParkinsonVolatility(candles, RegimeShortPeriod);

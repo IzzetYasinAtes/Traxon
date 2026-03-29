@@ -5,10 +5,10 @@ namespace Traxon.CryptoTrader.Infrastructure.Calculators;
 /// <summary>Half Kelly criterion ile pozisyon buyuklugu hesaplayici.</summary>
 public sealed class PositionSizer : IPositionSizer
 {
-    private const decimal MinEdge             = 0.12m;
-    private const decimal MinEdgeLowVol      = 0.15m;
-    private const decimal MaxPositionFraction = 0.02m;
-    private const decimal KellyMultiplier     = 0.10m;
+    private const decimal MinEdge             = 0.20m;
+    private const decimal MinEdgeLowVol      = 0.25m;
+    private const decimal MaxPositionFraction = 0.005m;
+    private const decimal KellyMultiplier     = 0.05m;
 
     /// <summary>
     /// Conservative Kelly criterion ile pozisyon buyuklugu hesaplar.

@@ -110,11 +110,15 @@ public class PaperPolymarketEngineTests
     {
         var sut = CreateSut();
 
-        // Portfolio'yu doldur (max exposure %12, max position %2 => 5 trade dolduruyor)
-        // Her trade %2 kelly × $10000 = $200 (MaxPositionSize caps it)
-        // MaxPositionSize = balance * 0.02 = $200
-        // MaxExposure = balance * 0.12 = $1200 (~5 trade x $200 dynamic)
-        var assets = new[] { Asset.BTCUSDT, Asset.ETHUSDT, Asset.SOLUSDT, Asset.XRPUSDT, Asset.DOGEUSDT };
+        // Portfolio'yu doldur (max exposure %5, max position %0.5 => 10 trade dolduruyor)
+        // Her trade kelly * balance, MaxPositionSize ile sinirli
+        // MaxPositionSize = balance * 0.005 = $50
+        // MaxExposure = balance * 0.05 = $500 (~10 trade x $50 dynamic)
+        var assets = new[]
+        {
+            Asset.BTCUSDT, Asset.ETHUSDT, Asset.SOLUSDT, Asset.XRPUSDT, Asset.DOGEUSDT,
+            Asset.AVAXUSDT, Asset.BNBUSDT, Asset.ADAUSDT, Asset.DOTUSDT, Asset.LINKUSDT
+        };
         foreach (var asset in assets)
         {
             var sig = new Signal(asset, TimeFrame.FiveMinute, SignalDirection.Up,
@@ -122,8 +126,8 @@ public class PaperPolymarketEngineTests
             await sut.OpenPositionAsync(sig);
         }
 
-        // 6. trade — MaxExposure asili
-        var extraSignal = new Signal(Asset.AVAXUSDT, TimeFrame.FiveMinute, SignalDirection.Up,
+        // 11. trade — MaxExposure asili
+        var extraSignal = new Signal(Asset.MATICUSDT, TimeFrame.FiveMinute, SignalDirection.Up,
             0.62m, 0.50m, 0.05m, 0.001m, 0.02m, MarketRegime.LowVolatility, MakeBullishIndicators());
         var result = await sut.OpenPositionAsync(extraSignal);
 
