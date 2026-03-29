@@ -27,7 +27,7 @@ public sealed class SignalGenerator : ISignalGenerator
     /// 4+ bearish gerekir. Bu sekilde neutral markette DOWN bias azaltilir.
     /// </summary>
     private const int     MinBullishConfirmations  = 2;
-    private const int     MinBearishConfirmations  = 4; // DOWN trade'ler aktif — Analyst v3 onerisi
+    private const int     MinBearishConfirmations  = 99; // DOWN kapatildi — DOWN trade'ler -$847 zarar (Analyst v4)
     private const decimal SimulatedBankroll        = 10_000m;
 
     public SignalGenerator(

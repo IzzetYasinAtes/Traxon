@@ -21,7 +21,7 @@ public class PositionSizerTests
     public void Calculate_WithEdgeBelowMinimum_ReturnsMeetsMinimumEdgeFalse()
     {
         var sizer  = new PositionSizer();
-        // Edge = |0.55 - 0.50| = 0.05, MinEdge = 0.08 → MeetsMinimumEdge = false
+        // Edge = |0.55 - 0.50| = 0.05, MinEdge = 0.12 → MeetsMinimumEdge = false
         var result = sizer.Calculate(fairValue: 0.55m, marketPrice: 0.50m, bankroll: 10_000m);
         result.MeetsMinimumEdge.Should().BeFalse();
         result.PositionSize.Should().Be(0m);
