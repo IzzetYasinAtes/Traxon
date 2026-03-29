@@ -13,11 +13,26 @@ public sealed class InMemoryCandleBuffer : ICandleBuffer
 {
     private readonly ConcurrentDictionary<string, LinkedList<Candle>> _buffers = new();
     private readonly object _lock = new();
+    private readonly Dictionary<string, int> _capacities;
 
-    /// <summary>Maximum number of candles stored per key.</summary>
+    /// <summary>Maximum number of candles stored per key (default fallback).</summary>
     public int Capacity { get; }
 
-    public InMemoryCandleBuffer(int capacity = 200) => Capacity = capacity;
+    public InMemoryCandleBuffer(int capacity = 200)
+    {
+        Capacity = capacity;
+        _capacities = new Dictionary<string, int>();
+    }
+
+    public InMemoryCandleBuffer(Dictionary<string, int> capacities, int defaultCapacity = 200)
+    {
+        Capacity = defaultCapacity;
+        _capacities = capacities;
+    }
+
+    /// <summary>TimeFrame bazli kapasite dondurur; tanimlanmamissa default Capacity kullanilir.</summary>
+    public int GetCapacity(TimeFrame timeFrame) =>
+        _capacities.TryGetValue(timeFrame.Value, out var cap) ? cap : Capacity;
 
     private static string Key(Asset asset, TimeFrame timeFrame) =>
         $"{asset.Symbol}:{timeFrame.Value}";
@@ -28,6 +43,7 @@ public sealed class InMemoryCandleBuffer : ICandleBuffer
         var key  = Key(candle.Asset, candle.TimeFrame);
         var list = _buffers.GetOrAdd(key, _ => new LinkedList<Candle>());
 
+        var cap = GetCapacity(candle.TimeFrame);
         lock (_lock)
         {
             var existing = list.FirstOrDefault(c => c.OpenTime == candle.OpenTime);
@@ -36,7 +52,7 @@ public sealed class InMemoryCandleBuffer : ICandleBuffer
 
             list.AddLast(candle);
 
-            while (list.Count > Capacity)
+            while (list.Count > cap)
                 list.RemoveFirst();
         }
     }

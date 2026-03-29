@@ -216,4 +216,115 @@ public sealed class SignalGenerator : ISignalGenerator
 
         return Result<Signal>.Success(signal);
     }
+
+    /// <summary>V2 sinyal motoru: agirlikli skor + 1h trend dogrulama + volume dogrulama.</summary>
+    public Result<Signal> GenerateV2(
+        Asset asset,
+        TimeFrame timeFrame,
+        IReadOnlyList<Candle> candles,
+        decimal marketPrice,
+        TechnicalIndicators precomputedIndicators,
+        IReadOnlyList<Candle>? hourlyCandles)
+    {
+        // Adim 1 — Minimum candle check
+        if (candles.Count < MinCandlesForSignal)
+            return Result<Signal>.Failure(Error.NotEnoughCandles);
+
+        // Adim 2 — Market price range check
+        if (marketPrice < MinMarketPrice || marketPrice > MaxMarketPrice)
+            return Result<Signal>.Failure(Error.InvalidMarketPrice);
+
+        var indicators = precomputedIndicators;
+
+        // Adim 3 — Agirlikli sinyal skoru hesapla
+        var finalScore = indicators.CalculateSignalScore();
+
+        // Adim 4 — Skor bazli yon karari: >0.60 UP, <0.40 DOWN
+        SignalDirection direction;
+        if (finalScore > 0.60m)
+            direction = SignalDirection.Up;
+        else if (finalScore < 0.40m)
+            direction = SignalDirection.Down;
+        else
+            return Result<Signal>.Failure(Error.InsufficientConfirmation);
+
+        // Adim 5 — 1h trend dogrulama
+        var hourlyTrendConfirmed = false;
+        if (hourlyCandles is { Count: >= 10 })
+        {
+            var hourlyCloses = hourlyCandles.Select(c => c.Close).ToList();
+            var hourlySmaFast = _indicatorCalculator.CalculateSma(hourlyCloses, 5);
+            var hourlySmaSlow = _indicatorCalculator.CalculateSma(hourlyCloses, 10);
+
+            if (direction == SignalDirection.Up && hourlySmaFast > hourlySmaSlow)
+                hourlyTrendConfirmed = true;
+            else if (direction == SignalDirection.Down && hourlySmaFast < hourlySmaSlow)
+                hourlyTrendConfirmed = true;
+
+            // Trend dogrulanmazsa sinyal zayif — yine de uret ama Score'da not et
+        }
+
+        // Adim 6 — Volume dogrulama
+        var volumeConfirmed = indicators.Volume is { Ratio: >= 0.8m };
+
+        // Adim 7 — Fair value hesapla
+        var fvResult  = _fairValueCalculator.Calculate(candles, timeFrame);
+        var fairValue = fvResult.FairValue;
+
+        if (fairValue < MinMarketPrice || fairValue > MaxMarketPrice)
+            return Result<Signal>.Failure(Error.FairValueOutOfRange);
+
+        if (direction == SignalDirection.Up && fairValue < 0.48m)
+            return Result<Signal>.Failure(Error.FairValueTooLowForUp);
+
+        if (direction == SignalDirection.Down && fairValue > 0.52m)
+            return Result<Signal>.Failure(Error.FairValueTooHighForDown);
+
+        // Adim 8 — Regime detection
+        var volShort = _indicatorCalculator.CalculateParkinsonVolatility(candles, RegimeShortPeriod);
+        var volLong  = candles.Count >= RegimeLongPeriod
+            ? _indicatorCalculator.CalculateParkinsonVolatility(candles, RegimeLongPeriod)
+            : volShort;
+
+        var regime = (volLong > 0 && volShort > HighVolMultiplier * volLong)
+            ? MarketRegime.HighVolatility
+            : MarketRegime.LowVolatility;
+
+        // Adim 9 — Position sizing
+        var isLowVol = regime == MarketRegime.LowVolatility;
+        var sizeResult = _positionSizer.Calculate(fairValue, marketPrice, SimulatedBankroll, isLowVol);
+        if (!sizeResult.MeetsMinimumEdge)
+            return Result<Signal>.Failure(Error.InvalidEdge);
+
+        // Adim 10 — SignalScore olustur
+        var signalScore = new SignalScore(
+            FinalScore: finalScore,
+            Edge: sizeResult.Edge,
+            HourlyTrendConfirmed: hourlyTrendConfirmed,
+            VolumeConfirmed: volumeConfirmed,
+            IsUpSignal: direction == SignalDirection.Up,
+            IsDownSignal: direction == SignalDirection.Down);
+
+        // Adim 11 — Signal olustur
+        var signal = new Signal(
+            asset:         asset,
+            timeFrame:     timeFrame,
+            direction:     direction,
+            fairValue:     fairValue,
+            marketPrice:   marketPrice,
+            kellyFraction: sizeResult.KellyFraction,
+            muEstimate:    fvResult.Mu,
+            sigmaEstimate: fvResult.Sigma,
+            regime:        regime,
+            indicators:    indicators,
+            score:         signalScore);
+
+        _logger.LogInformation(
+            "V2 Signal: {Symbol}/{Interval} {Direction} Score:{Score:F3} FV:{FV:F3} Edge:{Edge:F3} " +
+            "Trend1h:{Trend} Volume:{Vol} Regime:{Regime}",
+            asset.Symbol, timeFrame.Value, direction, finalScore, fairValue, sizeResult.Edge,
+            hourlyTrendConfirmed, volumeConfirmed, regime);
+
+        return Result<Signal>.Success(signal);
+    }
 }

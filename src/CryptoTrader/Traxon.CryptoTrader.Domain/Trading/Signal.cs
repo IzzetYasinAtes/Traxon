@@ -36,6 +36,9 @@ public sealed class Signal : ValueObject
     public TechnicalIndicators Indicators { get; }
     public DateTime GeneratedAt { get; }
 
+    /// <summary>V2 sinyal skoru (null ise V1 sinyal).</summary>
+    public SignalScore? Score { get; }
+
     public Signal(
         Asset asset,
         TimeFrame timeFrame,
@@ -46,7 +49,8 @@ public sealed class Signal : ValueObject
         decimal muEstimate,
         decimal sigmaEstimate,
         MarketRegime regime,
-        TechnicalIndicators indicators)
+        TechnicalIndicators indicators,
+        SignalScore? score = null)
     {
         SignalId = Guid.NewGuid();
         Asset = asset;
@@ -60,6 +64,7 @@ public sealed class Signal : ValueObject
         Regime = regime;
         Indicators = indicators;
         GeneratedAt = DateTime.UtcNow;
+        Score = score;
     }
 
     protected override IEnumerable<object?> GetEqualityComponents()

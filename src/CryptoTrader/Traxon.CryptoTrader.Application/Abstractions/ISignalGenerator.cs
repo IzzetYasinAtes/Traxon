@@ -28,4 +28,16 @@ public interface ISignalGenerator
         IReadOnlyList<Candle> candles,
         decimal marketPrice,
         TechnicalIndicators precomputedIndicators);
+
+    /// <summary>
+    /// V2 sinyal motoru: agirlikli skor + 1h trend dogrulama + volume dogrulama.
+    /// hourlyCandles null ise trend dogrulama atlanir.
+    /// </summary>
+    Result<Signal> GenerateV2(
+        Asset asset,
+        TimeFrame timeFrame,
+        IReadOnlyList<Candle> candles,
+        decimal marketPrice,
+        TechnicalIndicators precomputedIndicators,
+        IReadOnlyList<Candle>? hourlyCandles);
 }

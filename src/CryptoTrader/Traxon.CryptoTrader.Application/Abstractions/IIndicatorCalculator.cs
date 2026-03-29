@@ -24,4 +24,6 @@ public interface IIndicatorCalculator
     Result<StochasticResult>     CalculateStochastic(IReadOnlyList<Candle> candles, int kPeriod = 14, int dPeriod = 3, int smoothK = 3);
     decimal                      CalculateSma(IReadOnlyList<decimal> values, int period);
     decimal                      CalculateParkinsonVolatility(IReadOnlyList<Candle> candles, int period = 14);
+    Result<EmaResult>            CalculateEma(IReadOnlyList<decimal> closes, int period = 9);
+    Result<VolumeResult>         CalculateVolume(IReadOnlyList<Candle> candles, int period = 20);
 }

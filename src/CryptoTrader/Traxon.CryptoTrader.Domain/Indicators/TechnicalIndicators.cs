@@ -30,6 +30,15 @@ public sealed class TechnicalIndicators : ValueObject
     /// <summary>Candlestick pattern analiz sonucu (null ise henüz hesaplanmadı).</summary>
     public PatternAnalysis? PatternAnalysis { get; private set; }
 
+    /// <summary>RSI(7) kisa vadeli momentum (null ise henuz hesaplanmadi).</summary>
+    public RsiResult? RsiShort { get; }
+
+    /// <summary>EMA(9) sonucu (null ise henuz hesaplanmadi).</summary>
+    public EmaResult? Ema9 { get; }
+
+    /// <summary>Hacim analizi (null ise henuz hesaplanmadi).</summary>
+    public VolumeResult? Volume { get; }
+
     public TechnicalIndicators(
         Asset asset,
         TimeFrame timeFrame,
@@ -44,7 +53,10 @@ public sealed class TechnicalIndicators : ValueObject
         decimal fastSma,
         decimal slowSma,
         decimal parkinsonVolatility,
-        PatternAnalysis? patternAnalysis = null)
+        PatternAnalysis? patternAnalysis = null,
+        RsiResult? rsiShort = null,
+        EmaResult? ema9 = null,
+        VolumeResult? volume = null)
     {
         Asset = asset;
         TimeFrame = timeFrame;
@@ -60,6 +72,67 @@ public sealed class TechnicalIndicators : ValueObject
         SlowSma = slowSma;
         ParkinsonVolatility = parkinsonVolatility;
         PatternAnalysis = patternAnalysis;
+        RsiShort = rsiShort;
+        Ema9 = ema9;
+        Volume = volume;
+    }
+
+    /// <summary>
+    /// Agirlikli sinyal skoru hesaplar (0.0 - 1.0 arasi).
+    /// RSI7(%25) + MACD(%20) + BB(%20) + EMA9(%15) + Volume(%10) + RSI14(%10)
+    /// </summary>
+    public decimal CalculateSignalScore()
+    {
+        decimal score = 0m;
+
+        // RSI7 (%25) — 0-100 arasini 0-1'e normalize et
+        if (RsiShort is not null)
+            score += 0.25m * (RsiShort.Value / 100m);
+        else
+            score += 0.25m * (Rsi.Value / 100m); // fallback RSI14
+
+        // MACD (%20) — histogram pozitif ise bullish
+        score += 0.20m * (Macd.IsBullish ? 1m : 0m);
+
+        // Bollinger Bands (%20) — fiyat lower band'e yakinsa oversold (bullish sinyal)
+        var bbRange = BollingerBands.Upper - BollingerBands.Lower;
+        if (bbRange > 0)
+        {
+            var bbPosition = (CurrentPrice - BollingerBands.Lower) / bbRange;
+            score += 0.20m * Math.Clamp(bbPosition, 0m, 1m);
+        }
+        else
+        {
+            score += 0.10m; // neutral
+        }
+
+        // EMA9 (%15) — fiyat EMA ustunde ve rising ise bullish
+        if (Ema9 is not null)
+        {
+            var emaScore = 0m;
+            if (CurrentPrice > Ema9.Value) emaScore += 0.5m;
+            if (Ema9.IsRising) emaScore += 0.5m;
+            score += 0.15m * emaScore;
+        }
+        else
+        {
+            score += 0.15m * (IsFastSmaAboveSlow ? 1m : 0m); // fallback SMA
+        }
+
+        // Volume (%10) — ortalamanin ustunde ise dogrulama
+        if (Volume is not null)
+        {
+            score += 0.10m * Math.Clamp(Volume.Ratio / 2m, 0m, 1m); // ratio=2 -> max skor
+        }
+        else
+        {
+            score += 0.05m; // neutral
+        }
+
+        // RSI14 (%10) — uzun vadeli trend
+        score += 0.10m * (Rsi.Value / 100m);
+
+        return Math.Clamp(score, 0m, 1m);
     }
 
     /// <summary>Multi-confirmation: kaç indicator bullish yön gösteriyor? Pattern bonus dahil.</summary>

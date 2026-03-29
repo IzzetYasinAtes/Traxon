@@ -48,6 +48,11 @@ public sealed class IndicatorCalculator : IIndicatorCalculator
 
         var patternAnalysis = _patternRecognizer.Analyze(candles);
 
+        // V2 indicators (opsiyonel — hata olursa null kalir)
+        var rsiShortResult = CalculateRsi(closes, period: 7);
+        var ema9Result     = CalculateEma(closes, period: 9);
+        var volumeResult   = CalculateVolume(candles, period: 20);
+
         var indicators = new TechnicalIndicators(
             asset: asset,
             timeFrame: timeFrame,
@@ -62,7 +67,10 @@ public sealed class IndicatorCalculator : IIndicatorCalculator
             fastSma: fastSma,
             slowSma: slowSma,
             parkinsonVolatility: parkinson,
-            patternAnalysis: patternAnalysis);
+            patternAnalysis: patternAnalysis,
+            rsiShort: rsiShortResult.IsSuccess ? rsiShortResult.Value : null,
+            ema9: ema9Result.IsSuccess ? ema9Result.Value : null,
+            volume: volumeResult.IsSuccess ? volumeResult.Value : null);
 
         return Result<TechnicalIndicators>.Success(indicators);
     }
@@ -254,6 +262,40 @@ public sealed class IndicatorCalculator : IIndicatorCalculator
 
         var parkinson = Math.Sqrt(sumSquaredLogs / (4.0 * period * Math.Log(2.0)));
         return (decimal)parkinson;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // EMA (Exponential Moving Average)
+    // ─────────────────────────────────────────────────────────────────────────
+    public Result<EmaResult> CalculateEma(IReadOnlyList<decimal> closes, int period = 9)
+    {
+        if (closes.Count < period + 1)
+            return Result<EmaResult>.Failure(Error.NotEnoughCandles);
+
+        var emaArray = CalculateEmaArray(closes, period);
+        var current = emaArray[^1];
+        var previous = emaArray.Length >= 2 ? emaArray[^2] : current;
+        var slope = current - previous;
+
+        return Result<EmaResult>.Success(new EmaResult(
+            Math.Round(current, 8),
+            Math.Round(slope, 8)));
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Volume SMA
+    // ─────────────────────────────────────────────────────────────────────────
+    public Result<VolumeResult> CalculateVolume(IReadOnlyList<Candle> candles, int period = 20)
+    {
+        if (candles.Count < period)
+            return Result<VolumeResult>.Failure(Error.NotEnoughCandles);
+
+        var currentVolume = candles[^1].Volume;
+        var avgVolume = candles.TakeLast(period).Average(c => c.Volume);
+
+        return Result<VolumeResult>.Success(new VolumeResult(
+            Math.Round(currentVolume, 8),
+            Math.Round(avgVolume, 8)));
     }
 
     // ─────────────────────────────────────────────────────────────────────────
