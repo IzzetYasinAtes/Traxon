@@ -35,4 +35,5 @@ public sealed record Error(string Code, string Message)
     public static readonly Error Disabled               = new("Engine.Disabled",               "Engine is disabled in configuration.");
     public static readonly Error MarketNotFound         = new("Polymarket.MarketNotFound",      "No active market found for this asset/direction.");
     public static readonly Error FairValueOutOfRange   = new("Domain.FairValueOutOfRange",     "Fair value is outside tradeable range.");
+    public static readonly Error FairValueTooLowForUp = new("Domain.FairValueTooLowForUp",   "UP signal requires fair value >= 0.48.");
 }

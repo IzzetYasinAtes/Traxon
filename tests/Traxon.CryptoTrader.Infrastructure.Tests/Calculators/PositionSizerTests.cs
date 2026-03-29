@@ -10,29 +10,29 @@ public class PositionSizerTests
     public void Calculate_WithSufficientEdge_ReturnsPositivePositionSize()
     {
         var sizer  = new PositionSizer();
-        var result = sizer.Calculate(fairValue: 0.62m, marketPrice: 0.50m, bankroll: 10_000m);
+        var result = sizer.Calculate(fairValue: 0.72m, marketPrice: 0.50m, bankroll: 10_000m);
         result.MeetsMinimumEdge.Should().BeTrue();
         result.PositionSize.Should().BeGreaterThan(0m);
         result.KellyFraction.Should().BeGreaterThan(0m);
-        result.Edge.Should().BeApproximately(0.12m, 0.001m);
+        result.Edge.Should().BeApproximately(0.22m, 0.001m);
     }
 
     [Fact]
     public void Calculate_WithEdgeBelowMinimum_ReturnsMeetsMinimumEdgeFalse()
     {
         var sizer  = new PositionSizer();
-        var result = sizer.Calculate(fairValue: 0.52m, marketPrice: 0.50m, bankroll: 10_000m);
+        var result = sizer.Calculate(fairValue: 0.60m, marketPrice: 0.50m, bankroll: 10_000m);
         result.MeetsMinimumEdge.Should().BeFalse();
         result.PositionSize.Should().Be(0m);
     }
 
     [Fact]
-    public void Calculate_PositionSize_NeverExceedsFivePercentBankroll()
+    public void Calculate_PositionSize_NeverExceedsMaxPositionFraction()
     {
         var sizer    = new PositionSizer();
         var bankroll = 10_000m;
         var result   = sizer.Calculate(fairValue: 0.99m, marketPrice: 0.30m, bankroll: bankroll);
-        result.PositionSize.Should().BeLessThanOrEqualTo(bankroll * 0.05m);
+        result.PositionSize.Should().BeLessThanOrEqualTo(bankroll * 0.005m);
     }
 
     [Fact]
@@ -48,7 +48,7 @@ public class PositionSizerTests
     public void Calculate_DownSignal_ReturnsPositivePositionSize()
     {
         var sizer  = new PositionSizer();
-        var result = sizer.Calculate(fairValue: 0.35m, marketPrice: 0.50m, bankroll: 10_000m);
+        var result = sizer.Calculate(fairValue: 0.28m, marketPrice: 0.50m, bankroll: 10_000m);
         result.MeetsMinimumEdge.Should().BeTrue();
         result.PositionSize.Should().BeGreaterThan(0m);
     }

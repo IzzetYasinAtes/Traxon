@@ -25,8 +25,12 @@ public sealed class Asset : ValueObject
     public static readonly Asset DOGEUSDT = new("DOGEUSDT", "DOGE", "USDT");
     public static readonly Asset AVAXUSDT = new("AVAXUSDT", "HYPE", "USDT");
     public static readonly Asset BNBUSDT  = new("BNBUSDT",  "BNB",  "USDT");
+    public static readonly Asset ADAUSDT  = new("ADAUSDT",  "ADA",  "USDT");
+    public static readonly Asset DOTUSDT  = new("DOTUSDT",  "DOT",  "USDT");
+    public static readonly Asset LINKUSDT = new("LINKUSDT", "LINK", "USDT");
+    public static readonly Asset MATICUSDT = new("MATICUSDT", "MATIC", "USDT");
 
-    public static readonly IReadOnlyList<Asset> All = [BTCUSDT, ETHUSDT, SOLUSDT, XRPUSDT, DOGEUSDT, AVAXUSDT, BNBUSDT];
+    public static readonly IReadOnlyList<Asset> All = [BTCUSDT, ETHUSDT, SOLUSDT, XRPUSDT, DOGEUSDT, AVAXUSDT, BNBUSDT, ADAUSDT, DOTUSDT, LINKUSDT, MATICUSDT];
 
     /// <summary>Trade edilmemesi gereken asset'ler.</summary>
     public static readonly IReadOnlyList<Asset> Excluded = [];
