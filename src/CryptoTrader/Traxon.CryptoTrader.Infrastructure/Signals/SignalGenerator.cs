@@ -16,19 +16,18 @@ public sealed class SignalGenerator : ISignalGenerator
     private readonly IPositionSizer          _positionSizer;
     private readonly ILogger<SignalGenerator> _logger;
 
-    private const int     MinCandlesForSignal      = 50;
+    private const int     MinCandlesForSignal      = 20;
     private const int     RegimeShortPeriod        = 12;
     private const int     RegimeLongPeriod         = 144;
     private const decimal HighVolMultiplier        = 1.5m;
     private const decimal MinMarketPrice           = 0.30m;
     private const decimal MaxMarketPrice           = 0.80m;
     /// <summary>
-    /// Kisa vadeli kripto icin asimetrik esik: UP icin 2+ yeterli, DOWN icin
-    /// net bearish cogunluk (bullish &lt; 2) gerekir. Bu sekilde neutral markette
-    /// DOWN bias azaltilir.
+    /// Kisa vadeli kripto icin asimetrik esik: UP icin 2+ bullish yeterli, DOWN icin
+    /// 4+ bearish gerekir. Bu sekilde neutral markette DOWN bias azaltilir.
     /// </summary>
-    private const int     MinBullishConfirmations  = 3;
-    private const int     MinBearishConfirmations  = 99; // DOWN direction devre disi — Analyst v1 onerisi
+    private const int     MinBullishConfirmations  = 2;
+    private const int     MinBearishConfirmations  = 4; // DOWN trade'ler aktif — Analyst v3 onerisi
     private const decimal SimulatedBankroll        = 10_000m;
 
     public SignalGenerator(
@@ -91,6 +90,10 @@ public sealed class SignalGenerator : ISignalGenerator
         // Adim 5c — UP sinyaller icin FV >= 0.48 zorunlu (Analyst v2 onerisi)
         if (direction == SignalDirection.Up && fairValue < 0.48m)
             return Result<Signal>.Failure(Error.FairValueTooLowForUp);
+
+        // Adim 5d — DOWN sinyaller icin FV <= 0.52 zorunlu (Analyst v3 onerisi)
+        if (direction == SignalDirection.Down && fairValue > 0.52m)
+            return Result<Signal>.Failure(Error.FairValueTooHighForDown);
 
         // Adim 6 — Regime detection
         var volShort = _indicatorCalculator.CalculateParkinsonVolatility(candles, RegimeShortPeriod);
@@ -173,6 +176,10 @@ public sealed class SignalGenerator : ISignalGenerator
         // Adim 5c — UP sinyaller icin FV >= 0.48 zorunlu (Analyst v2 onerisi)
         if (direction == SignalDirection.Up && fairValue < 0.48m)
             return Result<Signal>.Failure(Error.FairValueTooLowForUp);
+
+        // Adim 5d — DOWN sinyaller icin FV <= 0.52 zorunlu (Analyst v3 onerisi)
+        if (direction == SignalDirection.Down && fairValue > 0.52m)
+            return Result<Signal>.Failure(Error.FairValueTooHighForDown);
 
         // Adim 6 — Regime detection
         var volShort = _indicatorCalculator.CalculateParkinsonVolatility(candles, RegimeShortPeriod);

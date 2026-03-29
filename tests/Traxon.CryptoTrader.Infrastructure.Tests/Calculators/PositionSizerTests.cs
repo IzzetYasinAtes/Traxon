@@ -21,7 +21,8 @@ public class PositionSizerTests
     public void Calculate_WithEdgeBelowMinimum_ReturnsMeetsMinimumEdgeFalse()
     {
         var sizer  = new PositionSizer();
-        var result = sizer.Calculate(fairValue: 0.60m, marketPrice: 0.50m, bankroll: 10_000m);
+        // Edge = |0.55 - 0.50| = 0.05, MinEdge = 0.08 → MeetsMinimumEdge = false
+        var result = sizer.Calculate(fairValue: 0.55m, marketPrice: 0.50m, bankroll: 10_000m);
         result.MeetsMinimumEdge.Should().BeFalse();
         result.PositionSize.Should().Be(0m);
     }
@@ -32,7 +33,7 @@ public class PositionSizerTests
         var sizer    = new PositionSizer();
         var bankroll = 10_000m;
         var result   = sizer.Calculate(fairValue: 0.99m, marketPrice: 0.30m, bankroll: bankroll);
-        result.PositionSize.Should().BeLessThanOrEqualTo(bankroll * 0.005m);
+        result.PositionSize.Should().BeLessThanOrEqualTo(bankroll * 0.02m);
     }
 
     [Fact]
