@@ -8,11 +8,10 @@ using Traxon.CryptoTrader.Domain.Trading;
 
 namespace Traxon.CryptoTrader.Infrastructure.Signals;
 
-/// <summary>Multi-confirmation ve Black-Scholes fair value kullanan sinyal uretici.</summary>
+/// <summary>Multi-confirmation ve momentum-based fair value kullanan sinyal uretici.</summary>
 public sealed class SignalGenerator : ISignalGenerator
 {
     private readonly IIndicatorCalculator    _indicatorCalculator;
-    private readonly IFairValueCalculator    _fairValueCalculator;
     private readonly IPositionSizer          _positionSizer;
     private readonly ILogger<SignalGenerator> _logger;
 
@@ -32,12 +31,10 @@ public sealed class SignalGenerator : ISignalGenerator
 
     public SignalGenerator(
         IIndicatorCalculator indicatorCalculator,
-        IFairValueCalculator fairValueCalculator,
         IPositionSizer positionSizer,
         ILogger<SignalGenerator> logger)
     {
         _indicatorCalculator = indicatorCalculator;
-        _fairValueCalculator = fairValueCalculator;
         _positionSizer       = positionSizer;
         _logger              = logger;
     }
@@ -79,9 +76,8 @@ public sealed class SignalGenerator : ISignalGenerator
         else
             return Result<Signal>.Failure(Error.InsufficientConfirmation);
 
-        // Adim 5 — Fair value hesapla
-        var fvResult  = _fairValueCalculator.Calculate(candles, timeFrame);
-        var fairValue = fvResult.FairValue;
+        // Adim 5 — Momentum probability (Black-Scholes yerine)
+        var fairValue = indicators.CalculateSignalScore();
 
         // Adim 5b — Fair value range check (FV tradeable aralikta mi?)
         if (fairValue < MinMarketPrice || fairValue > MaxMarketPrice)
@@ -105,7 +101,7 @@ public sealed class SignalGenerator : ISignalGenerator
             ? MarketRegime.HighVolatility
             : MarketRegime.LowVolatility;
 
-        // Adim 7 — Position sizing
+        // Adim 7 — Position sizing (edge = |score - 0.50|)
         var isLowVol = regime == MarketRegime.LowVolatility;
         var sizeResult = _positionSizer.Calculate(fairValue, marketPrice, SimulatedBankroll, isLowVol);
         if (!sizeResult.MeetsMinimumEdge)
@@ -119,8 +115,8 @@ public sealed class SignalGenerator : ISignalGenerator
             fairValue:     fairValue,
             marketPrice:   marketPrice,
             kellyFraction: sizeResult.KellyFraction,
-            muEstimate:    fvResult.Mu,
-            sigmaEstimate: fvResult.Sigma,
+            muEstimate:    0m,
+            sigmaEstimate: 0m,
             regime:        regime,
             indicators:    indicators);
 
@@ -165,9 +161,8 @@ public sealed class SignalGenerator : ISignalGenerator
         else
             return Result<Signal>.Failure(Error.InsufficientConfirmation);
 
-        // Adim 5 — Fair value hesapla
-        var fvResult  = _fairValueCalculator.Calculate(candles, timeFrame);
-        var fairValue = fvResult.FairValue;
+        // Adim 5 — Momentum probability (Black-Scholes yerine)
+        var fairValue = indicators.CalculateSignalScore();
 
         // Adim 5b — Fair value range check (FV tradeable aralikta mi?)
         if (fairValue < MinMarketPrice || fairValue > MaxMarketPrice)
@@ -191,7 +186,7 @@ public sealed class SignalGenerator : ISignalGenerator
             ? MarketRegime.HighVolatility
             : MarketRegime.LowVolatility;
 
-        // Adim 7 — Position sizing
+        // Adim 7 — Position sizing (edge = |score - 0.50|)
         var isLowVol = regime == MarketRegime.LowVolatility;
         var sizeResult = _positionSizer.Calculate(fairValue, marketPrice, SimulatedBankroll, isLowVol);
         if (!sizeResult.MeetsMinimumEdge)
@@ -205,8 +200,8 @@ public sealed class SignalGenerator : ISignalGenerator
             fairValue:     fairValue,
             marketPrice:   marketPrice,
             kellyFraction: sizeResult.KellyFraction,
-            muEstimate:    fvResult.Mu,
-            sigmaEstimate: fvResult.Sigma,
+            muEstimate:    0m,
+            sigmaEstimate: 0m,
             regime:        regime,
             indicators:    indicators);
 
@@ -248,7 +243,7 @@ public sealed class SignalGenerator : ISignalGenerator
         else
             return Result<Signal>.Failure(Error.InsufficientConfirmation);
 
-        // Adim 5 — 1h trend dogrulama
+        // Adim 5 — 1h trend dogrulama (hard block: counter-trend sinyal URETME)
         var hourlyTrendConfirmed = false;
         if (hourlyCandles is { Count: >= 10 })
         {
@@ -256,20 +251,22 @@ public sealed class SignalGenerator : ISignalGenerator
             var hourlySmaFast = _indicatorCalculator.CalculateSma(hourlyCloses, 5);
             var hourlySmaSlow = _indicatorCalculator.CalculateSma(hourlyCloses, 10);
 
-            if (direction == SignalDirection.Up && hourlySmaFast > hourlySmaSlow)
-                hourlyTrendConfirmed = true;
-            else if (direction == SignalDirection.Down && hourlySmaFast < hourlySmaSlow)
-                hourlyTrendConfirmed = true;
+            var hourlyTrendUp = hourlySmaFast > hourlySmaSlow;
 
-            // Trend dogrulanmazsa sinyal zayif — yine de uret ama Score'da not et
+            if (direction == SignalDirection.Up && !hourlyTrendUp)
+                return Result<Signal>.Failure(Error.CounterTrend);
+
+            if (direction == SignalDirection.Down && hourlyTrendUp)
+                return Result<Signal>.Failure(Error.CounterTrend);
+
+            hourlyTrendConfirmed = true;
         }
 
         // Adim 6 — Volume dogrulama
         var volumeConfirmed = indicators.Volume is { Ratio: >= 0.8m };
 
-        // Adim 7 — Fair value hesapla
-        var fvResult  = _fairValueCalculator.Calculate(candles, timeFrame);
-        var fairValue = fvResult.FairValue;
+        // Adim 7 — Momentum probability (Black-Scholes yerine)
+        var fairValue = finalScore;
 
         if (fairValue < MinMarketPrice || fairValue > MaxMarketPrice)
             return Result<Signal>.Failure(Error.FairValueOutOfRange);
@@ -313,8 +310,8 @@ public sealed class SignalGenerator : ISignalGenerator
             fairValue:     fairValue,
             marketPrice:   marketPrice,
             kellyFraction: sizeResult.KellyFraction,
-            muEstimate:    fvResult.Mu,
-            sigmaEstimate: fvResult.Sigma,
+            muEstimate:    0m,
+            sigmaEstimate: 0m,
             regime:        regime,
             indicators:    indicators,
             score:         signalScore);
