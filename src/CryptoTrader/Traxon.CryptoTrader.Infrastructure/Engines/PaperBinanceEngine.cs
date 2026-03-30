@@ -33,9 +33,10 @@ public sealed class PaperBinanceEngine : ITradingEngine
 
     private const decimal InitialBalance = 10_000m;
     private const decimal SlippageRate   = 0.0005m;
-    private const decimal SlPercent      = 0.008m;   // 0.8% from entry
-    private const decimal TpPercent      = 0.016m;   // 1.6% from entry (1:2 ratio)
-    private const int     MaxHoldCandles = 10;        // force-close after 10× timeframe durations
+    private const decimal SlPercent      = 0.015m;   // 1.5% from entry
+    private const decimal TpPercent      = 0.030m;   // 3.0% from entry (1:2 ratio)
+    private const int     MaxHoldCandles = 20;        // force-close after 20× timeframe durations
+    private const decimal MinPositionSize = 150m;     // minimum $150 per trade
 
     public string EngineName => "PaperBinance";
 
@@ -137,9 +138,10 @@ public sealed class PaperBinanceEngine : ITradingEngine
             var lastCandle   = candlesResult.Value![^1];
             var entryPrice   = lastCandle.Close * (1 + SlippageRate);
             var positionSize = Math.Min(signal.KellyFraction * _portfolio.Balance, _portfolio.MaxPositionSize);
+            positionSize = Math.Max(positionSize, MinPositionSize);
 
-            // Percentage-based SL/TP: fixed 0.5% SL and 1.0% TP from entry.
-            // ATR-based levels were too wide for short MaxHold windows, causing all trades to exit via MaxHold.
+            // Percentage-based SL/TP from entry (1:2 risk/reward ratio).
+            // ATR-based levels were too wide; percentage-based gives consistent 1:2 R/R.
             var sl = signal.Direction == SignalDirection.Up
                 ? entryPrice * (1 - SlPercent)
                 : entryPrice * (1 + SlPercent);
