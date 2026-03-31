@@ -109,6 +109,7 @@
     {
         Feed.OnSignalGenerated += OnSignal;
         Feed.OnTradeOpened += OnTrade;
+        Feed.OnTradeClosed += OnTrade;
         Feed.OnPortfolioUpdate += OnPortfolio;
     }
 
@@ -120,6 +121,7 @@
     {
         Feed.OnSignalGenerated -= OnSignal;
         Feed.OnTradeOpened -= OnTrade;
+        Feed.OnTradeClosed -= OnTrade;
         Feed.OnPortfolioUpdate -= OnPortfolio;
     }
 }

@@ -14,4 +14,7 @@ public sealed class BinanceOptions
     public string ApiSecret { get; set; } = string.Empty;
     public decimal MaxPositionSize { get; set; } = 100m;
     public IReadOnlyList<string> AllowedSymbols { get; set; } = ["BTCUSDT", "ETHUSDT"];
+    public bool UseTestnet { get; set; } = false;
+    public string TestnetBaseUrl { get; set; } = "https://testnet.binance.vision";
+    public decimal CommissionRate { get; set; } = 0.00075m;
 }
