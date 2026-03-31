@@ -20,7 +20,6 @@ public class SignalGeneratorTests
 
     private SignalGenerator CreateSut() => new SignalGenerator(
         _indicatorCalc,
-        _fairValueCalc,
         _positionSizer,
         NullLogger<SignalGenerator>.Instance);
 

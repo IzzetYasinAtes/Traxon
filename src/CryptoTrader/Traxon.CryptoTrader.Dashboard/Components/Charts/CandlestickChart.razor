@@ -20,9 +20,15 @@
 
     private readonly string _chartId = "chart" + Guid.NewGuid().ToString("N");
     private string? _candleDataJson;
+    private string _prevKey = "";
+    private bool _needsRender;
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnParametersSetAsync()
     {
+        var key = $"{Symbol}_{Interval}";
+        if (key == _prevKey) return;
+        _prevKey = key;
+
         await using var db = await DbFactory.CreateDbContextAsync();
         var candles = await db.Candles
             .Where(c => c.Asset.Symbol == Symbol && c.TimeFrame.Value == Interval)
@@ -43,12 +49,18 @@
             });
             _candleDataJson = System.Text.Json.JsonSerializer.Serialize(data);
         }
+        else
+        {
+            _candleDataJson = null;
+        }
+        _needsRender = true;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && _candleDataJson is not null)
+        if (_needsRender && _candleDataJson is not null)
         {
+            _needsRender = false;
             await JS.InvokeVoidAsync("traxonCandlestickChart.render", _chartId, _candleDataJson, Height);
         }
     }

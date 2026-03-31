@@ -26,8 +26,9 @@ public sealed class PaperPolymarketEngine : ITradingEngine
 
     private const decimal InitialBalance = 10_000m;
     private const decimal Slippage       = 0.01m;
-    private const decimal MinEntryPrice  = 0.25m; // Analyst v4: 0.30 → 0.25
-    private const decimal MaxEntryPrice  = 0.55m; // Analyst v4: 0.60 → 0.55
+    private const decimal TakerFeeRate   = 0.018m; // Crypto markets max %1.8
+    private const decimal MinEntryPrice  = 0.25m;  // Analyst v4: 0.30 → 0.25
+    private const decimal MaxEntryPrice  = 0.55m;  // Analyst v4: 0.60 → 0.55
 
     public string EngineName => "PaperPoly";
 
@@ -248,7 +249,8 @@ public sealed class PaperPolymarketEngine : ITradingEngine
         {
             outcome   = TradeOutcome.Win;
             exitPrice = 1.00m;
-            pnl       = (1.00m - trade.EntryPrice) / trade.EntryPrice * trade.PositionSize;
+            var fee   = trade.PositionSize * TakerFeeRate;
+            pnl       = (1.00m - trade.EntryPrice) / trade.EntryPrice * trade.PositionSize - fee;
         }
         else
         {

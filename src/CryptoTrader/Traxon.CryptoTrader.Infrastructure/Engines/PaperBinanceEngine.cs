@@ -31,11 +31,12 @@ public sealed class PaperBinanceEngine : ITradingEngine
         [property: System.Text.Json.Serialization.JsonPropertyName("sl")] decimal Sl,
         [property: System.Text.Json.Serialization.JsonPropertyName("tp")] decimal Tp);
 
-    private const decimal InitialBalance = 10_000m;
-    private const decimal SlippageRate   = 0.0005m;
-    private const decimal SlPercent      = 0.015m;   // 1.5% from entry
-    private const decimal TpPercent      = 0.030m;   // 3.0% from entry (1:2 ratio)
-    private const int     MaxHoldCandles = 20;        // force-close after 20× timeframe durations
+    private const decimal InitialBalance  = 10_000m;
+    private const decimal SlippageRate    = 0.0005m;
+    private const decimal CommissionRate  = 0.00075m; // BNB ile taker %0.075
+    private const decimal SlPercent       = 0.005m;   // 0.5% from entry (scalping)
+    private const decimal TpPercent       = 0.010m;   // 1.0% from entry (1:2 ratio)
+    private const int     MaxHoldCandles  = 6;        // force-close after 6× timeframe durations (30min for 5m)
     private const decimal MinPositionSize = 150m;     // minimum $150 per trade
 
     public string EngineName => "PaperBinance";
@@ -136,7 +137,7 @@ public sealed class PaperBinanceEngine : ITradingEngine
 
             var atr          = signal.Indicators.Atr.Value; // kept in snapshot for reference only
             var lastCandle   = candlesResult.Value![^1];
-            var entryPrice   = lastCandle.Close * (1 + SlippageRate);
+            var entryPrice   = lastCandle.Close * (1 + SlippageRate + CommissionRate);
             var positionSize = Math.Min(signal.KellyFraction * _portfolio.Balance, _portfolio.MaxPositionSize);
             positionSize = Math.Max(positionSize, MinPositionSize);
 
@@ -325,9 +326,13 @@ public sealed class PaperBinanceEngine : ITradingEngine
     private async Task<Result<Trade>> CloseTradeInternalAsync(
         Trade trade, Guid positionId, decimal exitPrice, string reason, CancellationToken ct)
     {
+        var adjustedExit = trade.Direction == SignalDirection.Up
+            ? exitPrice * (1 - CommissionRate)
+            : exitPrice * (1 + CommissionRate);
+
         decimal rawPnl = trade.Direction == SignalDirection.Up
-            ? (exitPrice - trade.EntryPrice) / trade.EntryPrice * trade.PositionSize
-            : (trade.EntryPrice - exitPrice) / trade.EntryPrice * trade.PositionSize;
+            ? (adjustedExit - trade.EntryPrice) / trade.EntryPrice * trade.PositionSize
+            : (trade.EntryPrice - adjustedExit) / trade.EntryPrice * trade.PositionSize;
 
         var outcome = rawPnl >= 0 ? TradeOutcome.Win : TradeOutcome.Loss;
         trade.Close(exitPrice, outcome, rawPnl);
