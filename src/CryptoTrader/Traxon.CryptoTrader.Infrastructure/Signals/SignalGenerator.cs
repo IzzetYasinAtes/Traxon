@@ -27,7 +27,7 @@ public sealed class SignalGenerator : ISignalGenerator
     /// </summary>
     private const int     MinBullishConfirmations  = 3;
     private const int     MinBearishConfirmations  = 99; // DOWN kapatildi — DOWN trade'ler -$847 zarar (Analyst v4)
-    private const decimal SimulatedBankroll        = 10_000m;
+    private const decimal SimulatedBankroll        = 50m;
 
     public SignalGenerator(
         IIndicatorCalculator indicatorCalculator,
