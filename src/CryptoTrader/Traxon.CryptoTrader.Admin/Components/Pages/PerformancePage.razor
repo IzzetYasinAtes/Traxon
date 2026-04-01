@@ -16,23 +16,31 @@
     }
     else
     {
-        <!-- KPI Kartlari -->
-        <div class="grid grid-cols-5 gap-1" style="flex-shrink: 0;">
-            <StatCard Title="Kazanma Oranı"
-                      Value="@($"{_summary.WinRate * 100:F1}%")"
-                      Color="@(_summary.WinRate >= 0.5m ? "var(--color-accent-green)" : "var(--color-accent-red)")" />
-            <StatCard Title="Toplam Kar/Zarar"
-                      Value="@($"{(_summary.TotalPnL >= 0 ? "+$" : "-$")}{Math.Abs(_summary.TotalPnL):N2}")"
-                      Color="@(_summary.TotalPnL >= 0 ? "var(--color-accent-green)" : "var(--color-accent-red)")" />
-            <StatCard Title="Kar/Zarar %"
-                      Value="@FormatPctPnl()"
-                      Color="@(_summary.TotalPnL >= 0 ? "var(--color-accent-green)" : "var(--color-accent-red)")" />
-            <StatCard Title="Sharpe Oranı"
-                      Value="@($"{_summary.SharpeRatio:F2}")"
-                      Color="@(_summary.SharpeRatio >= 1 ? "var(--color-accent-green)" : "var(--color-text-primary)")" />
-            <StatCard Title="Toplam İşlem"
-                      Value="@_summary.TotalTrades.ToString()"
-                      Subtitle="@($"{_summary.WinCount} Kazanç")" />
+        <!-- Motor bazli KPI Kartlari - yan yana -->
+        <div class="grid grid-cols-2 gap-2" style="flex-shrink: 0;">
+            @foreach (var e in _summary.ByEngine)
+            {
+                var wr = e.Trades > 0 ? (decimal)e.Wins / e.Trades : 0;
+                var pct = (e.TotalPnL / 10000m) * 100m;
+                <div>
+                    <h2 style="font-size: 0.7rem; font-weight: 700; margin-bottom: 4px; color: var(--color-text-secondary);">@e.Engine</h2>
+                    <div class="grid grid-cols-5 gap-1">
+                        <StatCard Title="Bakiye" Value="@($"${10000m + e.TotalPnL:N2}")" />
+                        <StatCard Title="Kar/Zarar"
+                                  Value="@($"{(e.TotalPnL >= 0 ? "+$" : "-$")}{Math.Abs(e.TotalPnL):N2}")"
+                                  Color="@(e.TotalPnL >= 0 ? "var(--color-accent-green)" : "var(--color-accent-red)")" />
+                        <StatCard Title="Kar %"
+                                  Value="@($"{(pct >= 0 ? "+" : "")}{pct:F2}%")"
+                                  Color="@(e.TotalPnL >= 0 ? "var(--color-accent-green)" : "var(--color-accent-red)")" />
+                        <StatCard Title="Kazanma Oranı"
+                                  Value="@($"{wr * 100:F1}%")"
+                                  Color="@(wr >= 0.5m ? "var(--color-accent-green)" : "var(--color-accent-red)")" />
+                        <StatCard Title="İşlem"
+                                  Value="@e.Trades.ToString()"
+                                  Subtitle="@($"{e.Wins} Kazanç")" />
+                    </div>
+                </div>
+            }
         </div>
 
         <!-- Motor Karsilastirma Tablosu -->
