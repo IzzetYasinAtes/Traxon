@@ -1,56 +1,58 @@
 @page "/calibration"
 @rendermode InteractiveServer
 @inject AdminDataService DataService
-@inject IStringLocalizer<SharedResources> L
 
 <div class="flex flex-col gap-6">
-    <h1 class="text-lg font-bold">@L["CalibrationAnalysis"]</h1>
+    <h1 class="text-lg font-bold">Kalibrasyon Analizi</h1>
+    <div style="font-size: 0.7rem; color: var(--color-text-muted); margin-bottom: 8px;">
+        Sinyal doğruluğu ve parametre kalibrasyonu
+    </div>
 
-    <!-- Explanation -->
+    <!-- Aciklama -->
     <div class="rounded-[10px] p-4" style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default);">
-        <h2 class="text-sm font-bold mb-2" style="color: var(--color-text-secondary);">What is Calibration?</h2>
+        <h2 class="text-sm font-bold mb-2" style="color: var(--color-text-secondary);">Kalibrasyon Nedir?</h2>
         <p class="text-xs leading-relaxed" style="color: var(--color-text-muted);">
-            Calibration measures how well the model's predicted win probabilities match actual outcomes.
-            Trades are grouped into probability bins (e.g. 50%-60%). If the model predicts 55% win rate for a group
-            and 54% actually win, the model is well-calibrated for that range.
-            <strong style="color: var(--color-text-secondary);">Brier Score</strong> quantifies overall accuracy:
-            0 = perfect predictions, 0.25 = random guessing. Lower is better.
+            Kalibrasyon, modelin tahmin ettiği kazanma olasılıklarının gerçek sonuçlarla ne kadar uyumlu olduğunu ölçer.
+            İşlemler olasılık aralıklarına gruplandırılır (ör. %50-%60). Model bir grup için %55 kazanma oranı tahmin edip
+            gerçekte %54 kazanıyorsa, model o aralık için iyi kalibre edilmiş demektir.
+            <strong style="color: var(--color-text-secondary);">Brier Skoru</strong> genel doğruluğu ölçer:
+            0 = mükemmel tahmin, 0.25 = rastgele tahmin. Düşük olan daha iyidir.
         </p>
     </div>
 
     <div class="grid grid-cols-2 gap-4">
-        <!-- Bar Chart -->
+        <!-- Grafik -->
         <div class="rounded-[10px] p-4"
              style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default);">
-            <h2 class="text-sm font-bold mb-3" style="color: var(--color-text-secondary);">@L["PredictedVsActualWinRate"]</h2>
+            <h2 class="text-sm font-bold mb-3" style="color: var(--color-text-secondary);">Tahmin ve Gerçek Kazanma Oranı</h2>
             @if (_buckets.Count > 0)
             {
                 <CalibrationBucketChart Buckets="_buckets" />
             }
             else
             {
-                <p class="text-sm" style="color: var(--color-text-muted);">@L["NoDataMinTrades"]</p>
+                <p class="text-sm" style="color: var(--color-text-muted);">Yeterli işlem verisi yok</p>
             }
         </div>
 
-        <!-- Calibration Bins Table -->
+        <!-- Kalibrasyon Araliklari Tablosu -->
         <div class="rounded-[10px] p-4"
              style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default);">
-            <h2 class="text-sm font-bold mb-3" style="color: var(--color-text-secondary);">@L["CalibrationBins"]</h2>
+            <h2 class="text-sm font-bold mb-3" style="color: var(--color-text-secondary);">Kalibrasyon Aralıkları</h2>
 
             @if (_buckets.Count == 0)
             {
-                <p class="text-sm" style="color: var(--color-text-muted);">@L["NoData"]</p>
+                <p class="text-sm" style="color: var(--color-text-muted);">Veri bulunamadı</p>
             }
             else
             {
                 <table class="w-full text-xs">
                     <thead>
                         <tr style="color: var(--color-text-muted);">
-                            <th class="py-1 text-left">@L["Bin"]</th>
-                            <th class="py-1 text-right">@L["Predicted"]</th>
-                            <th class="py-1 text-right">@L["Actual"]</th>
-                            <th class="py-1 text-right">@L["Count"]</th>
+                            <th class="py-1 text-left">Aralık</th>
+                            <th class="py-1 text-right">Tahmin</th>
+                            <th class="py-1 text-right">Gerçek</th>
+                            <th class="py-1 text-right">Adet</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -71,12 +73,12 @@
                 </table>
 
                 <div class="mt-4 pt-3" style="border-top: 1px solid var(--color-border-default);">
-                    <p class="text-xs" style="color: var(--color-text-muted);">@L["BrierScore"]</p>
+                    <p class="text-xs" style="color: var(--color-text-muted);">Brier Skoru</p>
                     <p class="text-2xl font-mono font-bold mt-1"
                        style="color: @(_brierScore < 0.25 ? "var(--color-accent-green)" : "var(--color-accent-red)")">@($"{_brierScore:F4}")</p>
                     <p class="text-xs mt-1" style="color: var(--color-text-muted);">
-                        @(_brierScore < 0.25 ? L["WellCalibrated"] : L["NeedsCalibration"])
-                        (0=Mukemmel, 0.25=Random)
+                        @(_brierScore < 0.25 ? "İyi kalibre edilmiş" : "Kalibrasyon gerekli")
+                        (0=Mükemmel, 0.25=Rastgele)
                     </p>
                 </div>
             }

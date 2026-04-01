@@ -1,21 +1,23 @@
 @page "/trades"
 @inject ILiveFeedService Feed
-@inject IStringLocalizer<SharedResources> L
 @implements IDisposable
 
 <div>
-    <h1 class="text-lg font-bold mb-4">@L["Trades"]</h1>
+    <h1 class="text-lg font-bold mb-1">İşlemler</h1>
+    <div style="font-size: 0.7rem; color: var(--color-text-muted); margin-bottom: 8px;">
+        Tüm işlem geçmişi. Filtreleme yapabilirsiniz
+    </div>
 
-    <!-- Tabs: All | Open | Closed -->
+    <!-- Sekmeler: Tumu | Acik | Kapali -->
     <div class="flex gap-2 mb-4">
-        @foreach (var tab in new[] { "ALL", "OPEN", "CLOSED" })
+        @foreach (var (tab, label) in new[] { ("ALL", "TÜMÜ"), ("OPEN", "AÇIK"), ("CLOSED", "KAPALI") })
         {
             <button @onclick="@(() => _activeTab = tab)"
                     class="px-4 py-1.5 rounded text-sm"
                     style="background-color: @(_activeTab == tab ? "rgba(0,212,170,0.15)" : "var(--color-bg-surface)");
                            color: @(_activeTab == tab ? "var(--color-accent-green)" : "var(--color-text-secondary)");
                            border: 1px solid var(--color-border-default);">
-                @tab
+                @label
             </button>
         }
     </div>
@@ -24,13 +26,13 @@
         <table class="w-full text-sm">
             <thead>
                 <tr class="text-xs" style="color: var(--color-text-muted); border-bottom: 1px solid var(--color-border-default);">
-                    <th class="py-2 px-3 text-left">@L["Symbol"]</th>
-                    <th class="py-2 px-3 text-left">@L["Direction"]</th>
-                    <th class="py-2 px-3 text-left">@L["Engine"]</th>
-                    <th class="py-2 px-3 text-left">@L["Entry"]</th>
-                    <th class="py-2 px-3 text-left">@L["PnL"]</th>
-                    <th class="py-2 px-3 text-left">@L["Status"]</th>
-                    <th class="py-2 px-3 text-left">@L["Time"]</th>
+                    <th class="py-2 px-3 text-left">Sembol</th>
+                    <th class="py-2 px-3 text-left">Yön</th>
+                    <th class="py-2 px-3 text-left">Motor</th>
+                    <th class="py-2 px-3 text-left">Giriş</th>
+                    <th class="py-2 px-3 text-left">Kar/Zarar</th>
+                    <th class="py-2 px-3 text-left">Durum</th>
+                    <th class="py-2 px-3 text-left">Zaman</th>
                 </tr>
             </thead>
             <tbody>
@@ -42,7 +44,7 @@
                 {
                     <tr>
                         <td colspan="7" class="py-8 text-center text-sm" style="color: var(--color-text-muted);">
-                            @L["NoData"]
+                            Veri bulunamadı
                         </td>
                     </tr>
                 }

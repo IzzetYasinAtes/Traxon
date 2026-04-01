@@ -1,42 +1,44 @@
 @page "/portfolio"
 @inject ILiveFeedService Feed
-@inject IStringLocalizer<SharedResources> L
 @implements IDisposable
 
 <div class="flex flex-col gap-6">
-    <h1 class="text-lg font-bold">@L["Portfolio"]</h1>
+    <h1 class="text-lg font-bold">Portföy</h1>
+    <div style="font-size: 0.7rem; color: var(--color-text-muted); margin-bottom: 8px;">
+        Motor bazlı performans ve sermaye eğrisi
+    </div>
 
-    <!-- Per-engine stat cards -->
+    <!-- Motor bazli kartlar -->
     @foreach (var (engine, portfolio) in Feed.Portfolios)
     {
         <div>
             <h2 class="text-sm font-bold mb-3" style="color: var(--color-text-secondary);">@engine</h2>
             <div class="grid grid-cols-5 gap-3">
-                <StatCard Title="@L["Balance"]" Value="@($"${portfolio.Balance:N2}")" />
-                <StatCard Title="@L["TotalPnL"]"
+                <StatCard Title="Bakiye" Value="@($"${portfolio.Balance:N2}")" />
+                <StatCard Title="Toplam Kar/Zarar"
                           Value="@($"{(portfolio.TotalPnL >= 0 ? "+$" : "-$")}{Math.Abs(portfolio.TotalPnL):N2}")"
                           Color="@(portfolio.TotalPnL >= 0 ? "var(--color-accent-green)" : "var(--color-accent-red)")" />
-                <StatCard Title="@($"{L["PnL"]} %")"
+                <StatCard Title="Kar/Zarar %"
                           Value="@(FormatPctPnl(portfolio.TotalPnL, portfolio.InitialBalance))"
                           Color="@(portfolio.TotalPnL >= 0 ? "var(--color-accent-green)" : "var(--color-accent-red)")" />
-                <StatCard Title="@L["WinRate"]"
+                <StatCard Title="Kazanma Oranı"
                           Value="@($"{portfolio.WinRate * 100:F1}%")"
                           Subtitle="@($"{portfolio.WinCount}W / {portfolio.LossCount}L")" />
-                <StatCard Title="@L["TotalTrades"]"
+                <StatCard Title="Toplam İşlem"
                           Value="@portfolio.TotalTrades.ToString()"
-                          Subtitle="@($"{portfolio.OpenPositionCount} open")" />
+                          Subtitle="@($"{portfolio.OpenPositionCount} açık")" />
             </div>
         </div>
     }
 
     @if (Feed.Portfolios.Count == 0)
     {
-        <div class="text-sm" style="color: var(--color-text-muted);">@L["NoPortfolioData"]</div>
+        <div class="text-sm" style="color: var(--color-text-muted);">Portföy verisi bulunamadı</div>
     }
 
-    <!-- Equity Curve -->
+    <!-- Sermaye Egrisi -->
     <div class="rounded-[10px] p-4" style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default); max-height: 460px; overflow: hidden;">
-        <h2 class="text-sm font-bold mb-3" style="color: var(--color-text-secondary);">@L["EquityCurve"]</h2>
+        <h2 class="text-sm font-bold mb-3" style="color: var(--color-text-secondary);">Sermaye Eğrisi</h2>
         <div style="max-height: 400px; overflow: hidden;">
             <EquityChart />
         </div>

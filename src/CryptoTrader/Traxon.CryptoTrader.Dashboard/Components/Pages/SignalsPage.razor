@@ -1,24 +1,26 @@
 @page "/signals"
 @inject ILiveFeedService Feed
-@inject IStringLocalizer<SharedResources> L
 @implements IDisposable
 
 <div>
-    <div class="flex items-center justify-between mb-4">
-        <h1 class="text-lg font-bold">@L["Signals"]</h1>
-        <span class="text-sm" style="color: var(--color-text-muted);">@Feed.RecentSignals.Count @L["SignalsCount"]</span>
+    <div class="flex items-center justify-between mb-1">
+        <h1 class="text-lg font-bold">Sinyaller</h1>
+        <span class="text-sm" style="color: var(--color-text-muted);">@Feed.RecentSignals.Count sinyal</span>
+    </div>
+    <div style="font-size: 0.7rem; color: var(--color-text-muted); margin-bottom: 8px;">
+        Üretilen tüm sinyaller. Yön bazlı filtreleme yapabilirsiniz
     </div>
 
-    <!-- Filters -->
+    <!-- Filtreler -->
     <div class="flex gap-2 mb-4">
-        @foreach (var dir in new[] { "ALL", "UP", "DOWN" })
+        @foreach (var (dir, label) in new[] { ("ALL", "TÜMÜ"), ("UP", "YUKARI"), ("DOWN", "AŞAĞI") })
         {
             <button @onclick="@(() => _filterDir = dir)"
                     class="px-3 py-1 rounded text-xs"
                     style="background-color: @(_filterDir == dir ? "rgba(0,212,170,0.15)" : "var(--color-bg-surface)");
                            color: @(_filterDir == dir ? "var(--color-accent-green)" : "var(--color-text-secondary)");
                            border: 1px solid var(--color-border-default);">
-                @dir
+                @label
             </button>
         }
     </div>

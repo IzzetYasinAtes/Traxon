@@ -1,12 +1,43 @@
 @page "/"
 @inject ILiveFeedService Feed
-@inject IStringLocalizer<SharedResources> L
 @implements IDisposable
 
 <div class="flex flex-col gap-4">
-    <!-- Active Signals -->
+    <!-- Portfoy Ozeti -->
+    @if (Feed.Portfolios.Count > 0)
+    {
+        <section>
+            <h2 class="text-sm font-bold mb-1" style="color: var(--color-text-secondary);">Portföy Özeti</h2>
+            <div style="font-size: 0.7rem; color: var(--color-text-muted); margin-bottom: 8px;">
+                Her motorun anlık bakiye, kar/zarar ve kazanma oranı
+            </div>
+            @foreach (var (engine, portfolio) in Feed.Portfolios)
+            {
+                <div class="mb-3">
+                    <p class="text-xs mb-2" style="color: var(--color-text-muted);">@engine</p>
+                    <div class="grid grid-cols-4 gap-3">
+                        <StatCard Title="Bakiye" Value="@($"${portfolio.Balance:N2}")" />
+                        <StatCard Title="Toplam Kar/Zarar"
+                                  Value="@($"{(portfolio.TotalPnL >= 0 ? "+$" : "-$")}{Math.Abs(portfolio.TotalPnL):N2}")"
+                                  Color="@(portfolio.TotalPnL >= 0 ? "var(--color-accent-green)" : "var(--color-accent-red)")" />
+                        <StatCard Title="Kazanma Oranı"
+                                  Value="@($"{portfolio.WinRate * 100:F1}%")"
+                                  Subtitle="@($"{portfolio.WinCount}W / {portfolio.LossCount}L")" />
+                        <StatCard Title="Toplam İşlem"
+                                  Value="@portfolio.TotalTrades.ToString()"
+                                  Subtitle="@($"{portfolio.OpenPositionCount} açık")" />
+                    </div>
+                </div>
+            }
+        </section>
+    }
+
+    <!-- Aktif Sinyaller -->
     <section>
-        <h2 class="text-sm font-bold mb-3" style="color: var(--color-text-secondary);">@L["ActiveSignals"]</h2>
+        <h2 class="text-sm font-bold mb-1" style="color: var(--color-text-secondary);">Aktif Sinyaller</h2>
+        <div style="font-size: 0.7rem; color: var(--color-text-muted); margin-bottom: 8px;">
+            Son üretilen alım-satım sinyalleri. Yeşil = Yukarı, Kırmızı = Aşağı
+        </div>
         <div class="grid grid-cols-4 gap-3">
             @foreach (var signal in Feed.RecentSignals.TakeLast(8).Reverse())
             {
@@ -15,46 +46,23 @@
         </div>
     </section>
 
-    <!-- Portfolio Overview -->
-    @if (Feed.Portfolios.Count > 0)
-    {
-        <section>
-            <h2 class="text-sm font-bold mb-3" style="color: var(--color-text-secondary);">@L["PortfolioOverview"]</h2>
-            @foreach (var (engine, portfolio) in Feed.Portfolios)
-            {
-                <div class="mb-3">
-                    <p class="text-xs mb-2" style="color: var(--color-text-muted);">@engine</p>
-                    <div class="grid grid-cols-4 gap-3">
-                        <StatCard Title="@L["Balance"]" Value="@($"${portfolio.Balance:N2}")" />
-                        <StatCard Title="@L["TotalPnL"]"
-                                  Value="@($"{(portfolio.TotalPnL >= 0 ? "+$" : "-$")}{Math.Abs(portfolio.TotalPnL):N2}")"
-                                  Color="@(portfolio.TotalPnL >= 0 ? "var(--color-accent-green)" : "var(--color-accent-red)")" />
-                        <StatCard Title="@L["WinRate"]"
-                                  Value="@($"{portfolio.WinRate * 100:F1}%")"
-                                  Subtitle="@($"{portfolio.WinCount}W / {portfolio.LossCount}L")" />
-                        <StatCard Title="@L["TotalTrades"]"
-                                  Value="@portfolio.TotalTrades.ToString()"
-                                  Subtitle="@($"{portfolio.OpenPositionCount} open")" />
-                    </div>
-                </div>
-            }
-        </section>
-    }
-
-    <!-- Recent Trades -->
+    <!-- Son Islemler -->
     <section>
-        <h2 class="text-sm font-bold mb-3" style="color: var(--color-text-secondary);">@L["RecentTrades"]</h2>
+        <h2 class="text-sm font-bold mb-1" style="color: var(--color-text-secondary);">Son İşlemler</h2>
+        <div style="font-size: 0.7rem; color: var(--color-text-muted); margin-bottom: 8px;">
+            En son açılan ve kapanan işlemler
+        </div>
         <div class="rounded-[10px] overflow-hidden" style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default);">
             <table class="w-full text-sm">
                 <thead>
                     <tr class="text-xs" style="color: var(--color-text-muted); border-bottom: 1px solid var(--color-border-default);">
-                        <th class="py-2 px-3 text-left">@L["Symbol"]</th>
-                        <th class="py-2 px-3 text-left">@L["Direction"]</th>
-                        <th class="py-2 px-3 text-left">@L["Engine"]</th>
-                        <th class="py-2 px-3 text-left">@L["Entry"]</th>
-                        <th class="py-2 px-3 text-left">@L["PnL"]</th>
-                        <th class="py-2 px-3 text-left">@L["Status"]</th>
-                        <th class="py-2 px-3 text-left">@L["Time"]</th>
+                        <th class="py-2 px-3 text-left">Sembol</th>
+                        <th class="py-2 px-3 text-left">Yön</th>
+                        <th class="py-2 px-3 text-left">Motor</th>
+                        <th class="py-2 px-3 text-left">Giriş</th>
+                        <th class="py-2 px-3 text-left">Kar/Zarar</th>
+                        <th class="py-2 px-3 text-left">Durum</th>
+                        <th class="py-2 px-3 text-left">Zaman</th>
                     </tr>
                 </thead>
                 <tbody>
