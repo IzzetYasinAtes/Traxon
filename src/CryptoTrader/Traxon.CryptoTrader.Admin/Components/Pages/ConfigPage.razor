@@ -192,40 +192,40 @@
             <p style="font-size: 0.6rem; color: var(--color-text-muted); margin: 0;">Çalışma zamanında değiştirilebilir.</p>
         </div>
 
-        <div class="grid grid-cols-6 gap-2" style="font-size: 11px;">
+        <div class="grid grid-cols-3 gap-x-3 gap-y-1" style="font-size: 11px;">
             <div>
-                <label class="text-xs" style="color: var(--color-text-muted); font-size: 0.6rem;">Min Kenar</label>
+                <label style="display:block; color:var(--color-text-muted); font-size:0.6rem; margin-bottom:1px;">Min Kenar</label>
                 <input type="number" step="0.01" min="0" max="1" @bind="_minEdge"
-                       style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:4px; padding:2px 6px; font-size:11px; font-family:monospace;" />
+                       style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:4px; padding:1px 6px; font-size:11px; font-family:monospace;" />
             </div>
             <div>
-                <label class="text-xs" style="color: var(--color-text-muted); font-size: 0.6rem;">Kelly Oranı</label>
+                <label style="display:block; color:var(--color-text-muted); font-size:0.6rem; margin-bottom:1px;">Kelly Oranı</label>
                 <input type="number" step="0.05" min="0.05" max="1" @bind="_kellyFraction"
-                       style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:4px; padding:2px 6px; font-size:11px; font-family:monospace;" />
+                       style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:4px; padding:1px 6px; font-size:11px; font-family:monospace;" />
             </div>
             <div>
-                <label class="text-xs" style="color: var(--color-text-muted); font-size: 0.6rem;">Maks Pozisyon ($)</label>
+                <label style="display:block; color:var(--color-text-muted); font-size:0.6rem; margin-bottom:1px;">Maks Pozisyon ($)</label>
                 <input type="number" step="5" min="5" max="10000" @bind="_maxPositionSize"
-                       style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:4px; padding:2px 6px; font-size:11px; font-family:monospace;" />
+                       style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:4px; padding:1px 6px; font-size:11px; font-family:monospace;" />
             </div>
             <div>
-                <label class="text-xs" style="color: var(--color-text-muted); font-size: 0.6rem;">Sermaye ($)</label>
+                <label style="display:block; color:var(--color-text-muted); font-size:0.6rem; margin-bottom:1px;">Sermaye ($)</label>
                 <input type="number" step="100" min="100" @bind="_bankroll"
-                       style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:4px; padding:2px 6px; font-size:11px; font-family:monospace;" />
+                       style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:4px; padding:1px 6px; font-size:11px; font-family:monospace;" />
             </div>
             <div>
-                <label class="text-xs" style="color: var(--color-text-muted); font-size: 0.6rem;">Min Güven</label>
+                <label style="display:block; color:var(--color-text-muted); font-size:0.6rem; margin-bottom:1px;">Min Güven</label>
                 <input type="number" step="0.01" min="0.5" max="1" @bind="_minConfidence"
-                       style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:4px; padding:2px 6px; font-size:11px; font-family:monospace;" />
+                       style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:4px; padding:1px 6px; font-size:11px; font-family:monospace;" />
             </div>
             <div>
-                <label class="text-xs" style="color: var(--color-text-muted); font-size: 0.6rem;">Maks Açık Poz.</label>
+                <label style="display:block; color:var(--color-text-muted); font-size:0.6rem; margin-bottom:1px;">Maks Açık Poz.</label>
                 <input type="number" step="1" min="1" max="20" @bind="_maxOpenPositions"
-                       style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:4px; padding:2px 6px; font-size:11px; font-family:monospace;" />
+                       style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:4px; padding:1px 6px; font-size:11px; font-family:monospace;" />
             </div>
         </div>
 
-        <div class="flex items-center gap-4 mt-2" style="font-size: 11px;">
+        <div class="flex items-center gap-3 mt-1" style="font-size: 11px;">
             <label class="flex items-center gap-1 cursor-pointer">
                 <input type="checkbox" @bind="_paperPolyEnabled" />
                 <span style="font-size: 11px;">PaperPoly</span>
@@ -235,11 +235,11 @@
                 <span style="font-size: 11px;">PaperBinance</span>
             </label>
             <button @onclick="SaveConfig"
-                    style="background-color:rgba(168,85,247,0.15); border:1px solid rgba(168,85,247,0.3); color:var(--color-accent-purple); border-radius:4px; padding:2px 12px; font-size:11px; cursor:pointer; margin-left: auto;">
+                    style="background-color:rgba(168,85,247,0.15); border:1px solid rgba(168,85,247,0.3); color:var(--color-accent-purple); border-radius:4px; padding:1px 12px; font-size:11px; cursor:pointer; margin-left:auto;">
                 Uygula
             </button>
             <button @onclick="ResetConfig"
-                    style="background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-secondary); border-radius:4px; padding:2px 12px; font-size:11px; cursor:pointer;">
+                    style="background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-secondary); border-radius:4px; padding:1px 12px; font-size:11px; cursor:pointer;">
                 Sıfırla
             </button>
             @if (_saved)
