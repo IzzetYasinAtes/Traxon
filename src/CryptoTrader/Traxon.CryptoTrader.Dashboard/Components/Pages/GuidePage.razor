@@ -1,9 +1,19 @@
 @page "/guide"
 
 <div class="guide-container">
-    <h1 class="guide-main-title">Finansal Rehber</h1>
-    <p class="guide-subtitle">Sifirdan baslayanlara borsa, kripto para, teknik analiz ve risk yonetimi rehberi</p>
+    <div class="guide-header-row">
+        <div>
+            <h1 class="guide-main-title">Finansal Rehber</h1>
+            <p class="guide-subtitle">Sifirdan baslayanlara borsa, kripto para, teknik analiz ve risk yonetimi rehberi</p>
+        </div>
+        <button onclick="downloadPageAsHtml('Traxon-Finansal-Rehber.html')"
+                style="background:rgba(0,212,170,0.15); border:1px solid rgba(0,212,170,0.3); color:#00d4aa;
+                       border-radius:6px; padding:4px 16px; font-size:0.85rem; cursor:pointer; height:fit-content; white-space:nowrap;">
+            📥 HTML İndir
+        </button>
+    </div>
 
+    <div class="guide-content">
     <!-- ================================================================== -->
     <!-- BOLUM 1: Borsa ve Kripto Para -->
     <!-- ================================================================== -->
@@ -750,7 +760,20 @@
             En basarili traderlar, islemeye degil <strong>analiz etmeye</strong> en fazla zamanlarini harcarlar.
         </p>
     </div>
+    </div>
 </div>
+
+<script>
+    function downloadPageAsHtml(filename) {
+        var content = document.querySelector('.guide-content');
+        var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + filename + '</title><style>body{background:#0a0e17;color:#c9d1d9;font-family:Segoe UI,system-ui,sans-serif;padding:40px;line-height:1.7;} h1,h2,h3{color:#f0f6fc;} code{background:#1f242d;color:#79c0ff;padding:2px 8px;border-radius:4px;font-family:monospace;} .guide-card{background:#161b22;border:1px solid #21262d;border-radius:10px;padding:20px;margin:15px 0;} strong{color:#58a6ff;} table{border-collapse:collapse;width:100%;margin:12px 0;} th,td{padding:8px 12px;border:1px solid #21262d;} th{background:#161b22;color:#f0f6fc;}</style></head><body>' + content.innerHTML + '</body></html>';
+        var blob = new Blob([html], {type: 'text/html'});
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        a.click();
+    }
+</script>
 
 <style>
     .guide-container {
@@ -758,6 +781,13 @@
         margin: 0 auto;
         padding: 0 16px 40px 16px;
         overflow-y: auto;
+    }
+
+    .guide-header-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 8px;
     }
 
     .guide-main-title {
