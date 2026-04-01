@@ -1,6 +1,6 @@
 @using ApexCharts
 
-<ApexChart TItem="EquityPoint" Options="_options">
+<ApexChart TItem="EquityPoint" Options="_options" Height="@Height">
     @foreach (var engine in _series.Keys)
     {
         <ApexPointSeries TItem="EquityPoint"
@@ -14,6 +14,7 @@
 
 @code {
     [Parameter] public List<EquityPoint> Points { get; set; } = [];
+    [Parameter] public string Height { get; set; } = "100%";
 
     private Dictionary<string, List<EquityPoint>> _series = new();
 

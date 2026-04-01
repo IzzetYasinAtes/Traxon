@@ -2,10 +2,10 @@
 @rendermode InteractiveServer
 @inject AdminDataService DataService
 
-<div class="flex flex-col gap-2" style="height: calc(100vh - 60px); overflow: hidden;">
-    <div>
+<div style="display: flex; flex-direction: column; height: calc(100vh - 50px); overflow: hidden; gap: 4px; padding: 4px;">
+    <div style="flex-shrink: 0;">
         <h1 class="text-lg font-bold" style="margin: 0;">Performans Özeti</h1>
-        <div style="font-size: 0.8rem; color: var(--color-text-muted); margin-bottom: 8px;">
+        <div style="font-size: 0.8rem; color: var(--color-text-muted); margin-bottom: 4px;">
             Genel sistem performans metrikleri. Kazanma oranı, toplam kar/zarar, Sharpe oranı ve motor bazlı karşılaştırma burada görüntülenir.
         </div>
     </div>
@@ -17,7 +17,7 @@
     else
     {
         <!-- KPI Kartlari -->
-        <div class="grid grid-cols-5 gap-2">
+        <div class="grid grid-cols-5 gap-1" style="flex-shrink: 0;">
             <StatCard Title="Kazanma Oranı"
                       Value="@($"{_summary.WinRate * 100:F1}%")"
                       Color="@(_summary.WinRate >= 0.5m ? "var(--color-accent-green)" : "var(--color-accent-red)")" />
@@ -37,8 +37,8 @@
 
         <!-- Motor Karsilastirma Tablosu -->
         <div class="rounded-[8px] overflow-hidden"
-             style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default);">
-            <div class="px-3 py-2" style="border-bottom: 1px solid var(--color-border-default);">
+             style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default); flex-shrink: 0;">
+            <div class="px-2 py-1" style="border-bottom: 1px solid var(--color-border-default);">
                 <h2 style="font-size: 0.7rem; font-weight: 700; color: var(--color-text-secondary); margin: 0;">Motor Karşılaştırması</h2>
             </div>
             <table class="w-full text-sm">
@@ -75,10 +75,10 @@
         </div>
 
         <!-- Sermaye Egrisi -->
-        <div class="rounded-[8px]" style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default); padding: 8px 12px; flex: 0.94 1 0; min-height: 0; overflow: hidden;">
-            <h2 style="font-size: 0.7rem; font-weight: 700; margin-bottom: 4px; color: var(--color-text-secondary);">Sermaye Eğrisi</h2>
-            <div style="height: calc(100% - 20px); overflow: hidden;">
-                <AdminEquityChart Points="_equityPoints" />
+        <div class="rounded-[8px]" style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default); padding: 4px 8px; flex: 1 1 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column;">
+            <h2 style="font-size: 0.7rem; font-weight: 700; margin-bottom: 2px; color: var(--color-text-secondary); flex-shrink: 0;">Sermaye Eğrisi</h2>
+            <div style="flex: 1 1 0; min-height: 0; overflow: hidden;">
+                <AdminEquityChart Points="_equityPoints" Height="100%" />
             </div>
         </div>
     }
