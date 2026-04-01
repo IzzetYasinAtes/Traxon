@@ -2,88 +2,132 @@
 
 <div class="docs-container">
     <h1 class="docs-main-title">Teknik Dokumantasyon</h1>
-    <p class="docs-subtitle">Traxon trading sisteminin ic yapisi, algoritmalari ve konfigurasyonu</p>
+    <p class="docs-subtitle">Traxon trading sisteminin ic yapisi, algoritmalari ve konfigurasyonu — kaynak koddan turetilmistir</p>
 
-    <!-- Bolum 1: Sistem Mimarisi -->
+    <!-- ================================================================== -->
+    <!-- BOLUM 1: Sistem Mimarisi -->
+    <!-- ================================================================== -->
     <div class="docs-card" style="border-left-color: var(--color-accent-blue);">
         <h2 class="docs-title">1. Sistem Mimarisi</h2>
 
-        <h3 class="docs-subtitle-h3">Veri Akisi</h3>
-        <p>Sistem, WebSocket uzerinden gelen canli piyasa verilerini isleyerek sinyal uretir ve trade acar:</p>
-        <pre class="docs-code">
-  Binance WebSocket
-        |
-        v
-  [CandleWorker]        ← Canli mum verisi alir (5m + 1h)
-        |
-        v
-  [CandleBuffer]        ← Son N mumu bellekte tutar (ring buffer)
-        |
-        v
-  [IndicatorCalculator] ← RSI, MACD, BB, ATR, VWAP, Stochastic, EMA, Volume hesaplar
-        |
-        v
-  [SignalGenerator]     ← 11 adimlik filtre zincirinden gecerek sinyal uretir
-        |
-        v
-  [TradingEngine]       ← PaperBinance veya PaperPoly motoru ile pozisyon acar
-        |
-        v
-  [TradeLogger]         ← SQL Server'a trade kaydeder
-        |
-        v
-  [Dashboard]           ← SignalR ile canli guncelleme
-        </pre>
-
         <h3 class="docs-subtitle-h3">Onion Architecture Katmanlari</h3>
+        <p>
+            Traxon CryptoTrader projesi <strong>Onion Architecture</strong> (Sogan Mimarisi) kullanir. Bu mimari, bagimliliklarin
+            her zaman <strong>disaridan iceriye dogru</strong> akmasi ilkesine dayanir. En ic katman (Domain) hicbir disa bagimlilik
+            tasimazken, en dis katman (Dashboard) tum ic katmanlara erisebilir. Bu sayede Domain kurallari degistirilmeden
+            Infrastructure katmani tamamen degistirilebilir (ornegin SQL Server yerine PostgreSQL'e gecis).
+        </p>
         <table class="docs-table">
             <thead>
                 <tr>
                     <th>Katman</th>
                     <th>Sorumluluk</th>
                     <th>Dizin</th>
+                    <th>Bagimliliklari</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
                     <td><strong>Domain</strong></td>
-                    <td>Entity, Value Object, enum tanimlari</td>
+                    <td>Entity, Value Object, enum tanimlari, is kurallari</td>
                     <td><code>Traxon.CryptoTrader.Domain/</code></td>
+                    <td>Yok (saf C# siniflari)</td>
                 </tr>
                 <tr>
                     <td><strong>Application</strong></td>
-                    <td>Interface, DTO, abstraction tanimlari</td>
+                    <td>Interface (abstraction), DTO, Worker tanimlari</td>
                     <td><code>Traxon.CryptoTrader.Application/</code></td>
+                    <td>Domain</td>
                 </tr>
                 <tr>
                     <td><strong>Infrastructure</strong></td>
-                    <td>Hesaplama, sinyal, engine, DB erisimi</td>
+                    <td>Hesaplama, sinyal uretimi, engine'ler, DB erisimi, WebSocket</td>
                     <td><code>Traxon.CryptoTrader.Infrastructure/</code></td>
+                    <td>Domain, Application</td>
                 </tr>
                 <tr>
                     <td><strong>Dashboard</strong></td>
-                    <td>Blazor SSR UI, SignalR canli veri</td>
+                    <td>Blazor SSR UI, SignalR canli veri, grafikler</td>
                     <td><code>Traxon.CryptoTrader.Dashboard/</code></td>
+                    <td>Domain, Application, Infrastructure</td>
                 </tr>
             </tbody>
         </table>
 
-        <h3 class="docs-subtitle-h3">WebSocket Veri Akisi</h3>
+        <h3 class="docs-subtitle-h3">Veri Akis Diyagrami</h3>
         <p>
-            Binance WebSocket API'den <code>kline</code> stream uzerinden 5 dakikalik (5m) ve 1 saatlik (1h) mum verileri alinir.
-            Her mum kapandiginda (candle close event) indicator hesaplama ve sinyal uretim sureci tetiklenir.
-            1h mumlar sadece trend dogrulama (Adim 5) icin kullanilir, islem acma karari 5m mumlara dayanir.
+            Sistem, WebSocket uzerinden gelen canli piyasa verilerini isleyerek sinyal uretir ve trade acar. Asagidaki
+            diyagram, veri akisinin tum adimlarini gosterir. Her adim oncekinin ciktisini girdi olarak alir:
         </p>
+        <pre class="docs-code">
+  Binance WebSocket API (kline stream)
+        |
+        v
+  [MarketDataWorker]        &lt;- BackgroundService, canli mum verisi alir (1m+5m+15m+1h)
+        |
+        v
+  [CandleBuffer]            &lt;- ConcurrentDictionary + LinkedList, son N mumu bellekte tutar
+        |                       Backfill: 1m->120, 5m->500, 15m->500, 1h->48
+        |                       Warmup:   1m->30,  5m->100, 15m->100, 1h->24
+        v
+  [IndicatorCalculator]     &lt;- RSI(7), RSI(14), MACD(12,26,9), BB(20,2), ATR(14),
+        |                       VWAP(20), Stochastic(14,3,3), SMA(10), SMA(30),
+        |                       EMA(9), Volume(20), Parkinson Vol hesaplar
+        v
+  [SignalGenerator V2]      &lt;- 11 adimlik filtre zincirinden gecerek sinyal uretir
+        |                       6 bilesenden agirlikli skor, 1h trend teyidi,
+        |                       hacim dogrulama, rejim tespiti, Kelly pozisyon hesabi
+        v
+  [TradingEngine]           &lt;- PaperBinance: SL/TP bazli spot sim
+        |                       PaperPoly:    binary resolution sim
+        v
+  [TradeLogger]             &lt;- SQL Server'a trade + portfolio snapshot kaydeder
+        |
+        v
+  [Dashboard]               &lt;- SignalR ile canli guncelleme (ticker, sinyaller, islemler)
+        </pre>
+
+        <h3 class="docs-subtitle-h3">WebSocket Veri Akisi Detayli</h3>
+        <p>
+            Binance WebSocket API'den <code>kline</code> stream uzerinden canli mum verileri alinir. Sistem tum
+            <code>Asset.Tradeable</code> varliklar (BTCUSDT, ETHUSDT, SOLUSDT, XRPUSDT, DOGEUSDT, BNBUSDT, DOTUSDT, MATICUSDT)
+            ve tum <code>TimeFrame.All</code> zaman dilimleri (1m, 5m, 15m, 1h) icin stream dinler. Her mum kapandiginda
+            (candle close event) indicator hesaplama ve sinyal uretim sureci tetiklenir. 1h mumlar sadece trend dogrulama
+            (Adim 5) icin kullanilir, islem acma karari 5m mumlara dayanir.
+        </p>
+        <p class="docs-source">Kaynak: <code>MarketDataWorker.cs:42-60</code></p>
+
+        <h3 class="docs-subtitle-h3">Candle Buffer Yapisi</h3>
+        <p>
+            CandleBuffer, her sembol + zaman dilimi cifti icin bir <strong>ConcurrentDictionary&lt;string, LinkedList&lt;Candle&gt;&gt;</strong>
+            yapisinda mum verisi tutar. LinkedList kullanilmasinin sebebi, basa ekleme (backfill) ve sondan ekleme (yeni mum)
+            islemlerinin O(1) olmasidir. Buffer kapasitesi backfill limitiyle sinirlidir ve eski mumlar otomatik silinir.
+        </p>
+        <p>
+            <strong>Backfill limitleri</strong> (tarihsel mum yuklemesi): 1m icin 120 mum (2 saat), 5m icin 500 mum (~42 saat),
+            15m icin 500 mum (~5 gun), 1h icin 48 mum (2 gun). Bu degerler yeterli indicator hesaplamasi icin gereken
+            minimumu saglar.
+        </p>
+        <p>
+            <strong>Warmup esikleri</strong> (sinyal uretimi baslamadan once gereken minimum mum sayisi): 1m icin 30, 5m icin 100,
+            15m icin 100, 1h icin 24. Bu esikler, indikatorlerin anlamli deger uretebilmesi icin gereken minimum veri
+            miktarini ifade eder. Ornegin SMA(30) hesaplamak icin en az 30 mum gerekir; 100 mum esigi buna yeterli
+            tampon birakir.
+        </p>
+        <p class="docs-source">Kaynak: <code>MarketDataWorker.cs:42-60</code></p>
     </div>
 
-    <!-- Bolum 2: Sinyal Skoru Hesaplama -->
+    <!-- ================================================================== -->
+    <!-- BOLUM 2: Sinyal Skoru Hesaplama -->
+    <!-- ================================================================== -->
     <div class="docs-card" style="border-left-color: var(--color-accent-green);">
         <h2 class="docs-title">2. Sinyal Skoru Hesaplama</h2>
         <p class="docs-source">Kaynak: <code>TechnicalIndicators.cs:84-136</code></p>
 
         <p>
-            Sinyal skoru, 6 farkli indikatorun agirlikli ortalamasi olarak hesaplanir. Sonuc 0.0 ile 1.0 arasinda bir degerdir.
-            0.0 = tam bearish, 1.0 = tam bullish, 0.5 = notr.
+            Sinyal skoru, <strong>CalculateSignalScore()</strong> metodu ile hesaplanir. 6 farkli indikatorun agirlikli
+            ortalamasi olarak bir 0.0 - 1.0 arasinda deger uretir. 0.0 = tam bearish, 1.0 = tam bullish, 0.5 = notr.
+            Bu skor, sistemin "piyasa yukariya mi yoksa asagiya mi gidecek" sorusuna verdigi cevaptir.
         </p>
 
         <table class="docs-table">
@@ -99,77 +143,116 @@
                 <tr>
                     <td><strong>RSI(7)</strong></td>
                     <td>%25</td>
-                    <td><code>RSI / 100</code> → 0-1 arasi normalize</td>
-                    <td>Kisa vadeli momentum en guclu yon gostergesi. 7 periyot hizli tepki verir, scalping icin ideal.</td>
+                    <td><code>RsiShort.Value / 100</code> (0-1 normalize)</td>
+                    <td>Kisa vadeli momentum en guclu yon gostergesi. 7 periyot hizli tepki verir, scalping icin ideal. Fallback: RSI(14).</td>
                 </tr>
                 <tr>
                     <td><strong>MACD</strong></td>
                     <td>%20</td>
-                    <td>Histogram &gt; 0 ise 1, degilse 0</td>
-                    <td>Trend degisimini yakalar. Binary sinyal (bullish/bearish) net karar verir.</td>
+                    <td><code>Macd.IsBullish ? 1.0 : 0.0</code></td>
+                    <td>Trend degisimini yakalar. Binary sinyal (histogram > 0 ise bullish) net karar verir. Notr yok — ya bullish ya bearish.</td>
                 </tr>
                 <tr>
-                    <td><strong>Bollinger</strong></td>
+                    <td><strong>Bollinger Bands</strong></td>
                     <td>%20</td>
-                    <td><code>(Price - Lower) / (Upper - Lower)</code></td>
-                    <td>Fiyatin asiri/eksik degerli oldugunu gosterir. Bant ici pozisyon mean-reversion stratejisi destekler.</td>
+                    <td><code>Clamp((Price-Lower)/(Upper-Lower), 0, 1)</code></td>
+                    <td>Fiyatin bant icindeki konumu. Lower band'e yakin = oversold (bullish), upper band'e yakin = overbought (bearish). Mean-reversion destekler.</td>
                 </tr>
                 <tr>
                     <td><strong>EMA(9)</strong></td>
                     <td>%15</td>
-                    <td>Price &gt; EMA → +0.5, EMA rising → +0.5</td>
-                    <td>Kisa vadeli trend yonu. Hem fiyat pozisyonu hem momentum (slope) olcer.</td>
+                    <td><code>(Price > EMA ? 0.5 : 0) + (EMA.IsRising ? 0.5 : 0)</code></td>
+                    <td>Kisa vadeli trend yonu. Hem fiyat pozisyonu hem momentum (slope) olcer. Fallback: IsFastSmaAboveSlow.</td>
                 </tr>
                 <tr>
                     <td><strong>Volume</strong></td>
                     <td>%10</td>
-                    <td><code>clamp(Ratio / 2, 0, 1)</code></td>
-                    <td>Hareketin arkasinda guc var mi? Dusuk hacimli sinyaller guvenilmez. Ratio=2 tam skor verir.</td>
+                    <td><code>Clamp(Volume.Ratio / 2.0, 0, 1)</code></td>
+                    <td>Hareketin arkasinda guc var mi? Ratio=2 (hacim ortalamanin 2 kati) tam skor verir. Fallback: 0.05 notr.</td>
                 </tr>
                 <tr>
                     <td><strong>RSI(14)</strong></td>
                     <td>%10</td>
-                    <td><code>RSI / 100</code> → 0-1 arasi normalize</td>
+                    <td><code>Rsi.Value / 100</code> (0-1 normalize)</td>
                     <td>Uzun vadeli momentum teyidi. RSI(7) ile tutarliysa sinyal guclu, tutarsizsa zayif.</td>
                 </tr>
             </tbody>
         </table>
 
-        <h3 class="docs-subtitle-h3">Skor Formulu</h3>
+        <h3 class="docs-subtitle-h3">Skor Formulu (Koddan)</h3>
         <pre class="docs-code">
-FinalScore = RSI7_norm × 0.25
-           + MACD_bull × 0.20
-           + BB_position × 0.20
-           + EMA9_score × 0.15
-           + Volume_norm × 0.10
-           + RSI14_norm × 0.10
+// TechnicalIndicators.CalculateSignalScore()
+decimal score = 0;
 
-// Clamp: Math.Clamp(score, 0, 1)
+// 1. RSI7 (%25)
+score += 0.25 * (RsiShort?.Value ?? Rsi.Value) / 100;
+
+// 2. MACD (%20)
+score += 0.20 * (Macd.IsBullish ? 1 : 0);
+
+// 3. Bollinger Bands (%20)
+bbRange = Upper - Lower;
+bbPosition = (CurrentPrice - Lower) / bbRange;  // 0-1 arasi
+score += 0.20 * Clamp(bbPosition, 0, 1);
+
+// 4. EMA9 (%15)
+emaScore = (Price > EMA9 ? 0.5 : 0) + (EMA9.IsRising ? 0.5 : 0);
+score += 0.15 * emaScore;
+
+// 5. Volume (%10)
+score += 0.10 * Clamp(Volume.Ratio / 2.0, 0, 1);
+
+// 6. RSI14 (%10)
+score += 0.10 * Rsi.Value / 100;
+
+return Clamp(score, 0, 1);
         </pre>
+
+        <h3 class="docs-subtitle-h3">Ornek Hesaplama</h3>
+        <div class="docs-example">
+            <strong>Senaryo:</strong> RSI(7) = 65, MACD bullish, fiyat BB orta, EMA9 ustunde + rising, hacim ortalama, RSI(14) = 58<br /><br />
+            RSI7:   0.25 x (65/100) = 0.25 x 0.65 = <strong>0.1625</strong><br />
+            MACD:   0.20 x 1.0 = <strong>0.2000</strong><br />
+            BB:     0.20 x 0.50 (orta) = <strong>0.1000</strong><br />
+            EMA9:   0.15 x (0.5 + 0.5) = 0.15 x 1.0 = <strong>0.1500</strong><br />
+            Volume: 0.10 x clamp(1.0/2.0, 0, 1) = 0.10 x 0.5 = <strong>0.0500</strong><br />
+            RSI14:  0.10 x (58/100) = 0.10 x 0.58 = <strong>0.0580</strong><br /><br />
+            <strong>Toplam Skor = 0.7205</strong> → 0.60 ustunde → <strong>UP sinyal uretilir</strong>
+        </div>
 
         <h3 class="docs-subtitle-h3">Fallback Davranisi</h3>
         <p>
-            RSI(7) hesaplanamazsa RSI(14) kullanilir. EMA(9) yoksa SMA(10)/SMA(30) karsilastirilir.
-            Volume yoksa 0.05 notr deger verilir.
+            RSI(7) hesaplanamazsa (<code>RsiShort is null</code>) RSI(14) kullanilir — ayni normalize islemi uygulanir.
+            EMA(9) yoksa (<code>Ema9 is null</code>) SMA(10)/SMA(30) karsilastirilir: <code>IsFastSmaAboveSlow ? 1.0 : 0.0</code>.
+            Volume yoksa (<code>Volume is null</code>) 0.05 notr deger atanir. Bu fallback mekanizmasi, warmup asamasinda
+            veya veri eksikligi durumunda bile skor hesaplamasinin calismaya devam etmesini saglar.
         </p>
     </div>
 
-    <!-- Bolum 3: Filtre Zinciri -->
+    <!-- ================================================================== -->
+    <!-- BOLUM 3: 11 Adimlik Filtre Zinciri -->
+    <!-- ================================================================== -->
     <div class="docs-card" style="border-left-color: var(--color-accent-purple);">
         <h2 class="docs-title">3. 11 Adimlik Filtre Zinciri (V2 Signal Engine)</h2>
-        <p class="docs-source">Kaynak: <code>SignalGenerator.cs:216-326</code></p>
+        <p class="docs-source">Kaynak: <code>SignalGenerator.cs:216-326 (GenerateV2)</code></p>
 
         <p>
-            Her potansiyel sinyal, asagidaki 11 adimlik filtre zincirinden gecer. Herhangi bir adimda basarisiz olan sinyal reddedilir.
-            Bu katmanli yaklasim, dusuk kaliteli trade'leri filtreler.
+            Her potansiyel sinyal, asagidaki 11 adimlik filtre zincirinden gecer. Herhangi bir adimda basarisiz olan sinyal
+            <strong>reddedilir</strong> ve bir sonraki adima gecilmez. Bu katmanli yaklasim, dusuk kaliteli trade'leri sistematik
+            olarak filtreler. Pratikte uretilen sinyallerin buyuk cogunlugu reddedilir — sadece tum kontrollerden gecen
+            yuksek kaliteli sinyaller islem olarak acilir.
         </p>
 
         <div class="docs-step">
             <div class="docs-step-number">1</div>
             <div class="docs-step-content">
                 <strong>Minimum Mum Kontrolu</strong>
-                <p>En az <code>20</code> mum gereklidir. Yetersiz veriyle sinyal uretilmez.</p>
-                <p class="docs-source">Sabit: <code>MinCandlesForSignal = 20</code></p>
+                <p>
+                    En az <code>20</code> mum gereklidir (<code>MinCandlesForSignal = 20</code>). Yetersiz veriyle indikatorler
+                    anlamli deger uretmez, bu yuzden sinyal uretmek mantiksizdir. Bu kontrol ozellikle sistem ilk basladiginda
+                    (warmup asamasinda) gereksiz sinyal uretimini onler.
+                </p>
+                <p class="docs-source">Red: <code>Error.NotEnoughCandles</code></p>
             </div>
         </div>
 
@@ -177,8 +260,13 @@ FinalScore = RSI7_norm × 0.25
             <div class="docs-step-number">2</div>
             <div class="docs-step-content">
                 <strong>Piyasa Fiyat Araligi</strong>
-                <p>Market price <code>0.30 - 0.80</code> araliginda olmali. Asiri ucuz veya pahali varliklarda sinyal uretilmez.</p>
-                <p class="docs-source">Sabitler: <code>MinMarketPrice = 0.30</code>, <code>MaxMarketPrice = 0.80</code></p>
+                <p>
+                    Market price <code>0.30 - 0.80</code> araliginda olmali (<code>MinMarketPrice = 0.30</code>,
+                    <code>MaxMarketPrice = 0.80</code>). Bu aralik, Polymarket mantigi ile uyumludur: cok dusuk
+                    fiyat (&lt;0.30) zaten "olmayacak" olarak fiyatlanmis, cok yuksek fiyat (>0.80) ise "olacak" olarak
+                    kesinlesmistir. Her iki durumda da edge cikarilmasi zordur.
+                </p>
+                <p class="docs-source">Red: <code>Error.InvalidMarketPrice</code></p>
             </div>
         </div>
 
@@ -186,42 +274,58 @@ FinalScore = RSI7_norm × 0.25
             <div class="docs-step-number">3</div>
             <div class="docs-step-content">
                 <strong>Agirlikli Skor Hesaplama</strong>
-                <p>6 indikatorun agirlikli ortalamasiyla <code>FinalScore</code> hesaplanir (0.0 - 1.0). Detay icin Bolum 2'ye bakin.</p>
+                <p>
+                    6 indikatorun agirlikli ortalamasiyla <code>FinalScore</code> hesaplanir (0.0 - 1.0 arasi).
+                    Hesaplama detaylari Bolum 2'dedir. Bu adimda red yoktur — skor her kosulda hesaplanir.
+                </p>
             </div>
         </div>
 
         <div class="docs-step">
             <div class="docs-step-number">4</div>
             <div class="docs-step-content">
-                <strong>Yon Karari</strong>
-                <p>
-                    Skor bazli yon secimi:
-                </p>
+                <strong>Yon Karari (Direction Decision)</strong>
+                <p>Skor bazli yon secimi uygulanir:</p>
                 <pre class="docs-code">
 FinalScore > 0.60 → UP (bullish sinyal)
 FinalScore &lt; 0.40 → DOWN (bearish sinyal)
 0.40 - 0.60 arasi → REDDEDILIR (yetersiz guven)
                 </pre>
-                <p>Bu genis notr bant, belirsiz piyasada islem acilmasini onler.</p>
+                <p>
+                    Bu genis notr bant (0.40-0.60), belirsiz piyasada islem acilmasini onler. Indikatorlarin cogunlugunun
+                    ayni yonde hemfikir olmasi gerekir. Pratikte 0.40-0.60 arasindaki skorlar en sik gorulendir, bu yuzden
+                    bu adimda cok sayida sinyal reddedilir.
+                </p>
+                <p class="docs-source">Red: <code>Error.InsufficientConfirmation</code></p>
             </div>
         </div>
 
         <div class="docs-step">
             <div class="docs-step-number">5</div>
             <div class="docs-step-content">
-                <strong>1 Saatlik Trend Dogrulama (HARD BLOCK)</strong>
+                <strong>1 Saatlik Trend Dogrulama (HARD BLOCK — Counter-Trend Filtresi)</strong>
                 <p>
-                    5 dakikalik sinyal, 1 saatlik trende <strong>ters</strong> ise reddedilir. Bu en kritik filtredir.
+                    Bu, <strong>en kritik filtredir</strong>. 5 dakikalik sinyal, 1 saatlik trende ters ise <strong>kesinlikle
+                    reddedilir</strong>. Mantigi: kisa vadeli momentum yaniltici olabilir ama buyuk resim (1h trend) gercek
+                    yonu gosterir. Trende karsi islem acmak (counter-trend trading) genellikle zarar getirir.
                 </p>
                 <pre class="docs-code">
-SMA(5, 1h) ve SMA(10, 1h) hesaplanir:
-- SMA_fast > SMA_slow → Hourly trend UP
-- SMA_fast &lt; SMA_slow → Hourly trend DOWN
+// 1h candle'lardan SMA hesaplanir:
+hourlySmaFast = SMA(hourlyCloses, 5)    // 5 saatlik hizli ortalama
+hourlySmaSlow = SMA(hourlyCloses, 10)   // 10 saatlik yavas ortalama
 
-UP sinyal + DOWN trend → REDDEDILIR (counter-trend)
-DOWN sinyal + UP trend → REDDEDILIR (counter-trend)
+hourlyTrendUp = hourlySmaFast > hourlySmaSlow
+
+// Counter-trend kontrol:
+UP sinyal + DOWN trend (SMA5 &lt; SMA10) → REDDEDILIR
+DOWN sinyal + UP trend (SMA5 > SMA10) → REDDEDILIR
                 </pre>
-                <p class="docs-source">Kaynak: <code>SignalGenerator.cs:247-263</code></p>
+                <p>
+                    En az 10 adet 1h mum mevcut degilse bu kontrol atlanir (<code>hourlyCandles is { Count: >= 10 }</code>).
+                    Bu durumda <code>hourlyTrendConfirmed = false</code> olarak isaretlenir ama sinyal reddedilmez.
+                    Bu filtre, ozellikle yatay piyasalarda (choppy market) counter-trend kayiplarini buyuk olcude azaltir.
+                </p>
+                <p class="docs-source">Kaynak: <code>SignalGenerator.cs:247-263</code> | Red: <code>Error.CounterTrend</code></p>
             </div>
         </div>
 
@@ -230,8 +334,10 @@ DOWN sinyal + UP trend → REDDEDILIR (counter-trend)
             <div class="docs-step-content">
                 <strong>Hacim Dogrulama</strong>
                 <p>
-                    Hacim orani (mevcut hacim / ortalama hacim) en az <code>0.8</code> olmali.
-                    Dusuk hacimli sinyaller guvenilmezdir.
+                    Hacim orani (mevcut hacim / ortalama hacim) en az <code>0.8</code> olmali
+                    (<code>Volume.Ratio >= 0.8</code>). Dusuk hacimli sinyaller guvenilmezdir cunku
+                    hareketin arkasinda yeterli piyasa katilimi yoktur. Bu adim red uretmez ama <code>volumeConfirmed</code>
+                    flag'ini belirler ve sinyal kalitesini etkiler.
                 </p>
                 <p class="docs-source">Esik: <code>Volume.Ratio >= 0.8</code></p>
             </div>
@@ -242,24 +348,29 @@ DOWN sinyal + UP trend → REDDEDILIR (counter-trend)
             <div class="docs-step-content">
                 <strong>Fair Value Araligi</strong>
                 <p>
-                    Hesaplanan fair value (FV) da tradeable aralikta olmali: <code>0.30 - 0.80</code>.
-                    Asiri degerler reddedilir.
+                    Hesaplanan fair value (FV = finalScore) da tradeable aralikta olmali: <code>0.30 - 0.80</code>.
+                    Skor bu araligin disindaysa sinyal reddedilir. Bu kontrol, asiri yuksek (>0.80) veya asiri dusuk
+                    (&lt;0.30) skorlarin, gercekci olmadigi varsayimiyla filtrelenmesini saglar.
                 </p>
+                <p class="docs-source">Red: <code>Error.FairValueOutOfRange</code></p>
             </div>
         </div>
 
         <div class="docs-step">
             <div class="docs-step-number">8</div>
             <div class="docs-step-content">
-                <strong>UP/DOWN FV Kontrolleri</strong>
-                <p>
-                    Yonsel ek filtreler:
-                </p>
+                <strong>Yonsel Fair Value Kontrolleri</strong>
+                <p>Yonsel ek filtreler, zayif sinyalleri elemek icin uygulanir:</p>
                 <pre class="docs-code">
 UP sinyal  → FV >= 0.48 zorunlu  (Analyst v2 onerisi)
 DOWN sinyal → FV &lt;= 0.52 zorunlu (Analyst v3 onerisi)
                 </pre>
-                <p>Bu, zayif yonsel sinyallerin filtrelenmesini saglar.</p>
+                <p>
+                    UP sinyali icin FV'nin 0.48'den yuksek olmasi, "evet bu gercekten yukariya gider" inancini
+                    guclendirir. Ayni sekilde DOWN icin 0.52'den dusuk olmasi gerekir. Bu, notr bolgede bile yonsel
+                    tutarlilik saglar.
+                </p>
+                <p class="docs-source">Red: <code>Error.FairValueTooLowForUp</code> / <code>Error.FairValueTooHighForDown</code></p>
             </div>
         </div>
 
@@ -268,41 +379,51 @@ DOWN sinyal → FV &lt;= 0.52 zorunlu (Analyst v3 onerisi)
             <div class="docs-step-content">
                 <strong>Rejim Tespiti (Parkinson Volatility)</strong>
                 <p>
-                    Piyasa rejimi (dusuk/yuksek volatilite) Parkinson volatilite tahmincisi ile belirlenir:
+                    Piyasa rejimi (dusuk/yuksek volatilite) <strong>Parkinson volatilite tahmincisi</strong> ile belirlenir.
+                    Parkinson metodu, High/Low oraninin logaritmasini kullanan ve Close-to-Close volatiliteye gore daha
+                    verimli bir tahmin yontemidir.
                 </p>
                 <pre class="docs-code">
+// Parkinson Volatility:
 sigma = sqrt(1/(4n*ln2) * SUM(ln(H/L))^2)
 
-volShort = Parkinson(son 12 mum)
-volLong  = Parkinson(son 144 mum)
+volShort = Parkinson(son 12 mum)   // RegimeShortPeriod = 12
+volLong  = Parkinson(son 144 mum)  // RegimeLongPeriod = 144
 
-volShort > 1.5 × volLong → HighVolatility
+volShort > 1.5 x volLong → HighVolatility   // HighVolMultiplier = 1.5
 aksi halde               → LowVolatility
                 </pre>
                 <p>
-                    Yuksek volatilite rejiminde minimum edge esigi daha dusuktur (<code>0.12</code>),
-                    dusuk volatilitede daha yuksektir (<code>0.15</code>).
+                    Rejim, bir sonraki adimda (Edge kontrolu) minimum edge esigini belirler. Yuksek volatilitede piyasa
+                    daha fazla firsati sunar, bu yuzden dusuk edge bile kabul edilir. Dusuk volatilitede ise edge daha
+                    yuksek olmalidir cunku fiyat hareketi sinirlidir.
                 </p>
-                <p class="docs-source">Sabitler: <code>RegimeShortPeriod=12</code>, <code>RegimeLongPeriod=144</code>, <code>HighVolMultiplier=1.5</code></p>
+                <p class="docs-source">Kaynak: <code>IndicatorCalculator.cs:250-265</code></p>
             </div>
         </div>
 
         <div class="docs-step">
             <div class="docs-step-number">10</div>
             <div class="docs-step-content">
-                <strong>Edge Kontrolu (Position Sizing)</strong>
+                <strong>Edge Kontrolu (Position Sizing — Kelly Kriteri)</strong>
                 <p>
-                    Kelly Kriteri ile pozisyon buyuklugu hesaplanir. Edge (kenar) minimum esigi asmali:
+                    Bu adim hem edge kontrolu yapar hem de pozisyon buyuklugunu hesaplar. Edge, fair value ile market
+                    price arasindaki mutlak farktir ve "sistemin ne kadar avantaji oldugunu" ifade eder.
                 </p>
                 <pre class="docs-code">
 Edge = |FairValue - MarketPrice|
 
-LowVolatility  → MinEdge = 0.15
-HighVolatility  → MinEdge = 0.12
+LowVolatility  → MinEdge = 0.15  (MinEdgeLowVol)
+HighVolatility  → MinEdge = 0.12  (MinEdge)
 
-Edge &lt; MinEdge → REDDEDILIR
+Edge &lt; MinEdge → REDDEDILIR (yetersiz avantaj)
                 </pre>
-                <p class="docs-source">Kaynak: <code>PositionSizer.cs:8-9</code></p>
+                <p>
+                    Edge esikleri <strong>Analyst v4</strong> tarafindan belirlenmistir (0.08 → 0.12 ve 0.12 → 0.15 arttirilmistir).
+                    Daha yuksek edge esigi, sadece guclu fiyat farkliliginda islem acar ve dusuk kalite trade'leri filtreler.
+                    Bu, kazanma oranini yukseltirken islem sayisini dusurur — bilinçli bir trade-off'tur.
+                </p>
+                <p class="docs-source">Kaynak: <code>PositionSizer.cs:8-9</code> | Red: <code>Error.InvalidEdge</code></p>
             </div>
         </div>
 
@@ -311,268 +432,132 @@ Edge &lt; MinEdge → REDDEDILIR
             <div class="docs-step-content">
                 <strong>Sinyal Olusturma</strong>
                 <p>
-                    Tum filtrelerden gecen sinyal, SignalScore ile birlikte olusturulur ve ilgili engine'e gonderilir.
-                    SignalScore su bilgileri icerir:
+                    Tum 10 filtreden gecen sinyal, SignalScore ve tum meta-bilgiyle birlikte olusturulur ve ilgili
+                    engine'e gonderilir. SignalScore record'u su bilgileri icerir:
                 </p>
                 <pre class="docs-code">
 SignalScore {
-    FinalScore,            // agirlikli skor (0-1)
-    Edge,                  // |FV - market|
-    HourlyTrendConfirmed,  // 1h trend teyidi
-    VolumeConfirmed,       // hacim >= 0.8
+    FinalScore,            // agirlikli skor (0.0 - 1.0)
+    Edge,                  // |FV - market| (minimum 0.12 veya 0.15)
+    HourlyTrendConfirmed,  // 1h trend teyidi var mi
+    VolumeConfirmed,       // hacim >= 0.8 mi
     IsUpSignal,            // UP yon mu
     IsDownSignal           // DOWN yon mu
 }
                 </pre>
+                <p>
+                    Bu bilgiler trade acildiktan sonra da takip amacli kullanilir (dashboard'da gosterilir, log'a yazilir).
+                    Ozellikle <code>HourlyTrendConfirmed</code> ve <code>VolumeConfirmed</code> alanlari sinyal kalitesi
+                    degerlendirmesinde onemli rol oynar.
+                </p>
             </div>
         </div>
     </div>
 
-    <!-- Bolum 4: Pozisyon Boyutlandirma -->
+    <!-- ================================================================== -->
+    <!-- BOLUM 4: Kelly Kriteri ve Pozisyon Boyutlandirma -->
+    <!-- ================================================================== -->
     <div class="docs-card" style="border-left-color: var(--color-accent-gold);">
-        <h2 class="docs-title">4. Pozisyon Boyutlandirma</h2>
+        <h2 class="docs-title">4. Kelly Kriteri ve Pozisyon Boyutlandirma</h2>
         <p class="docs-source">Kaynak: <code>PositionSizer.cs:1-43</code></p>
 
-        <h3 class="docs-subtitle-h3">Kelly Kriteri Formulu</h3>
+        <h3 class="docs-subtitle-h3">Kelly Formulu Turetimi</h3>
+        <p>
+            Kelly Kriteri, beklenen logaritmik buyumeyi maksimize eden optimal pozisyon buyuklugunu hesaplar.
+            Temel fikir: cok buyuk pozisyon, buyuk kayiplarda hizli erime yaratir; cok kucuk pozisyon ise
+            firsatlari kacirtir. Kelly, bu ikisi arasindaki <strong>optimal dengeyi</strong> bulur.
+        </p>
         <pre class="docs-code">
+// Genel Kelly:
+f* = (p * b - q) / b
+   p = kazanma olasiligi, q = 1-p, b = kazanc/kayip orani
+
+// Traxon uyarlamasi (binary outcome icin):
 // UP pozisyon icin:
 kellyFull = (fairValue - marketPrice) / (1 - marketPrice)
 
 // DOWN pozisyon icin:
 kellyFull = (marketPrice - fairValue) / marketPrice
 
-// Konservatif carpan:
-kellyFraction = kellyFull × 0.15   // %15 Kelly
-
-// Pozisyon buyuklugu:
-maxPosition = bankroll × 0.02      // max %2
-positionSize = min(kellyFraction × bankroll, maxPosition)
+// Koruma: marketPrice > 0.9999 veya &lt; 0.0001 ise kellyFull = 0
         </pre>
 
         <h3 class="docs-subtitle-h3">Neden %15 Konservatif Carpan?</h3>
         <p>
-            Tam Kelly (100%) teorik optimum olsa da, pratikte cok agresiftir ve buyuk drawdown'lara yol acar.
-            Akademik literaturde genellikle <strong>Half Kelly (%50)</strong> onerilir. Traxon sistemi daha da
-            konservatif bir yaklasim benimseyerek <strong>%15 Kelly</strong> kullanir. Bu:
+            Tam Kelly (100%) teorik optimum olsa da, pratikte <strong>cok agresiftir</strong> ve buyuk drawdown'lara
+            yol acar. Tam Kelly kullanan bir sistem, %50 drawdown yasama olasiligi cok yuksektir. Akademik
+            literaturde genellikle <strong>Half Kelly (%50)</strong> onerilir. Traxon sistemi daha da konservatif
+            bir yaklasim benimseyerek <strong>%15 Kelly</strong> (<code>KellyMultiplier = 0.15</code>) kullanir.
+            Bunun avantajlari:
         </p>
         <ul class="docs-list">
-            <li>Drawdown'lari minimize eder</li>
-            <li>Model hatalarina karsi dayaniklilik saglar</li>
-            <li>Uzun vadeli bileşik buyumeyi korur</li>
+            <li><strong>Drawdown minimizasyonu:</strong> Maksimum drawdown teorik olarak %15'i gecmez</li>
+            <li><strong>Model hatalarina dayaniklilik:</strong> Tahmin hatalarinin etkisi %15 ile sinirlanir</li>
+            <li><strong>Bilesik buyume korunmasi:</strong> Kucuk ama istikrarli kazanclar, buyuk ama tutarsiz kazanclardan daha etkilidir</li>
+            <li><strong>Psikolojik rahatlama:</strong> Buyuk pozisyonlar stres yaratir ve yanlis kararlara yol acar</li>
         </ul>
 
-        <h3 class="docs-subtitle-h3">Max %2 Pozisyon Limiti</h3>
-        <p>
-            Her islem bakiyenin en fazla <strong>%2</strong>'si kadar olabilir. 50$'lik bakiye ile bu 1$ demektir.
-            Bu kural, tek bir kotu islemin portfoyu ciddi sekilde etkilemesini onler.
-        </p>
-        <p class="docs-source">Sabit: <code>MaxPositionFraction = 0.02</code></p>
-
         <h3 class="docs-subtitle-h3">Edge Hesabi</h3>
+        <p>
+            Edge, sistemin piyasaya karsi sahip oldugu avantajdir. <code>|fairValue - marketPrice|</code> olarak
+            hesaplanir. Yuksek edge, fair value ile market price arasindaki buyuk fark demektir — yani "piyasa
+            yaniliyor ve biz bunu biliyoruz" durumu.
+        </p>
         <pre class="docs-code">
 Edge = |FairValue - MarketPrice|
 
-// FairValue=0.68, MarketPrice=0.50 → Edge = 0.18 ✓ (> 0.12)
-// FairValue=0.55, MarketPrice=0.50 → Edge = 0.05 ✗ (&lt; 0.12, red)
+// Rejim bazli minimum edge:
+HighVolatility → MinEdge = 0.12   // daha toleransli
+LowVolatility  → MinEdge = 0.15   // daha katI
+
+// Ornek:
+FairValue=0.68, MarketPrice=0.50 → Edge = 0.18 ✓ (>0.12 ve >0.15)
+FairValue=0.55, MarketPrice=0.50 → Edge = 0.05 ✗ (&lt;0.12, reddedilir)
         </pre>
+
+        <h3 class="docs-subtitle-h3">Max %2 Pozisyon Limiti</h3>
+        <p>
+            Kelly hesaplamasi ne sonuc verirse versin, pozisyon buyuklugu <strong>bakiyenin %2'sini asamaz</strong>
+            (<code>MaxPositionFraction = 0.02</code>). Bu sabit tavan, Kelly formülünün asiri iyimser tahminlerde
+            cok buyuk pozisyon onerme riskini ortadan kaldirir. 50$'lik bakiye ile bu sinir $1'dir.
+        </p>
+        <pre class="docs-code">
+kellyFraction = kellyFull * 0.15
+maxPosition   = bankroll * 0.02
+positionSize  = min(kellyFraction * bankroll, maxPosition)
+positionSize  = max(0, positionSize)
+        </pre>
+
+        <h3 class="docs-subtitle-h3">Adim Adim Ornek Hesaplama</h3>
+        <div class="docs-example">
+            <strong>Giris:</strong> FairValue=0.72, MarketPrice=0.50, Bankroll=$50, LowVol=false<br /><br />
+            1. Edge = |0.72 - 0.50| = <strong>0.22</strong> (>0.12 MinEdge ✓)<br />
+            2. kellyFull = (0.72 - 0.50) / (1 - 0.50) = 0.22 / 0.50 = <strong>0.44</strong><br />
+            3. kellyFraction = 0.44 * 0.15 = <strong>0.066</strong><br />
+            4. maxPosition = $50 * 0.02 = <strong>$1.00</strong><br />
+            5. positionSize = min(0.066 * $50, $1.00) = min($3.30, $1.00) = <strong>$1.00</strong><br /><br />
+            Sonuc: $1.00 pozisyon acilir (max %2 sinirinda)
+        </div>
     </div>
 
-    <!-- Bolum 5: PaperBinance Motoru -->
+    <!-- ================================================================== -->
+    <!-- BOLUM 5: PaperBinance Motoru -->
+    <!-- ================================================================== -->
     <div class="docs-card" style="border-left-color: var(--color-accent-green);">
         <h2 class="docs-title">5. PaperBinance Motoru</h2>
         <p class="docs-source">Kaynak: <code>PaperBinanceEngine.cs:1-351</code></p>
 
-        <p>Binance spot trading simulasyonu. ATR tabanli degil, yuzde tabanli SL/TP kullanir.</p>
-
-        <table class="docs-table">
-            <thead>
-                <tr>
-                    <th>Parametre</th>
-                    <th>Deger</th>
-                    <th>Aciklama</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td><strong>Stop Loss</strong></td>
-                    <td>%0.5</td>
-                    <td>Giris fiyatindan %0.5 uzakta. Scalping icin dar SL.</td>
-                </tr>
-                <tr>
-                    <td><strong>Take Profit</strong></td>
-                    <td>%1.0</td>
-                    <td>Giris fiyatindan %1.0 uzakta. 1:2 Risk/Odul orani saglar.</td>
-                </tr>
-                <tr>
-                    <td><strong>Max Hold</strong></td>
-                    <td>6 mum</td>
-                    <td>6 × 5m = 30 dakika sonra force-close. Uzun bekleyisli zarari onler.</td>
-                </tr>
-                <tr>
-                    <td><strong>Komisyon</strong></td>
-                    <td>%0.075</td>
-                    <td>Binance taker fee (BNB ile odendiginde).</td>
-                </tr>
-                <tr>
-                    <td><strong>Slippage</strong></td>
-                    <td>%0.05</td>
-                    <td>Emir kayma simulasyonu.</td>
-                </tr>
-                <tr>
-                    <td><strong>Min Pozisyon</strong></td>
-                    <td>$1</td>
-                    <td>Minimum islem buyuklugu.</td>
-                </tr>
-                <tr>
-                    <td><strong>TimeFrame</strong></td>
-                    <td>5m</td>
-                    <td>Sadece 5 dakikalik mumlarda islem acar.</td>
-                </tr>
-            </tbody>
-        </table>
-
-        <h3 class="docs-subtitle-h3">Neden 1:2 Risk/Odul?</h3>
         <p>
-            SL %0.5, TP %1.0 ile her kazanilan islem kaybedilen islemin 2 katini oduyor.
-            Bu, <strong>%34</strong> kazanma orani ile bile basabas saglama imkani verir:
-        </p>
-        <pre class="docs-code">
-Basabas WR = SL / (SL + TP) = 0.5 / (0.5 + 1.0) = %33.3
-
-// Yani %34+ win rate ile karli olursunuz!
-        </pre>
-
-        <h3 class="docs-subtitle-h3">PnL Formulu</h3>
-        <pre class="docs-code">
-// UP pozisyon icin:
-adjustedExit = exitPrice × (1 - CommissionRate)
-entryPrice   = lastCandle.Close × (1 + SlippageRate + CommissionRate)
-PnL = (adjustedExit - entryPrice) / entryPrice × positionSize
-
-// DOWN pozisyon icin:
-adjustedExit = exitPrice × (1 + CommissionRate)
-PnL = (entryPrice - adjustedExit) / entryPrice × positionSize
-        </pre>
-
-        <h3 class="docs-subtitle-h3">SL/TP Hesaplama</h3>
-        <pre class="docs-code">
-// UP pozisyon:
-SL = entryPrice × (1 - 0.005)   // %0.5 asagi
-TP = entryPrice × (1 + 0.010)   // %1.0 yukari
-
-// DOWN pozisyon:
-SL = entryPrice × (1 + 0.005)   // %0.5 yukari
-TP = entryPrice × (1 - 0.010)   // %1.0 asagi
-        </pre>
-
-        <h3 class="docs-subtitle-h3">Cikis Mantigi</h3>
-        <p>Her mum kapanisinda acik pozisyonlar kontrol edilir:</p>
-        <ul class="docs-list">
-            <li><strong>TP Hit:</strong> Mumun High (UP) veya Low (DOWN) TP'ye ulasti → kar al</li>
-            <li><strong>SL Hit:</strong> Mumun Low (UP) veya High (DOWN) SL'ye ulasti → zarar kes</li>
-            <li><strong>MaxHold:</strong> 6 mum (30 dakika) gectiyse → force close (candle.Close'dan)</li>
-            <li>Hem TP hem SL ayni mumda hit olursa TP onceliklidir</li>
-        </ul>
-    </div>
-
-    <!-- Bolum 6: PaperPoly Motoru -->
-    <div class="docs-card" style="border-left-color: var(--color-accent-gold);">
-        <h2 class="docs-title">6. PaperPoly Motoru</h2>
-        <p class="docs-source">Kaynak: <code>PaperPolymarketEngine.cs:1-276</code></p>
-
-        <p>Polymarket binary-resolution simulasyonu. Kripto fiyat hareketlerini tahmin eden bir tahmin piyasasi motoru.</p>
-
-        <table class="docs-table">
-            <thead>
-                <tr>
-                    <th>Parametre</th>
-                    <th>Deger</th>
-                    <th>Aciklama</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td><strong>Giris Fiyati</strong></td>
-                    <td>0.41 (sabit)</td>
-                    <td>0.40 baz fiyat + 0.01 slippage. Dusuk giris = yuksek kazanc asimetrisi.</td>
-                </tr>
-                <tr>
-                    <td><strong>Komisyon</strong></td>
-                    <td>%1.8</td>
-                    <td>Taker fee orani.</td>
-                </tr>
-                <tr>
-                    <td><strong>Min Entry</strong></td>
-                    <td>0.25</td>
-                    <td>Minimum kabul edilen giris fiyati.</td>
-                </tr>
-                <tr>
-                    <td><strong>Max Entry</strong></td>
-                    <td>0.55</td>
-                    <td>Maksimum kabul edilen giris fiyati.</td>
-                </tr>
-                <tr>
-                    <td><strong>Pozisyon</strong></td>
-                    <td>Bakiye × %2</td>
-                    <td>Standart Kelly-uyumlu pozisyon buyuklugu.</td>
-                </tr>
-            </tbody>
-        </table>
-
-        <h3 class="docs-subtitle-h3">Binary Resolution Mantigi</h3>
-        <pre class="docs-code">
-// Trade acilir: entryPrice = 0.41 (sabit)
-
-// Mum kapandiginda:
-candle.Close >= candle.Open → mum YESIL → UP kazanir
-candle.Close &lt;  candle.Open → mum KIRMIZI → DOWN kazanir
-
-// Kazanirsa (resolve = 1.00):
-exitPrice = 1.00
-fee = positionSize × 0.018
-PnL = (1.00 - 0.41) / 0.41 × positionSize - fee
-    = +%143.9 × positionSize - fee
-
-// Kaybederse (resolve = 0.00):
-exitPrice = 0.00
-PnL = -positionSize   // %100 kayip
-        </pre>
-
-        <h3 class="docs-subtitle-h3">Neden Sabit 0.41$ Giris?</h3>
-        <p>
-            Dusuk giris fiyati, kazanc/kayip asimetrisini maximuma cikarir:
-        </p>
-        <pre class="docs-code">
-Giris: 0.41$
-Kazanc: (1.00 - 0.41) / 0.41 = +%143.9
-Kayip:  -%100
-
-Basabas hesabi:
-  WR × Kazanc = (1 - WR) × Kayip
-  WR × 1.439 = (1 - WR) × 1.00
-  WR × 1.439 + WR × 1.00 = 1.00
-  WR × 2.439 = 1.00
-  WR = 1.00 / 2.439 = %41.0
-
-// %41+ kazanma orani → KARLI
-// Ornegin %50 WR ile beklenen kar:
-//   E[R] = 0.50 × 1.439 - 0.50 × 1.00 = +%22.0 per trade
-        </pre>
-    </div>
-
-    <!-- Bolum 7: Portfoy Yonetimi -->
-    <div class="docs-card" style="border-left-color: var(--color-accent-red);">
-        <h2 class="docs-title">7. Portfoy Yonetimi</h2>
-        <p class="docs-source">Kaynak: <code>Portfolio.cs:1-74</code></p>
-
-        <p>
-            Her engine bagimsiz bir portfoy yonetir. Portfoy, pozisyon acma/kapama, bakiye takibi ve risk limitleri saglar.
+            PaperBinance, <strong>Binance spot trading simulasyonu</strong> yapan paper trading motorudur.
+            Yuzde bazli SL/TP kullanarak 1:2 risk/odul orani saglar. Her candle kapanisinda acik pozisyonlarin
+            SL/TP hit kontrolunu yapar. Sadece 5m timeframe'de islem acar.
         </p>
 
         <table class="docs-table">
             <thead>
                 <tr>
                     <th>Parametre</th>
+                    <th>Sabit Adi</th>
                     <th>Deger</th>
                     <th>Aciklama</th>
                 </tr>
@@ -580,53 +565,371 @@ Basabas hesabi:
             <tbody>
                 <tr>
                     <td><strong>Baslangic Bakiye</strong></td>
+                    <td><code>InitialBalance</code></td>
+                    <td>$50</td>
+                    <td>Paper trading baslangic sermayesi</td>
+                </tr>
+                <tr>
+                    <td><strong>Stop Loss</strong></td>
+                    <td><code>SlPercent</code></td>
+                    <td>%0.5 (0.005)</td>
+                    <td>Giris fiyatindan %0.5 uzakta. Scalping icin dar SL.</td>
+                </tr>
+                <tr>
+                    <td><strong>Take Profit</strong></td>
+                    <td><code>TpPercent</code></td>
+                    <td>%1.0 (0.010)</td>
+                    <td>Giris fiyatindan %1.0 uzakta. 1:2 Risk/Odul orani.</td>
+                </tr>
+                <tr>
+                    <td><strong>Max Hold</strong></td>
+                    <td><code>MaxHoldCandles</code></td>
+                    <td>6 mum</td>
+                    <td>6 x 5m = 30 dakika sonra force-close.</td>
+                </tr>
+                <tr>
+                    <td><strong>Komisyon</strong></td>
+                    <td><code>CommissionRate</code></td>
+                    <td>%0.075 (0.00075)</td>
+                    <td>Binance taker fee (BNB ile).</td>
+                </tr>
+                <tr>
+                    <td><strong>Slippage</strong></td>
+                    <td><code>SlippageRate</code></td>
+                    <td>%0.05 (0.0005)</td>
+                    <td>Emir kayma simulasyonu.</td>
+                </tr>
+                <tr>
+                    <td><strong>Min Pozisyon</strong></td>
+                    <td><code>MinPositionSize</code></td>
+                    <td>$1</td>
+                    <td>Minimum islem buyuklugu.</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3 class="docs-subtitle-h3">Pozisyon Acma Akisi (Adim Adim)</h3>
+        <pre class="docs-code">
+1. TimeFrame kontrolu: sadece 5m kabul edilir
+2. Duplicate kontrolu: ayni asset icin acik trade var mi?
+3. CandleBuffer'dan son mumlar alinir
+4. Entry Price hesabi:
+   entryPrice = lastCandle.Close x (1 + SlippageRate + CommissionRate)
+              = lastCandle.Close x (1 + 0.0005 + 0.00075)
+              = lastCandle.Close x 1.00125
+
+5. Pozisyon boyutu:
+   positionSize = max(portfolio.Balance x 0.02, $1)
+
+6. SL/TP hesabi (UP pozisyon icin):
+   SL = entryPrice x (1 - 0.005)   // %0.5 asagi
+   TP = entryPrice x (1 + 0.010)   // %1.0 yukari
+
+7. SL/TP hesabi (DOWN pozisyon icin):
+   SL = entryPrice x (1 + 0.005)   // %0.5 yukari
+   TP = entryPrice x (1 - 0.010)   // %1.0 asagi
+
+8. Portfolio.OpenPosition() cagirilir (bakiyeden dusuLir)
+9. Trade DB'ye kaydedilir, SL/TP _slTpMap'e eklenir
+        </pre>
+
+        <h3 class="docs-subtitle-h3">Pozisyon Kontrol Dongusu (CheckPositionsAsync)</h3>
+        <p>
+            Her mum kapanisinda, o muma ait tum acik pozisyonlar kontrol edilir. Cikis <strong>oncelik sirasi</strong>:
+            <strong>TP > SL > MaxHold</strong>. Hem TP hem SL ayni mumda hit olursa TP onceliklidir (optimist varsayim).
+        </p>
+        <pre class="docs-code">
+// Her candle close'da cagirilir:
+foreach (var trade in openTrades[candle.Asset, candle.TimeFrame])
+{
+    // UP pozisyon:
+    tpHit = candle.High >= tp   // High TP'ye ulasti mi?
+    slHit = candle.Low  &lt;= sl   // Low SL'ye ulasti mi?
+
+    // DOWN pozisyon:
+    tpHit = candle.Low  &lt;= tp   // Low TP'ye ulasti mi?
+    slHit = candle.High >= sl   // High SL'ye ulasti mi?
+
+    // MaxHold: 6 mum (30dk) gecti mi?
+    maxHold = candle.OpenTime - trade.OpenedAt >= 5m x 6
+
+    // Cikis fiyati:
+    exitPrice = tpHit ? tp : slHit ? sl : candle.Close
+    reason    = tpHit ? "TakeProfit" : slHit ? "StopLoss" : "MaxHold"
+}
+        </pre>
+
+        <h3 class="docs-subtitle-h3">PnL Hesabi Formulu</h3>
+        <pre class="docs-code">
+// UP pozisyon icin:
+adjustedExit = exitPrice x (1 - CommissionRate)   // cikis komisyonu
+PnL = (adjustedExit - entryPrice) / entryPrice x positionSize
+
+// DOWN pozisyon icin:
+adjustedExit = exitPrice x (1 + CommissionRate)
+PnL = (entryPrice - adjustedExit) / entryPrice x positionSize
+
+// Ornek (UP, TP hit):
+entryPrice = 100.125 (100 x 1.00125)
+exitPrice  = TP = 100.125 x 1.01 = 101.126
+adjustedExit = 101.126 x (1 - 0.00075) = 101.050
+PnL = (101.050 - 100.125) / 100.125 x $1.00 = +$0.0092
+        </pre>
+
+        <h3 class="docs-subtitle-h3">Komisyon Etkisi Analizi</h3>
+        <p>
+            Round-trip komisyon maliyeti: giris (%0.125 = slippage + fee) + cikis (%0.075 = fee) = <strong>%0.20 toplam</strong>.
+            TP %1.0 oldugunda net kazanc %0.80, SL %0.5 oldugunda net kayip %0.575. Bu, efektif R:R oranini
+            1:2'den yaklasik <strong>1:1.39</strong>'a dusurur. Bu yuzden yuksek win rate kritik onem tasir.
+            Basabas WR: 0.575 / (0.575 + 0.80) = <strong>%41.8</strong> (komisyon oncesi %33.3'ten yuksek).
+        </p>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- BOLUM 6: PaperPoly Motoru -->
+    <!-- ================================================================== -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-gold);">
+        <h2 class="docs-title">6. PaperPoly Motoru</h2>
+        <p class="docs-source">Kaynak: <code>PaperPolymarketEngine.cs:1-276</code></p>
+
+        <p>
+            PaperPoly, <strong>Polymarket binary-resolution simulasyonu</strong> yapan paper trading motorudur.
+            Kripto fiyat hareketlerini tahmin eden bir tahmin piyasasi motoru olarak calisir. Her pozisyon
+            1 mum suresi sonunda mum yonune gore WIN veya LOSS olarak sonuclanir.
+        </p>
+
+        <table class="docs-table">
+            <thead>
+                <tr>
+                    <th>Parametre</th>
+                    <th>Sabit Adi</th>
+                    <th>Deger</th>
+                    <th>Aciklama</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Baslangic Bakiye</strong></td>
+                    <td><code>InitialBalance</code></td>
+                    <td>$50</td>
+                    <td>Paper trading baslangic sermayesi.</td>
+                </tr>
+                <tr>
+                    <td><strong>Giris Fiyati</strong></td>
+                    <td><code>rawEntry + Slippage</code></td>
+                    <td>$0.41 (0.40 + 0.01)</td>
+                    <td>Sabit dusuk giris — kazanc asimetrisi icin.</td>
+                </tr>
+                <tr>
+                    <td><strong>Komisyon</strong></td>
+                    <td><code>TakerFeeRate</code></td>
+                    <td>%1.8 (0.018)</td>
+                    <td>Sadece kazanilan islemlerden kesilir.</td>
+                </tr>
+                <tr>
+                    <td><strong>Min Entry</strong></td>
+                    <td><code>MinEntryPrice</code></td>
+                    <td>0.25</td>
+                    <td>Minimum kabul edilen giris fiyati (Analyst v4).</td>
+                </tr>
+                <tr>
+                    <td><strong>Max Entry</strong></td>
+                    <td><code>MaxEntryPrice</code></td>
+                    <td>0.55</td>
+                    <td>Maksimum kabul edilen giris fiyati (Analyst v4).</td>
+                </tr>
+                <tr>
+                    <td><strong>Pozisyon</strong></td>
+                    <td>—</td>
+                    <td>max(Balance x %2, $1)</td>
+                    <td>Standart Kelly-uyumlu pozisyon buyuklugu.</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3 class="docs-subtitle-h3">Sabit 0.41$ Giris Mantigi</h3>
+        <p>
+            PaperPoly, sinyal skoru veya fair value'ya bakmaksizin <strong>her zaman 0.40$ baz fiyat + 0.01$ slippage = 0.41$</strong>
+            giris fiyati kullanir. Bu sabit giris fiyati, <strong>kazanc/kayip asimetrisini maksimize eder</strong>:
+            kazandiginda +%143.9, kaybettiginde -%100. Bu asimetri sayesinde %41 kazanma orani basabas icin yeterlidir.
+        </p>
+
+        <h3 class="docs-subtitle-h3">Hisse Hesabi</h3>
+        <pre class="docs-code">
+// Pozisyon acildiginda:
+rawEntry     = 0.40
+entryPrice   = rawEntry + Slippage = 0.40 + 0.01 = 0.41
+positionSize = max(portfolio.Balance x 0.02, $1)
+
+// Hisse sayisi (kavramsal):
+shares = positionSize / entryPrice
+// Ornek: $1 / $0.41 = 2.439 hisse
+        </pre>
+
+        <h3 class="docs-subtitle-h3">Resolution Mantigi (Mum Yonu)</h3>
+        <p>
+            Pozisyon, bir sonraki mumun kapanisinda resolve olur. Karar mekanizmasi son derece basittir:
+        </p>
+        <pre class="docs-code">
+// candle.Close >= candle.Open → mum YESIL → UP kazanir
+// candle.Close &lt;  candle.Open → mum KIRMIZI → DOWN kazanir
+
+isUp     = candle.Close >= candle.Open
+tradeWon = (direction == UP   && isUp)
+        || (direction == DOWN && !isUp)
+        </pre>
+
+        <h3 class="docs-subtitle-h3">Kazanc Hesabi (WIN)</h3>
+        <pre class="docs-code">
+outcome   = Win
+exitPrice = 1.00   // hisse $1'a resolve olur
+fee       = positionSize x TakerFeeRate   // $1 x 0.018 = $0.018
+PnL       = (1.00 - entryPrice) / entryPrice x positionSize - fee
+          = (1.00 - 0.41) / 0.41 x $1 - $0.018
+          = 1.4390 x $1 - $0.018
+          = $1.439 - $0.018 = +$1.421
+        </pre>
+
+        <h3 class="docs-subtitle-h3">Kayip Hesabi (LOSS)</h3>
+        <pre class="docs-code">
+outcome   = Loss
+exitPrice = 0.00   // hisse $0'a resolve olur
+PnL       = -positionSize   // tum yatirim kaybedilir
+          = -$1.00           // fee kesilmez (zaten sifir)
+        </pre>
+
+        <h3 class="docs-subtitle-h3">Basabas Matematik Ispati</h3>
+        <pre class="docs-code">
+// Beklenen deger sifir olacak WR:
+WR x NetKazanc = (1-WR) x NetKayip
+WR x $1.421 = (1-WR) x $1.00
+WR x 1.421 + WR x 1.00 = 1.00
+WR x 2.421 = 1.00
+WR = 1.00 / 2.421 = 0.4130 = %41.3 (fee dahil)
+
+// Fee'siz: WR = 1.00 / 2.439 = 0.410 = %41.0
+
+// Ornek: %50 WR ile beklenen PnL per trade:
+E[PnL] = 0.50 x $1.421 - 0.50 x $1.00 = $0.711 - $0.500 = +$0.211
+// Yani her islemde ortalama +$0.211 kar beklenir!
+        </pre>
+
+        <h3 class="docs-subtitle-h3">Compound Growth (Bilesik Buyume) Analizi</h3>
+        <p>
+            %50 WR varsayimiyla, her islemde bakiyenin %2'si kullanildiginda (en az $1), 50 islem sonrasi
+            beklenen bakiye: $50 + (50 x 0.50 x $1.421 - 50 x 0.50 x $1.00) = $50 + $10.53 = <strong>$60.53</strong>.
+            Bu %21 buyume demektir. 200 islem sonrasi: ~$50 x 1.21^4 = <strong>$107</strong> (bilesik etkiyle).
+        </p>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- BOLUM 7: Portfoy Yonetimi -->
+    <!-- ================================================================== -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-red);">
+        <h2 class="docs-title">7. Portfoy Yonetimi</h2>
+        <p class="docs-source">Kaynak: <code>Portfolio.cs:1-74</code></p>
+
+        <p>
+            Her engine (<strong>PaperBinance</strong> ve <strong>PaperPoly</strong>) bagimsiz bir Portfolio nesnesi yonetir.
+            Portfolio sinifi, <code>AggregateRoot&lt;Guid&gt;</code>'den turetilmistir ve pozisyon acma/kapama, bakiye takibi
+            ve risk limitleri saglar. Tum bakiye islemleri thread-safe ConcurrentDictionary ve SemaphoreSlim
+            ile korunur.
+        </p>
+
+        <table class="docs-table">
+            <thead>
+                <tr>
+                    <th>Parametre</th>
+                    <th>Kod</th>
+                    <th>Deger</th>
+                    <th>Aciklama</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Baslangic Bakiye</strong></td>
+                    <td><code>InitialBalance</code></td>
                     <td>$50</td>
                     <td>Her engine 50$ ile baslar.</td>
                 </tr>
                 <tr>
                     <td><strong>MaxExposure</strong></td>
-                    <td>Bakiye × %30</td>
-                    <td>Ayni anda acik toplam pozisyon bakiyenin %30'unu asamaz.</td>
+                    <td><code>Balance * 0.30m</code></td>
+                    <td>Bakiye x %30</td>
+                    <td>Toplam acik pozisyon bakiyenin %30'unu asamaz.</td>
                 </tr>
                 <tr>
                     <td><strong>MaxPositionSize</strong></td>
-                    <td>Bakiye × %2</td>
-                    <td>Tek bir pozisyon bakiyenin %2'sini asamaz.</td>
+                    <td><code>Balance * 0.02m</code></td>
+                    <td>Bakiye x %2</td>
+                    <td>Tek pozisyon bakiyenin %2'sini asamaz.</td>
                 </tr>
             </tbody>
         </table>
 
-        <h3 class="docs-subtitle-h3">Pozisyon Acma Akisi</h3>
-        <pre class="docs-code">
-1. positionSize > MaxPositionSize → RED
-2. TotalExposure + positionSize > MaxExposure → RED
-3. Balance &lt; positionSize → RED
-4. ONAY: Balance -= positionSize (bakiyeden dusulur)
-        </pre>
-
-        <h3 class="docs-subtitle-h3">Pozisyon Kapama Akisi</h3>
-        <pre class="docs-code">
-1. Pozisyonu listeden cikar
-2. Balance += positionSize + PnL (geri eklenir)
-3. TotalPnL += PnL
-4. Win/Loss sayaci guncellenir
-        </pre>
-
-        <h3 class="docs-subtitle-h3">Neden %30 MaxExposure?</h3>
+        <h3 class="docs-subtitle-h3">Balance Akisi: Acilis ve Kapamis</h3>
         <p>
-            Bakiyenin %70'i her zaman "rezervde" tutulur. Bu:
+            Pozisyon acildiginda bakiyeden <strong>dusulur</strong>, kapandiginda <strong>geri eklenir</strong> (PnL ile birlikte).
+            Bu "escrow" mantigi, her an bakiyenin gercek kullanilabilir tutari yansitmasini saglar:
+        </p>
+        <pre class="docs-code">
+// Pozisyon acma:
+Balance -= positionSize     // $50 - $1 = $49
+
+// Pozisyon kapama (kazanc):
+Balance += positionSize + PnL
+// $49 + $1 + $0.80 = $49.80 (net +$0.80)
+
+// Pozisyon kapama (kayip):
+Balance += positionSize + PnL
+// $49 + $1 + (-$0.50) = $49.50 (net -$0.50)
+        </pre>
+
+        <h3 class="docs-subtitle-h3">MaxExposure %30 — Neden?</h3>
+        <p>
+            Bakiyenin <strong>%70'i her zaman "rezervde" tutulur</strong>. Bu tasarim kararinin 3 onemli sebebi vardir:
         </p>
         <ul class="docs-list">
-            <li>Ayni anda birden fazla kotu islem olursa bile portfoyu korur</li>
-            <li>Yeni firsatlar icin likidite saglar</li>
-            <li>En kotu senaryoda (tum acik pozisyonlar %100 kayip) bile bakiyenin %70'i korunur</li>
+            <li><strong>Koruma:</strong> Ayni anda tum acik pozisyonlar %100 kayip verse bile bakiyenin %70'i korunur. En kotu senaryoda bile sermayenin buyuk kismi guvendedir.</li>
+            <li><strong>Likidite:</strong> Yeni firsatlar icin her zaman yeterli bakiye mevcuttur. Tum bakiye pozisyonlara baglanirsa, en iyi firsatlar kacirilir.</li>
+            <li><strong>Volatilite tamponu:</strong> Ani piyasa hareketlerinde margin-call benzeri durumlari onler.</li>
         </ul>
 
-        <h3 class="docs-subtitle-h3">Restore Mekanizmasi</h3>
+        <h3 class="docs-subtitle-h3">MaxPositionSize %2 — Neden?</h3>
         <p>
-            Worker restart sonrasi portfoy durumu SQL Server'daki son snapshot'tan restore edilir.
-            Acik pozisyonlar da DB'den yuklenir, boylece SL/TP takibi ve duplicate trade onleme calismaya devam eder.
+            <strong>%2 kurali</strong>, profesyonel risk yonetiminin altin standartdir. Tek bir islemin portfoyu ciddi
+            sekilde etkilemesini onler. 50$'lik bakiye ile her pozisyon en fazla $1'dir. 10 ust uste kayip durumunda bile:
+            $50 x 0.98^10 = $40.86 → bakiyenin %81.7'si korunur. Bu, recovery (toparlanma) icin yeterli sermaye birakir.
         </p>
+
+        <h3 class="docs-subtitle-h3">Pozisyon Acma Kontrolleri</h3>
+        <pre class="docs-code">
+// Portfolio.OpenPosition() - 3 kontrol:
+1. positionSize > MaxPositionSize → RED (PortfolioInsufficient)
+   // $1.50 > $50 x 0.02 = $1.00 → RED
+
+2. TotalExposure + positionSize > MaxExposure → RED
+   // Mevcut $14 + $1 > $50 x 0.30 = $15 → RED
+
+3. Balance &lt; positionSize → RED
+   // $0.50 &lt; $1.00 → RED
+
+4. ONAY: Balance -= positionSize, pozisyon listeye eklenir
+        </pre>
+
+        <h3 class="docs-subtitle-h3">Snapshot Sistemi ve Restart Recovery</h3>
+        <p>
+            Her trade acilis ve kapanisinda <code>LogPortfolioSnapshotAsync()</code> cagirilir ve portfoy durumu
+            SQL Server'a kaydedilir (Balance, TotalPnL, WinRate, TradeCount). Worker restart sonrasi
+            <code>EnsureInitializedAsync()</code> metodu son snapshot'u DB'den okuyarak portfoyu restore eder.
+            Acik pozisyonlar da <code>GetOpenTradesAsync()</code> ile yuklenir, boylece:
+        </p>
+        <ul class="docs-list">
+            <li><strong>Bakiye tutarliligi:</strong> Restart sonrasi bakiye dogru degerden devam eder</li>
+            <li><strong>Duplicate onleme:</strong> Ayni asset icin birden fazla trade acilmaz</li>
+            <li><strong>SL/TP takibi:</strong> PaperBinance'da SL/TP degerleri trade'in <code>IndicatorSnapshot</code> JSON'ından parse edilir</li>
+            <li><strong>WinRate korunmasi:</strong> Win/Loss sayaclari snapshot'tan restore edilir</li>
+        </ul>
     </div>
 </div>
 
@@ -700,6 +1003,17 @@ Basabas hesabi:
         overflow-x: auto;
         white-space: pre;
         margin: 8px 0;
+    }
+
+    .docs-example {
+        background-color: var(--color-bg-elevated);
+        border: 1px solid var(--color-border-default);
+        border-radius: 6px;
+        padding: 12px 16px;
+        margin: 8px 0;
+        font-size: 0.9rem;
+        line-height: 1.6;
+        color: var(--color-text-primary);
     }
 
     .docs-table {

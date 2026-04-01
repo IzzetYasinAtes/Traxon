@@ -1,0 +1,117 @@
+@page "/chart"
+
+<div class="chart-page">
+    <!-- Ust Bar: Sembol + Zaman Dilimi -->
+    <div class="chart-toolbar">
+        <div class="chart-toolbar-group">
+            <span class="chart-toolbar-label">Sembol</span>
+            @foreach (var sym in _symbols)
+            {
+                <button class="chart-btn @(sym == _selectedSymbol ? "chart-btn-active" : "")"
+                        @onclick="() => SelectSymbol(sym)">
+                    @sym.Replace("USDT", "")
+                </button>
+            }
+        </div>
+        <div class="chart-toolbar-group">
+            <span class="chart-toolbar-label">Zaman Dilimi</span>
+            @foreach (var tf in _timeframes)
+            {
+                <button class="chart-btn @(tf == _selectedTimeframe ? "chart-btn-active" : "")"
+                        @onclick="() => SelectTimeframe(tf)">
+                    @tf
+                </button>
+            }
+        </div>
+    </div>
+
+    <!-- Chart Alani -->
+    <div class="chart-area">
+        <CandlestickChart Symbol="@_selectedSymbol" Interval="@_selectedTimeframe" Height="_chartHeight" />
+    </div>
+</div>
+
+@code {
+    private readonly string[] _symbols = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT", "DOGEUSDT", "BNBUSDT", "DOTUSDT", "MATICUSDT"];
+    private readonly string[] _timeframes = ["1m", "5m", "15m"];
+
+    private string _selectedSymbol = "BTCUSDT";
+    private string _selectedTimeframe = "1m";
+    private int _chartHeight = 800;
+
+    private void SelectSymbol(string symbol)
+    {
+        _selectedSymbol = symbol;
+    }
+
+    private void SelectTimeframe(string tf)
+    {
+        _selectedTimeframe = tf;
+    }
+}
+
+<style>
+    .chart-page {
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 64px);
+        overflow: hidden;
+    }
+
+    .chart-toolbar {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        gap: 24px;
+        padding: 8px 12px;
+        background-color: var(--color-bg-elevated);
+        border-bottom: 1px solid var(--color-border-default);
+        border-radius: 8px 8px 0 0;
+        flex-wrap: wrap;
+    }
+
+    .chart-toolbar-group {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .chart-toolbar-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--color-text-muted);
+        margin-right: 6px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .chart-btn {
+        padding: 4px 10px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        color: var(--color-text-secondary);
+        background-color: transparent;
+        border: 1px solid var(--color-border-default);
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .chart-btn:hover {
+        background-color: var(--color-bg-surface);
+        color: var(--color-text-primary);
+    }
+
+    .chart-btn-active {
+        background-color: var(--color-accent-green) !important;
+        color: var(--color-bg-primary) !important;
+        border-color: var(--color-accent-green) !important;
+        font-weight: 700;
+    }
+
+    .chart-area {
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+    }
+</style>
