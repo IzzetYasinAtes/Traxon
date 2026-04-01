@@ -1,0 +1,532 @@
+@page "/guide"
+
+<div class="guide-container">
+    <h1 class="guide-main-title">Finansal Rehber</h1>
+    <p class="guide-subtitle">Sıfırdan başlayanlar için borsa, kripto para ve trading kavramları</p>
+
+    <!-- Bölüm 1: Borsa ve Kripto Para -->
+    <div class="guide-card" style="border-left-color: var(--color-accent-blue);">
+        <h2 class="guide-title">1. Borsa ve Kripto Para Nedir?</h2>
+
+        <h3 class="guide-subtitle-h3">Borsa Kavramı</h3>
+        <p>
+            Borsa, alıcıların ve satıcıların bir araya geldiği organize bir piyasadır. Geleneksel borsalarda (örneğin İstanbul Borsa) şirket hisseleri,
+            kripto borsalarında ise dijital para birimleri alınıp satılır. Temel mantık basittir: bir varlığı düşük fiyattan alır, yüksek fiyattan satarsanız
+            <strong>kar</strong> edersiniz.
+        </p>
+        <p>
+            Borsada her işlemin iki tarafı vardır: <strong>alıcı</strong> (buyer) ve <strong>satıcı</strong> (seller). Alıcı belirli bir fiyattan almak ister,
+            satıcı belirli bir fiyattan satmak ister. Bu iki fiyat eşleştiğinde işlem gerçekleşir. Buna <strong>emir eşleşmesi</strong> (order matching) denir.
+        </p>
+
+        <h3 class="guide-subtitle-h3">Kripto Para Nedir?</h3>
+        <p>
+            Kripto para, şifreleme (kriptografi) teknolojisi kullanılarak güvence altına alınan dijital para birimidir. Merkezi bir otorite (banka, devlet)
+            tarafından kontrol edilmez — bunun yerine <strong>blockchain</strong> adı verilen dağıtık bir defter teknolojisi üzerinde çalışır.
+        </p>
+        <p>
+            <strong>Bitcoin (BTC)</strong>, 2009 yılında "Satoshi Nakamoto" takma adlı bir kişi veya grup tarafından yaratılan ilk kripto paradır.
+            Toplam arzı 21 milyon ile sınırlıdır. Ethereum (ETH), Solana (SOL), BNB gibi binlerce farklı kripto para bulunmaktadır.
+        </p>
+
+        <h3 class="guide-subtitle-h3">USDT (Stablecoin) Nedir?</h3>
+        <p>
+            <strong>USDT (Tether)</strong>, 1 ABD Doları'na sabitlenmiş bir <strong>stablecoin</strong>'dir. Yani 1 USDT her zaman yaklaşık 1 USD değerindedir.
+            Kripto borsalarında fiyatlar genellikle USDT cinsinden gösterilir. Örneğin "BTCUSDT = 65,000" demek, 1 Bitcoin'in 65,000 USDT (yani ~65,000 USD)
+            değerinde olduğu anlamına gelir. Trader'lar stablecoin kullanarak volatil piyasada güvenli bir liman bulabilir.
+        </p>
+    </div>
+
+    <!-- Bölüm 2: Alım-Satım Temelleri -->
+    <div class="guide-card" style="border-left-color: var(--color-accent-green);">
+        <h2 class="guide-title">2. Alım-Satım (Trading) Temelleri</h2>
+
+        <h3 class="guide-subtitle-h3">Long (Uzun Pozisyon) — Fiyat Artışından Kar</h3>
+        <p>
+            <strong>Long</strong> pozisyon, bir varlığın fiyatının <strong>artacağına</strong> bahis yapmaktır. Düşük fiyattan alır, yüksek fiyattan satarsınız.
+        </p>
+        <div class="guide-example">
+            <strong>Örnek:</strong> BTCUSDT'yi 60,000'den aldınız, 62,000'e çıktığında sattınız.<br />
+            Kar = (62,000 - 60,000) / 60,000 = <span class="text-green">+%3.33</span>
+        </div>
+
+        <h3 class="guide-subtitle-h3">Short (Kısa Pozisyon) — Fiyat Düşüşünden Kar</h3>
+        <p>
+            <strong>Short</strong> pozisyon, bir varlığın fiyatının <strong>düşeceğine</strong> bahis yapmaktır. Önce yüksek fiyattan satarsınız (ödünç alarak),
+            sonra düşük fiyattan geri alırsınız. Fark sizin karınızdır.
+        </p>
+        <div class="guide-example">
+            <strong>Örnek:</strong> ETHUSDT'yi 3,000'den short açtınız, 2,850'ye düştüğünde kapattınız.<br />
+            Kar = (3,000 - 2,850) / 3,000 = <span class="text-green">+%5.00</span>
+        </div>
+
+        <h3 class="guide-subtitle-h3">Spot Trading vs Futures</h3>
+        <p>
+            <strong>Spot Trading:</strong> Gerçek varlığı alıp satarsınız. Aldığınız Bitcoin cüzdanınıza geçer. Kaldıraç (leverage) yoktur.
+        </p>
+        <p>
+            <strong>Futures Trading:</strong> Gelecekteki fiyat üzerine sözleşme yaparsınız. Kaldıraç kullanabilirsiniz (örn. 10x kaldıraç ile 100$'lık pozisyon
+            1,000$ gibi davranır). Yüksek kar potansiyeli olduğu gibi, yüksek zarar riski de vardır. <strong>Traxon sistemi spot trading simülasyonu yapar.</strong>
+        </p>
+    </div>
+
+    <!-- Bölüm 3: Mum Grafik -->
+    <div class="guide-card" style="border-left-color: var(--color-accent-gold);">
+        <h2 class="guide-title">3. Mum Grafik (Candlestick)</h2>
+
+        <h3 class="guide-subtitle-h3">Open, High, Low, Close (OHLC)</h3>
+        <p>Her mum (candle) belirli bir zaman dilimindeki fiyat hareketini gösterir:</p>
+        <ul class="guide-list">
+            <li><strong>Open (Açılış):</strong> Zaman diliminin başındaki fiyat</li>
+            <li><strong>High (En Yüksek):</strong> O zaman diliminde ulaşılan en yüksek fiyat</li>
+            <li><strong>Low (En Düşük):</strong> O zaman diliminde ulaşılan en düşük fiyat</li>
+            <li><strong>Close (Kapanış):</strong> Zaman diliminin sonundaki fiyat</li>
+        </ul>
+
+        <h3 class="guide-subtitle-h3">Yeşil Mum vs Kırmızı Mum</h3>
+        <p>
+            <span class="text-green"><strong>Yeşil Mum:</strong></span> Kapanış fiyatı açılış fiyatından <strong>yüksek</strong>. Yani fiyat o dönemde arttı (boğa/bullish).<br />
+            <span class="text-red"><strong>Kırmızı Mum:</strong></span> Kapanış fiyatı açılış fiyatından <strong>düşük</strong>. Yani fiyat o dönemde düştü (ayı/bearish).
+        </p>
+
+        <h3 class="guide-subtitle-h3">Zaman Dilimleri</h3>
+        <p>Her mum belirli bir süreyi temsil eder:</p>
+        <ul class="guide-list">
+            <li><strong>1m:</strong> 1 dakikalık mumlar — çok kısa vadeli, yüksek gürültü</li>
+            <li><strong>5m:</strong> 5 dakikalık mumlar — scalping için ideal (Traxon bunu kullanır)</li>
+            <li><strong>15m:</strong> 15 dakikalık mumlar — intraday trading</li>
+            <li><strong>1h:</strong> 1 saatlik mumlar — trend teyidi için (Traxon bunu teyit olarak kullanır)</li>
+        </ul>
+
+        <h3 class="guide-subtitle-h3">Mum Grafik Yapısı</h3>
+        <pre class="guide-code">
+   Yeşil Mum (Yükseliş)          Kırmızı Mum (Düşüş)
+
+        │                              │
+        │  ← High                      │  ← High
+        │                              │
+   ┌────┴────┐                    ┌────┴────┐
+   │         │                    │         │
+   │  Close  │ ← Gövde           │  Open   │ ← Gövde
+   │         │   (Yeşil)          │         │   (Kırmızı)
+   │  Open   │                    │  Close  │
+   │         │                    │         │
+   └────┬────┘                    └────┬────┘
+        │                              │
+        │  ← Low                       │  ← Low
+        │                              │
+
+   Close > Open → YEŞİL          Close &lt; Open → KIRMIZI
+   Fiyat ARTTI                    Fiyat DÜŞTÜ
+        </pre>
+    </div>
+
+    <!-- Bölüm 4: Teknik İndikatörler -->
+    <div class="guide-card" style="border-left-color: var(--color-accent-purple);">
+        <h2 class="guide-title">4. Teknik İndikatörler</h2>
+        <p>
+            Teknik indikatörler, geçmiş fiyat verilerini matematiksel formüllerle işleyerek gelecekteki fiyat hareketleri hakkında ipuçları veren araçlardır.
+            Hiçbir indikatör tek başına %100 doğru değildir — bu yüzden Traxon sistemi <strong>birden fazla indikatörü</strong> birlikte kullanır.
+        </p>
+
+        <div class="guide-indicator">
+            <h3 class="guide-subtitle-h3">RSI (Göreceli Güç Endeksi — Relative Strength Index)</h3>
+            <p>
+                RSI, fiyatın ne kadar hızlı ve güçlü hareket ettiğini ölçer. <strong>0-100</strong> arasında bir değer üretir.
+            </p>
+            <ul class="guide-list">
+                <li><strong>70 üstü:</strong> <span class="text-red">Aşırı alım (overbought)</span> — fiyat çok hızlı yükselmiş, düşüş gelebilir</li>
+                <li><strong>30 altı:</strong> <span class="text-green">Aşırı satım (oversold)</span> — fiyat çok hızlı düşmüş, yükseliş gelebilir</li>
+                <li><strong>50 civarı:</strong> Nötr bölge</li>
+            </ul>
+            <div class="guide-formula">
+                <code>RSI = 100 - (100 / (1 + RS))</code><br />
+                <code>RS = Ortalama Kazanç / Ortalama Kayıp</code>
+            </div>
+            <p>Traxon sistemi hem <strong>RSI(7)</strong> (kısa vadeli, hızlı tepki) hem <strong>RSI(14)</strong> (uzun vadeli, teyit) kullanır.</p>
+        </div>
+
+        <div class="guide-indicator">
+            <h3 class="guide-subtitle-h3">MACD (Hareketli Ortalama Yakınsama/Iraksama)</h3>
+            <p>
+                MACD, iki farklı hareketli ortalamanın (EMA 12 ve EMA 26) farkını alarak trend değişimlerini yakalar.
+            </p>
+            <ul class="guide-list">
+                <li><strong>MACD Çizgisi:</strong> EMA(12) - EMA(26)</li>
+                <li><strong>Sinyal Çizgisi:</strong> MACD'nin 9 periyotluk EMA'sı</li>
+                <li><strong>Histogram:</strong> MACD - Sinyal Çizgisi</li>
+            </ul>
+            <p>
+                <span class="text-green"><strong>AL sinyali:</strong></span> Histogram negatiften pozitife geçtiğinde (MACD sinyal çizgisini yukarı kesiyor).<br />
+                <span class="text-red"><strong>SAT sinyali:</strong></span> Histogram pozitiften negatife geçtiğinde (MACD sinyal çizgisini aşağı kesiyor).
+            </p>
+        </div>
+
+        <div class="guide-indicator">
+            <h3 class="guide-subtitle-h3">Bollinger Bantları (Bollinger Bands)</h3>
+            <p>
+                Fiyatın etrafında bir "kanal" oluşturur. Üç çizgiden oluşur:
+            </p>
+            <ul class="guide-list">
+                <li><strong>Üst Bant:</strong> SMA(20) + 2 × Standart Sapma</li>
+                <li><strong>Orta Bant:</strong> SMA(20) — 20 periyotluk basit hareketli ortalama</li>
+                <li><strong>Alt Bant:</strong> SMA(20) - 2 × Standart Sapma</li>
+            </ul>
+            <p>
+                Fiyat <strong>üst banda</strong> yaklaştığında → aşırı alım, düşüş beklentisi.<br />
+                Fiyat <strong>alt banda</strong> yaklaştığında → aşırı satım, yükseliş beklentisi.<br />
+                Bantlar <strong>daralıyorsa</strong> → düşük volatilite, büyük hareket beklentisi (squeeze).
+            </p>
+        </div>
+
+        <div class="guide-indicator">
+            <h3 class="guide-subtitle-h3">ATR (Ortalama Gerçek Aralık — Average True Range)</h3>
+            <p>
+                ATR, fiyatın belirli bir dönemde ne kadar <strong>dalgalandığını</strong> (volatilite) ölçer. Yüksek ATR = yüksek volatilite, düşük ATR = sakin piyasa.
+                Yön bildirmez, sadece hareketin büyüklüğünü söyler.
+            </p>
+            <div class="guide-formula">
+                <code>TR = max(High - Low, |High - PrevClose|, |Low - PrevClose|)</code><br />
+                <code>ATR = son 14 TR'nin Wilder ortalaması</code>
+            </div>
+        </div>
+
+        <div class="guide-indicator">
+            <h3 class="guide-subtitle-h3">VWAP (Hacim Ağırlıklı Ortalama Fiyat)</h3>
+            <p>
+                VWAP, her fiyat seviyesinde ne kadar hacim işlem gördüğünü hesaba katarak "gerçek ortalama fiyatı" bulur.
+                Kurumsal yatırımcılar bu seviyeyi referans olarak kullanır.
+            </p>
+            <ul class="guide-list">
+                <li>Fiyat VWAP'ın <strong>üstündeyse</strong> → alıcılar güçlü (bullish)</li>
+                <li>Fiyat VWAP'ın <strong>altındaysa</strong> → satıcılar güçlü (bearish)</li>
+            </ul>
+            <div class="guide-formula">
+                <code>VWAP = Σ(Tipik Fiyat × Hacim) / Σ(Hacim)</code><br />
+                <code>Tipik Fiyat = (High + Low + Close) / 3</code>
+            </div>
+        </div>
+
+        <div class="guide-indicator">
+            <h3 class="guide-subtitle-h3">SMA (Basit Hareketli Ortalama — Simple Moving Average)</h3>
+            <p>
+                Son N mumun kapanış fiyatlarının aritmetik ortalamasıdır. Trendi belirlemek için kullanılır.
+            </p>
+            <ul class="guide-list">
+                <li><strong>Golden Cross:</strong> Kısa vadeli SMA, uzun vadeli SMA'yı <span class="text-green">yukarı</span> kesiyor → <strong>güçlü AL sinyali</strong></li>
+                <li><strong>Death Cross:</strong> Kısa vadeli SMA, uzun vadeli SMA'yı <span class="text-red">aşağı</span> kesiyor → <strong>güçlü SAT sinyali</strong></li>
+            </ul>
+            <p>Traxon sistemi SMA(10) ve SMA(30) kullanır. SMA(10) > SMA(30) ise trend yukarıdır.</p>
+        </div>
+
+        <div class="guide-indicator">
+            <h3 class="guide-subtitle-h3">EMA (Üstel Hareketli Ortalama — Exponential Moving Average)</h3>
+            <p>
+                SMA'ya benzer ama son fiyatlara <strong>daha fazla ağırlık</strong> verir. Bu sayede fiyat değişikliklerine daha hızlı tepki verir.
+            </p>
+            <div class="guide-formula">
+                <code>EMA = Fiyat × k + EMA(önceki) × (1 - k)</code><br />
+                <code>k = 2 / (periyot + 1)</code>
+            </div>
+            <p>
+                Traxon <strong>EMA(9)</strong> kullanır. Fiyat EMA(9) üstündeyse ve EMA yükseliyorsa → bullish sinyal.
+            </p>
+        </div>
+
+        <div class="guide-indicator">
+            <h3 class="guide-subtitle-h3">Stochastic Osilatör</h3>
+            <p>
+                Kapanış fiyatının belirli bir dönemdeki fiyat aralığına göre konumunu ölçer. %K ve %D olmak üzere iki çizgiden oluşur.
+            </p>
+            <ul class="guide-list">
+                <li><strong>%K > %D</strong> → <span class="text-green">Bullish (AL)</span></li>
+                <li><strong>%K &lt; %D</strong> → <span class="text-red">Bearish (SAT)</span></li>
+                <li><strong>80 üstü:</strong> Aşırı alım bölgesi</li>
+                <li><strong>20 altı:</strong> Aşırı satım bölgesi</li>
+            </ul>
+            <div class="guide-formula">
+                <code>%K = 100 × (Close - Lowest Low) / (Highest High - Lowest Low)</code>
+            </div>
+        </div>
+
+        <div class="guide-indicator">
+            <h3 class="guide-subtitle-h3">Hacim (Volume)</h3>
+            <p>
+                Belirli bir zaman diliminde işlem gören toplam varlık miktarıdır. Hacim, fiyat hareketinin <strong>arkasındaki gücü</strong> gösterir.
+            </p>
+            <ul class="guide-list">
+                <li><strong>Yüksek hacimle yükseliş:</strong> Güçlü alım baskısı, trend devam edebilir</li>
+                <li><strong>Düşük hacimle yükseliş:</strong> Zayıf hareket, geri dönüş olabilir</li>
+                <li><strong>Hacim ortalamanın 2 katı:</strong> Çok güçlü hareket, dikkat!</li>
+            </ul>
+            <p>Traxon sistemi son 20 mumun hacim ortalamasını referans alır. Mevcut hacim / ortalama hacim oranı ölçülür.</p>
+        </div>
+    </div>
+
+    <!-- Bölüm 5: Risk Yönetimi -->
+    <div class="guide-card" style="border-left-color: var(--color-accent-red);">
+        <h2 class="guide-title">5. Risk Yönetimi</h2>
+        <p>
+            Risk yönetimi, trading'de en önemli konudur. İyi bir strateji bile kötü risk yönetimiyle iflas edebilir.
+        </p>
+
+        <h3 class="guide-subtitle-h3">Stop Loss (Zarar Durdur)</h3>
+        <p>
+            <strong>Stop Loss (SL)</strong>, bir pozisyondaki maksimum zararınızı sınırlayan otomatik emirdir. Fiyat belirlediğiniz seviyeye geldiğinde
+            pozisyon otomatik kapatılır. <span class="text-red"><strong>Stop Loss kullanmamak, hesabınızı sıfırlayabilir!</strong></span>
+        </p>
+        <div class="guide-example">
+            <strong>Örnek:</strong> 100$'dan aldınız, SL = 98$. Fiyat 98$'a düşerse pozisyon kapanır → Zarar = %2
+        </div>
+
+        <h3 class="guide-subtitle-h3">Take Profit (Kar Al)</h3>
+        <p>
+            <strong>Take Profit (TP)</strong>, hedef karınıza ulaştığınızda pozisyonu otomatik kapatan emirdir. Açgözlülükten korunmanızı sağlar.
+        </p>
+        <div class="guide-example">
+            <strong>Örnek:</strong> 100$'dan aldınız, TP = 104$. Fiyat 104$'a çıkarsa pozisyon kapanır → Kar = %4
+        </div>
+
+        <h3 class="guide-subtitle-h3">Risk/Ödül Oranı (Risk/Reward Ratio)</h3>
+        <p>
+            Her işlemde ne kadar riske karşı ne kadar potansiyel ödül aldığınızı gösterir.
+        </p>
+        <div class="guide-formula">
+            <code>Risk/Ödül = |TP - Giriş| / |SL - Giriş|</code>
+        </div>
+        <p>
+            <strong>1:2 oranı</strong> demek: 1 birim riske karşı 2 birim potansiyel kar. Yani %50 kazanma oranıyla bile karlı olursunuz!
+            Traxon PaperBinance motoru %0.5 SL, %1.0 TP kullanarak <strong>1:2 Risk/Ödül</strong> oranı sağlar.
+        </p>
+
+        <h3 class="guide-subtitle-h3">Pozisyon Büyüklüğü</h3>
+        <p>
+            Tek bir işleme tüm sermayenizi koymak <span class="text-red"><strong>en büyük hatadır</strong></span>. Birkaç kötü işlem hesabınızı tamamen sıfırlayabilir.
+            Profesyonel trader'lar her işlemde bakiyelerinin sadece <strong>%1-5</strong>'ini riske atar.
+        </p>
+        <div class="guide-example">
+            <strong>Kural:</strong> Traxon sistemi her işlemde bakiyenin maksimum <strong>%2</strong>'sini kullanır.
+            50$'lık bakiye ile her pozisyon en fazla 1$'dır.
+        </div>
+
+        <h3 class="guide-subtitle-h3">Kelly Kriteri</h3>
+        <p>
+            Kelly Kriteri, matematiksel olarak <strong>optimal pozisyon büyüklüğünü</strong> hesaplayan bir formüldür. Kazanma olasılığınız ve kazanç/kayıp
+            oranınız bilindiğinde, uzun vadede bakiyenizi en hızlı büyütecek miktarı söyler.
+        </p>
+        <div class="guide-formula">
+            <code>f* = (p × b - q) / b</code><br />
+            <code>p = kazanma olasılığı, q = kaybetme olasılığı (1-p)</code><br />
+            <code>b = kazanç/kayıp oranı</code>
+        </div>
+        <p>
+            Pratikte tam Kelly çok agresiftir. Traxon sistemi <strong>%15 Kelly</strong> (çok konservatif) kullanır — yani hesaplanan optimalin
+            sadece %15'i kadar pozisyon açar. Bu, uzun vadeli büyüme için en güvenli yoldur.
+        </p>
+    </div>
+
+    <!-- Bölüm 6: Komisyon ve Slippage -->
+    <div class="guide-card" style="border-left-color: var(--color-text-muted);">
+        <h2 class="guide-title">6. Komisyon ve Slippage</h2>
+
+        <h3 class="guide-subtitle-h3">Trading Fee (İşlem Komisyonu)</h3>
+        <p>
+            Her alım ve satım işleminde borsa bir <strong>komisyon</strong> alır. Bu oran küçük görünse de, sık işlem yapıldığında önemli bir maliyet oluşturur.
+        </p>
+        <ul class="guide-list">
+            <li><strong>Binance Taker Fee:</strong> %0.075 (BNB ile ödeyince indirimli)</li>
+            <li><strong>Polymarket Fee:</strong> %1.8</li>
+            <li>Hem giriş hem çıkışta komisyon ödenir → toplam maliyet 2 katıdır</li>
+        </ul>
+
+        <h3 class="guide-subtitle-h3">Slippage (Kayma)</h3>
+        <p>
+            <strong>Slippage</strong>, emirinizin beklediğiniz fiyattan farklı bir fiyatta gerçekleşmesidir. Özellikle düşük likidite veya hızlı fiyat
+            hareketlerinde oluşur. Traxon sistemi %0.05 slippage hesaba katar.
+        </p>
+
+        <h3 class="guide-subtitle-h3">Paper Trading (Kağıt Üzerinde İşlem)</h3>
+        <p>
+            <strong>Paper trading</strong>, gerçek para kullanmadan sanal bakiye ile işlem yapmaktır. Stratejinizi test etmek için idealdir.
+            Traxon sistemi tamamen paper trading yapar — gerçek para riski yoktur, ama gerçek piyasa verilerini kullanır.
+        </p>
+    </div>
+
+    <!-- Bölüm 7: Polymarket -->
+    <div class="guide-card" style="border-left-color: var(--color-accent-gold);">
+        <h2 class="guide-title">7. Polymarket (Tahmin Piyasası)</h2>
+
+        <h3 class="guide-subtitle-h3">Tahmin Piyasası Nedir?</h3>
+        <p>
+            Tahmin piyasası, gerçek dünya olaylarının sonuçları üzerine hisse alıp satabileceğiniz bir platformdur. Örneğin:
+            "Bitcoin yarın 70,000$'ı geçer mi?" sorusuna EVET veya HAYIR hisseleri alırsınız.
+        </p>
+
+        <h3 class="guide-subtitle-h3">Hisse Mantığı</h3>
+        <p>
+            Her hissenin fiyatı <strong>0.00 ile 1.00</strong> arasındadır. Olay gerçekleşirse hisse <strong>1.00</strong>'a, gerçekleşmezse
+            <strong>0.00</strong>'a resolve olur (sonuçlanır).
+        </p>
+        <div class="guide-example">
+            <strong>Örnek:</strong> 0.41$'dan EVET hissesi aldınız.<br />
+            Olay gerçekleşirse: 1.00$ - 0.41$ = <span class="text-green">+0.59$ kar (kazanç oranı: +%143.9)</span><br />
+            Olay gerçekleşmezse: 0.00$ - 0.41$ = <span class="text-red">-0.41$ zarar (kayıp oranı: -%100)</span>
+        </div>
+
+        <h3 class="guide-subtitle-h3">Neden %41 Başabaş?</h3>
+        <p>
+            0.41$ giriş fiyatı ile başabaş (breakeven) için gereken kazanma oranını hesaplayalım:
+        </p>
+        <div class="guide-formula">
+            <code>Kazanç per win  = (1.00 - 0.41) / 0.41 = +%143.9</code><br />
+            <code>Kayıp per loss  = -%100</code><br />
+            <code>Başabaş WR = Kayıp / (Kazanç + Kayıp)</code><br />
+            <code>Başabaş WR = 100 / (143.9 + 100) = %41.0</code>
+        </div>
+        <p>
+            Yani <strong>%41'den fazla</strong> kazanma oranı sağlarsanız, uzun vadede karlı olursunuz. Traxon sistemi sabit 0.41$ giriş fiyatı kullanır
+            (0.40$ + 0.01$ slippage). Bu sayede kazanç/kayıp asimetrisi sizin lehinize çalışır.
+        </p>
+
+        <h3 class="guide-subtitle-h3">Gerçek Polymarket Nasıl Çalışır?</h3>
+        <p>
+            <strong>Polymarket</strong>, Polygon blockchain üzerinde çalışan bir tahmin piyasasıdır. Kullanıcılar USDC ile hisse alıp satar.
+            Traxon sistemi Polymarket'ı simüle eder — gerçek Polymarket'a bağlanmaz, ama aynı binary resolution mantığını kullanır.
+            Kripto fiyat hareketlerini tahmin ederek: mum yeşil kapanırsa UP kazanır, kırmızı kapanırsa DOWN kazanır.
+        </p>
+    </div>
+</div>
+
+<style>
+    .guide-container {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 0 16px 40px 16px;
+        overflow-y: auto;
+    }
+
+    .guide-main-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--color-accent-green);
+        margin-bottom: 4px;
+    }
+
+    .guide-subtitle {
+        font-size: 0.85rem;
+        color: var(--color-text-muted);
+        margin-bottom: 24px;
+    }
+
+    .guide-card {
+        background-color: var(--color-bg-surface);
+        border: 1px solid var(--color-border-default);
+        border-left: 4px solid var(--color-accent-green);
+        border-radius: 10px;
+        padding: 20px 24px;
+        margin-bottom: 20px;
+    }
+
+    .guide-title {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: var(--color-text-primary);
+        margin-bottom: 12px;
+    }
+
+    .guide-subtitle-h3 {
+        font-size: 1.0rem;
+        font-weight: 600;
+        color: var(--color-text-secondary);
+        margin-top: 16px;
+        margin-bottom: 8px;
+    }
+
+    .guide-card p {
+        font-size: 0.95rem;
+        line-height: 1.65;
+        color: var(--color-text-primary);
+        margin-bottom: 8px;
+    }
+
+    .guide-list {
+        list-style: none;
+        padding-left: 0;
+        margin-bottom: 8px;
+    }
+
+    .guide-list li {
+        font-size: 0.95rem;
+        line-height: 1.65;
+        color: var(--color-text-primary);
+        padding-left: 16px;
+        position: relative;
+        margin-bottom: 4px;
+    }
+
+    .guide-list li::before {
+        content: "▸";
+        position: absolute;
+        left: 0;
+        color: var(--color-text-muted);
+    }
+
+    .guide-example {
+        background-color: var(--color-bg-elevated);
+        border: 1px solid var(--color-border-default);
+        border-radius: 6px;
+        padding: 12px 16px;
+        margin: 8px 0;
+        font-size: 0.9rem;
+        line-height: 1.6;
+        color: var(--color-text-primary);
+    }
+
+    .guide-formula {
+        background-color: var(--color-bg-primary);
+        border: 1px solid var(--color-border-default);
+        border-radius: 6px;
+        padding: 12px 16px;
+        margin: 8px 0;
+    }
+
+    .guide-formula code {
+        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        font-size: 0.85rem;
+        color: var(--color-accent-gold);
+        line-height: 1.8;
+    }
+
+    .guide-code {
+        background-color: var(--color-bg-primary);
+        border: 1px solid var(--color-border-default);
+        border-radius: 6px;
+        padding: 16px;
+        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        font-size: 0.8rem;
+        line-height: 1.4;
+        color: var(--color-text-secondary);
+        overflow-x: auto;
+        white-space: pre;
+    }
+
+    .guide-indicator {
+        border-bottom: 1px solid var(--color-border-subtle);
+        padding-bottom: 16px;
+        margin-bottom: 16px;
+    }
+
+    .guide-indicator:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+        margin-bottom: 0;
+    }
+
+    .text-green {
+        color: var(--color-accent-green);
+    }
+
+    .text-red {
+        color: var(--color-accent-red);
+    }
+</style>
