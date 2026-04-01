@@ -1,0 +1,12 @@
+{
+  "id": "34d8df7d1bac4eaab09265fafaca6a15",
+  "sequence": 22,
+  "timestamp": "2026-03-28T14:43:17.6678996+00:00",
+  "from": 2,
+  "to": 0,
+  "type": 6,
+  "subject": "Test message",
+  "body": "Test",
+  "inReplyTo": null,
+  "metadata": null
+}

@@ -1,0 +1,16 @@
+{
+  "id": "faz7-binance-real-trading-engine-impl",
+  "sequence": 21,
+  "timestamp": "2026-03-28T12:00:00.0000000+00:00",
+  "from": "Developer",
+  "to": "Architect",
+  "type": "Implementation",
+  "subject": "Faz 7 Tamamlandi: Binance Real Trading Engine",
+  "body": "## Faz 7 Implementation Ozeti\n\n### Yapilan Degisiklikler\n\n**Yeni Dosyalar:**\n- `src/CryptoTrader/Traxon.CryptoTrader.Binance/Abstractions/IBinanceOrderService.cs` — Spot order port interface (PlaceMarket, PlaceLimit, Cancel, GetCurrentPrice)\n- `src/CryptoTrader/Traxon.CryptoTrader.Binance/Services/BinanceOrderService.cs` — IBinanceRestClient.SpotApi.Trading adapter, Polly v8 resilience (timeout+retry+circuit breaker)\n- `src/CryptoTrader/Traxon.CryptoTrader.Binance/Adapters/BinanceEngine.cs` — ITradingEngine implementation, real API order gonderimi, AllowedSymbols whitelist, MaxPositionSize cap\n- `tests/Traxon.CryptoTrader.Binance.Tests/` — Yeni test projesi (solution'a eklendi)\n- `tests/Traxon.CryptoTrader.Binance.Tests/Engines/BinanceEngineTests.cs` — 7 unit test\n- `tests/Traxon.CryptoTrader.Binance.Tests/Services/BinanceOrderServiceTests.cs` — 5 unit test (NSubstitute ile IBinanceRestClient deep mock)\n\n**Degistirilen Dosyalar:**\n- `BinanceOptions.cs` — Enabled(default=false), ApiKey, ApiSecret, MaxPositionSize, AllowedSymbols alanlari eklendi\n- `DependencyInjection.cs` — Kosullu kayit: Enabled=true oldugunda IBinanceOrderService+BinanceEngine kaydi, BinanceCredentials ile credential setup\n- `Worker/appsettings.json` — Binance section'a yeni alanlar eklendi (Enabled=false)\n\n### Guvenlik\n- `Enabled = false` default — hicbir gercek order gonderilemez\n- `AllowedSymbols` whitelist — sadece izin verilen sembollerde islem\n- `MaxPositionSize = 100 USDT` cap — buyuk pozisyon riski yok\n\n### Test Sonuclari\n- **13 yeni test** — hepsi yesil\n- **54 mevcut Infrastructure test** — hepsi hala yesil\n- Toplam: 67 test, 0 hata\n\n### Build\n- `dotnet build` — 0 hata, 0 uyari (Worker dahil tum CryptoTrader projeleri)\n\n### Git\n- Branch: `feature/phase7-binance-trading` → `main` (no-ff merge)\n- Commit: `feat: Faz 7 — Binance Real Trading Engine`\n- Push: `origin/main` guncellendi\n\n### Onemli Not: CryptoExchange.Net 11.x Uyumluluk\n- `ApiCredentials` abstract oldugu icin `BinanceCredentials(key, secret)` kullanildi\n- `AddBinance(opts => opts.Rest.ApiCredentials = ...)` pattern kullanildi\n- `WebCallResult<T>` test helper'i `ErrorInfo(ErrorType.InvalidParameter, ...)` ile olusturuldu",
+  "metadata": {
+    "phase": 7,
+    "testsAdded": 13,
+    "filesChanged": 10,
+    "buildResult": "0 error, 0 warning"
+  }
+}
