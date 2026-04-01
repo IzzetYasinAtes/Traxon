@@ -1,0 +1,12 @@
+{
+  "id": "c6416fb9d6894e2591b279b88048cf66",
+  "sequence": 4,
+  "timestamp": "2026-03-27T22:48:53.530695+00:00",
+  "from": 2,
+  "to": 0,
+  "type": 1,
+  "subject": "Faz 4 \u2014 Trading Dashboard (Blazor Server UI #1)",
+  "body": "# Faz 4: Trading Dashboard \u2014 Blazor Server\n\nMaster plan: \u0060workspace/plans/MASTER_PLAN.md\u0060 \u2014 B\u00F6l\u00FCm 5 (UI M\u0130MAR\u0130S\u0130)\n\n## G\u00F6rev\nBlazor Server trading dashboard olu\u015Ftur. Ger\u00E7ek zamanl\u0131 fiyat, chart, sinyal, trade takibi.\n\n## Proje: src/CryptoTrader/Traxon.CryptoTrader.Dashboard/\nZaten bo\u015F Blazor Server projesi var. \u0130\u00E7ini doldur.\n\n## Bile\u015Fenler\n\n### 1. Tailwind CSS v4 Entegrasyonu\n- tailwindcss standalone CLI kullan (Node.js gerekmez)\n- TrinkUI-inspired dark theme (master plan\u0027daki renk paleti)\n- Background: #0a0a0a, Surface: #111111, Green: #00d4aa, Red: #ff4757\n\n### 2. Layout\n- MainLayout.razor: Sidebar \u002B Content\n- Sidebar: Navigation links (Market, Signals, Trades, Portfolio)\n- Ticker Strip: 7 coin horizontal scroll\n\n### 3. Sayfalar\n- **Market Page (/)**: Candlestick chart (LightweightCharts.Blazor) \u002B Order book\n- **Signals Page (/signals)**: Active signal cards\n- **Trades Page (/trades)**: Open positions \u002B trade history table\n- **Portfolio Page (/portfolio)**: Balance, PnL, equity curve\n\n### 4. Real-time Updates\n- SignalR built-in (Blazor Server zaten SignalR \u00FCzerinde)\n- Singleton IPriceService \u2192 event raise \u2192 component subscribe\n- StateHasChanged ile UI g\u00FCncelleme\n\n### 5. Chart Libraries\n- LightweightCharts.Blazor NuGet: Candlestick \u002B volume\n- Blazor-ApexCharts NuGet: PnL chart, equity curve\n\n### 6. Data Flow\n- Worker service\u0027den SignalR Hub ile veri push\n- Dashboard subscribe olur\n- ICryptoHub interface\n\n## K\u0131s\u0131tlar\n- Ayn\u0131 Onion Architecture \u2014 Dashboard Infrastructure katman\u0131n\u0131 referans eder\n- IDbContextFactory pattern\n- Port: 5001 (launchSettings.json)\n- Dark theme zorunlu\n\nDetayl\u0131 task breakdown yap\u0131p Developer\u0027a g\u00F6nder.",
+  "inReplyTo": null,
+  "metadata": null
+}

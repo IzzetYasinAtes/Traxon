@@ -15,13 +15,14 @@
         <div class="rounded-[8px]" style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default); padding: 10px 12px; overflow-y: auto;">
             <h2 style="font-size: 1rem; font-weight: 700; margin: 0 0 8px 0; color: var(--color-text-primary);">PaperBinance</h2>
             <div style="display: flex; flex-direction: column;">
-                <ConfigRow Label="Başlangıç Bakiyesi" Value="$10,000" Source="PaperBinanceEngine.cs" />
+                <ConfigRow Label="Başlangıç Bakiyesi" Value="$50" Source="PaperBinanceEngine.cs" />
                 <ConfigRow Label="Slippage" Value="%0.05" Source="PaperBinanceEngine.cs" />
                 <ConfigRow Label="Komisyon" Value="%0.075" Source="PaperBinanceEngine.cs" />
                 <ConfigRow Label="Stop Loss" Value="%0.5" Source="PaperBinanceEngine.cs" />
                 <ConfigRow Label="Take Profit" Value="%1.0" Source="PaperBinanceEngine.cs" />
                 <ConfigRow Label="Max Tutma Süresi" Value="6 mum" Source="PaperBinanceEngine.cs" />
-                <ConfigRow Label="Min Pozisyon" Value="$150" Source="PaperBinanceEngine.cs" />
+                <ConfigRow Label="Min Pozisyon" Value="$1" Source="PaperBinanceEngine.cs" />
+                <ConfigRow Label="Pozisyon Büyüklüğü" Value="Bakiyenin %2'si, min $1" Source="PaperBinanceEngine.cs" />
             </div>
         </div>
 
@@ -29,11 +30,12 @@
         <div class="rounded-[8px]" style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default); padding: 10px 12px; overflow-y: auto;">
             <h2 style="font-size: 1rem; font-weight: 700; margin: 0 0 8px 0; color: var(--color-text-primary);">PaperPoly</h2>
             <div style="display: flex; flex-direction: column;">
-                <ConfigRow Label="Başlangıç Bakiyesi" Value="$10,000" Source="PaperPolymarketEngine.cs" />
+                <ConfigRow Label="Başlangıç Bakiyesi" Value="$50" Source="PaperPolymarketEngine.cs" />
                 <ConfigRow Label="Slippage" Value="%1" Source="PaperPolymarketEngine.cs" />
                 <ConfigRow Label="Taker Fee" Value="%1.8" Source="PaperPolymarketEngine.cs" />
                 <ConfigRow Label="Min Giriş Fiyatı" Value="0.25" Source="PaperPolymarketEngine.cs" />
                 <ConfigRow Label="Max Giriş Fiyatı" Value="0.55" Source="PaperPolymarketEngine.cs" />
+                <ConfigRow Label="Pozisyon Büyüklüğü" Value="Bakiyenin %2'si, min $1" Source="PaperPolymarketEngine.cs" />
             </div>
         </div>
 
@@ -45,9 +47,9 @@
                 <ConfigRow Label="Min Ayı Onayı" Value="99 / Kapalı" Source="SignalGenerator.cs" />
                 <ConfigRow Label="Min Edge (Yüksek Vol)" Value="%12" Source="PositionSizer.cs" />
                 <ConfigRow Label="Min Edge (Düşük Vol)" Value="%15" Source="PositionSizer.cs" />
-                <ConfigRow Label="Max Pozisyon Oranı" Value="%2" Source="PositionSizer.cs" />
+                <ConfigRow Label="Max Pozisyon Oranı" Value="%2 (Bakiyenin max yüzdesi, $50'de ~$1)" Source="PositionSizer.cs" />
                 <ConfigRow Label="Kelly Çarpanı" Value="%15" Source="PositionSizer.cs" />
-                <ConfigRow Label="Simüle Bankroll" Value="$10,000" Source="SignalGenerator.cs" />
+                <ConfigRow Label="Simüle Bankroll" Value="$50" Source="SignalGenerator.cs" />
             </div>
         </div>
 
