@@ -8,7 +8,7 @@
         <button @onclick="RefreshAsync" style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default); color: var(--color-text-secondary); border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer;">Yenile</button>
     </div>
     <div style="font-size: 0.7rem; color: var(--color-text-muted); margin-bottom: 8px;">
-        Çalışan motorların anlık durumu ve açık pozisyonlar
+        Her motorun çalışma durumu, açık pozisyon sayısı ve anlık kar/zarar bilgisi. Yeşil = motor çalışıyor, kırmızı = motor durmuş.
     </div>
 
     @if (_engines.Count == 0)
