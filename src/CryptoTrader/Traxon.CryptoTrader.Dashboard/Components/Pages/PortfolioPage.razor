@@ -54,7 +54,8 @@
 
     private static string FormatPctPnl(decimal totalPnl, decimal initialBalance)
     {
-        var pct = initialBalance != 0 ? (totalPnl / initialBalance) * 100m : 0m;
+        const decimal fixedInitial = 10000m;
+        var pct = (totalPnl / fixedInitial) * 100m;
         return $"{(pct >= 0 ? "+" : "")}{pct:F2}%";
     }
 }

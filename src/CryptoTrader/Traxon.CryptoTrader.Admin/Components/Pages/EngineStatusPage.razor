@@ -17,40 +17,6 @@
     }
     else
     {
-        <!-- Toplam Ozet -->
-        <div class="rounded-[10px] p-5"
-             style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default);">
-            <h2 class="text-sm font-bold mb-3" style="color: var(--color-text-secondary);">Tüm Motorlar Özeti</h2>
-            <div class="grid grid-cols-5 gap-4">
-                <div>
-                    <p class="text-xs" style="color: var(--color-text-muted);">Bakiye</p>
-                    <p class="text-xl font-mono font-bold">$@TotalBalance.ToString("N2")</p>
-                </div>
-                <div>
-                    <p class="text-xs" style="color: var(--color-text-muted);">Toplam Kar/Zarar</p>
-                    <p class="text-xl font-mono font-bold"
-                       style="color: @(TotalPnl >= 0 ? "var(--color-accent-green)" : "var(--color-accent-red)")">
-                        @($"{(TotalPnl >= 0 ? "+$" : "-$")}{Math.Abs(TotalPnl):N2}")
-                    </p>
-                </div>
-                <div>
-                    <p class="text-xs" style="color: var(--color-text-muted);">Kar/Zarar %</p>
-                    <p class="text-xl font-mono font-bold"
-                       style="color: @(TotalPctPnl >= 0 ? "var(--color-accent-green)" : "var(--color-accent-red)")">
-                        @($"{(TotalPctPnl >= 0 ? "+" : "")}{TotalPctPnl:F2}%")
-                    </p>
-                </div>
-                <div>
-                    <p class="text-xs" style="color: var(--color-text-muted);">Toplam İşlem</p>
-                    <p class="text-xl font-mono font-bold">@_engines.Sum(e => e.TradeCount)</p>
-                </div>
-                <div>
-                    <p class="text-xs" style="color: var(--color-text-muted);">Açık Pozisyonlar</p>
-                    <p class="text-xl font-mono font-bold">@_engines.Sum(e => e.OpenPositions)</p>
-                </div>
-            </div>
-        </div>
-
         <div class="grid grid-cols-2 gap-4">
             @foreach (var engine in _engines)
             {
