@@ -1,0 +1,800 @@
+@page "/docs"
+
+<div class="docs-container">
+    <h1 class="docs-main-title">Teknik Dokumantasyon</h1>
+    <p class="docs-subtitle">Traxon trading sisteminin ic yapisi, algoritmalari ve konfigurasyonu</p>
+
+    <!-- Bolum 1: Sistem Mimarisi -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-blue);">
+        <h2 class="docs-title">1. Sistem Mimarisi</h2>
+
+        <h3 class="docs-subtitle-h3">Veri Akisi</h3>
+        <p>Sistem, WebSocket uzerinden gelen canli piyasa verilerini isleyerek sinyal uretir ve trade acar:</p>
+        <pre class="docs-code">
+  Binance WebSocket
+        |
+        v
+  [CandleWorker]        ← Canli mum verisi alir (5m + 1h)
+        |
+        v
+  [CandleBuffer]        ← Son N mumu bellekte tutar (ring buffer)
+        |
+        v
+  [IndicatorCalculator] ← RSI, MACD, BB, ATR, VWAP, Stochastic, EMA, Volume hesaplar
+        |
+        v
+  [SignalGenerator]     ← 11 adimlik filtre zincirinden gecerek sinyal uretir
+        |
+        v
+  [TradingEngine]       ← PaperBinance veya PaperPoly motoru ile pozisyon acar
+        |
+        v
+  [TradeLogger]         ← SQL Server'a trade kaydeder
+        |
+        v
+  [Dashboard]           ← SignalR ile canli guncelleme
+        </pre>
+
+        <h3 class="docs-subtitle-h3">Onion Architecture Katmanlari</h3>
+        <table class="docs-table">
+            <thead>
+                <tr>
+                    <th>Katman</th>
+                    <th>Sorumluluk</th>
+                    <th>Dizin</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Domain</strong></td>
+                    <td>Entity, Value Object, enum tanimlari</td>
+                    <td><code>Traxon.CryptoTrader.Domain/</code></td>
+                </tr>
+                <tr>
+                    <td><strong>Application</strong></td>
+                    <td>Interface, DTO, abstraction tanimlari</td>
+                    <td><code>Traxon.CryptoTrader.Application/</code></td>
+                </tr>
+                <tr>
+                    <td><strong>Infrastructure</strong></td>
+                    <td>Hesaplama, sinyal, engine, DB erisimi</td>
+                    <td><code>Traxon.CryptoTrader.Infrastructure/</code></td>
+                </tr>
+                <tr>
+                    <td><strong>Dashboard</strong></td>
+                    <td>Blazor SSR UI, SignalR canli veri</td>
+                    <td><code>Traxon.CryptoTrader.Dashboard/</code></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3 class="docs-subtitle-h3">WebSocket Veri Akisi</h3>
+        <p>
+            Binance WebSocket API'den <code>kline</code> stream uzerinden 5 dakikalik (5m) ve 1 saatlik (1h) mum verileri alinir.
+            Her mum kapandiginda (candle close event) indicator hesaplama ve sinyal uretim sureci tetiklenir.
+            1h mumlar sadece trend dogrulama (Adim 5) icin kullanilir, islem acma karari 5m mumlara dayanir.
+        </p>
+    </div>
+
+    <!-- Bolum 2: Sinyal Skoru Hesaplama -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-green);">
+        <h2 class="docs-title">2. Sinyal Skoru Hesaplama</h2>
+        <p class="docs-source">Kaynak: <code>TechnicalIndicators.cs:84-136</code></p>
+
+        <p>
+            Sinyal skoru, 6 farkli indikatorun agirlikli ortalamasi olarak hesaplanir. Sonuc 0.0 ile 1.0 arasinda bir degerdir.
+            0.0 = tam bearish, 1.0 = tam bullish, 0.5 = notr.
+        </p>
+
+        <table class="docs-table">
+            <thead>
+                <tr>
+                    <th>Bilesen</th>
+                    <th>Agirlik</th>
+                    <th>Hesaplama</th>
+                    <th>Neden Bu Agirlik?</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>RSI(7)</strong></td>
+                    <td>%25</td>
+                    <td><code>RSI / 100</code> → 0-1 arasi normalize</td>
+                    <td>Kisa vadeli momentum en guclu yon gostergesi. 7 periyot hizli tepki verir, scalping icin ideal.</td>
+                </tr>
+                <tr>
+                    <td><strong>MACD</strong></td>
+                    <td>%20</td>
+                    <td>Histogram &gt; 0 ise 1, degilse 0</td>
+                    <td>Trend degisimini yakalar. Binary sinyal (bullish/bearish) net karar verir.</td>
+                </tr>
+                <tr>
+                    <td><strong>Bollinger</strong></td>
+                    <td>%20</td>
+                    <td><code>(Price - Lower) / (Upper - Lower)</code></td>
+                    <td>Fiyatin asiri/eksik degerli oldugunu gosterir. Bant ici pozisyon mean-reversion stratejisi destekler.</td>
+                </tr>
+                <tr>
+                    <td><strong>EMA(9)</strong></td>
+                    <td>%15</td>
+                    <td>Price &gt; EMA → +0.5, EMA rising → +0.5</td>
+                    <td>Kisa vadeli trend yonu. Hem fiyat pozisyonu hem momentum (slope) olcer.</td>
+                </tr>
+                <tr>
+                    <td><strong>Volume</strong></td>
+                    <td>%10</td>
+                    <td><code>clamp(Ratio / 2, 0, 1)</code></td>
+                    <td>Hareketin arkasinda guc var mi? Dusuk hacimli sinyaller guvenilmez. Ratio=2 tam skor verir.</td>
+                </tr>
+                <tr>
+                    <td><strong>RSI(14)</strong></td>
+                    <td>%10</td>
+                    <td><code>RSI / 100</code> → 0-1 arasi normalize</td>
+                    <td>Uzun vadeli momentum teyidi. RSI(7) ile tutarliysa sinyal guclu, tutarsizsa zayif.</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3 class="docs-subtitle-h3">Skor Formulu</h3>
+        <pre class="docs-code">
+FinalScore = RSI7_norm × 0.25
+           + MACD_bull × 0.20
+           + BB_position × 0.20
+           + EMA9_score × 0.15
+           + Volume_norm × 0.10
+           + RSI14_norm × 0.10
+
+// Clamp: Math.Clamp(score, 0, 1)
+        </pre>
+
+        <h3 class="docs-subtitle-h3">Fallback Davranisi</h3>
+        <p>
+            RSI(7) hesaplanamazsa RSI(14) kullanilir. EMA(9) yoksa SMA(10)/SMA(30) karsilastirilir.
+            Volume yoksa 0.05 notr deger verilir.
+        </p>
+    </div>
+
+    <!-- Bolum 3: Filtre Zinciri -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-purple);">
+        <h2 class="docs-title">3. 11 Adimlik Filtre Zinciri (V2 Signal Engine)</h2>
+        <p class="docs-source">Kaynak: <code>SignalGenerator.cs:216-326</code></p>
+
+        <p>
+            Her potansiyel sinyal, asagidaki 11 adimlik filtre zincirinden gecer. Herhangi bir adimda basarisiz olan sinyal reddedilir.
+            Bu katmanli yaklasim, dusuk kaliteli trade'leri filtreler.
+        </p>
+
+        <div class="docs-step">
+            <div class="docs-step-number">1</div>
+            <div class="docs-step-content">
+                <strong>Minimum Mum Kontrolu</strong>
+                <p>En az <code>20</code> mum gereklidir. Yetersiz veriyle sinyal uretilmez.</p>
+                <p class="docs-source">Sabit: <code>MinCandlesForSignal = 20</code></p>
+            </div>
+        </div>
+
+        <div class="docs-step">
+            <div class="docs-step-number">2</div>
+            <div class="docs-step-content">
+                <strong>Piyasa Fiyat Araligi</strong>
+                <p>Market price <code>0.30 - 0.80</code> araliginda olmali. Asiri ucuz veya pahali varliklarda sinyal uretilmez.</p>
+                <p class="docs-source">Sabitler: <code>MinMarketPrice = 0.30</code>, <code>MaxMarketPrice = 0.80</code></p>
+            </div>
+        </div>
+
+        <div class="docs-step">
+            <div class="docs-step-number">3</div>
+            <div class="docs-step-content">
+                <strong>Agirlikli Skor Hesaplama</strong>
+                <p>6 indikatorun agirlikli ortalamasiyla <code>FinalScore</code> hesaplanir (0.0 - 1.0). Detay icin Bolum 2'ye bakin.</p>
+            </div>
+        </div>
+
+        <div class="docs-step">
+            <div class="docs-step-number">4</div>
+            <div class="docs-step-content">
+                <strong>Yon Karari</strong>
+                <p>
+                    Skor bazli yon secimi:
+                </p>
+                <pre class="docs-code">
+FinalScore > 0.60 → UP (bullish sinyal)
+FinalScore &lt; 0.40 → DOWN (bearish sinyal)
+0.40 - 0.60 arasi → REDDEDILIR (yetersiz guven)
+                </pre>
+                <p>Bu genis notr bant, belirsiz piyasada islem acilmasini onler.</p>
+            </div>
+        </div>
+
+        <div class="docs-step">
+            <div class="docs-step-number">5</div>
+            <div class="docs-step-content">
+                <strong>1 Saatlik Trend Dogrulama (HARD BLOCK)</strong>
+                <p>
+                    5 dakikalik sinyal, 1 saatlik trende <strong>ters</strong> ise reddedilir. Bu en kritik filtredir.
+                </p>
+                <pre class="docs-code">
+SMA(5, 1h) ve SMA(10, 1h) hesaplanir:
+- SMA_fast > SMA_slow → Hourly trend UP
+- SMA_fast &lt; SMA_slow → Hourly trend DOWN
+
+UP sinyal + DOWN trend → REDDEDILIR (counter-trend)
+DOWN sinyal + UP trend → REDDEDILIR (counter-trend)
+                </pre>
+                <p class="docs-source">Kaynak: <code>SignalGenerator.cs:247-263</code></p>
+            </div>
+        </div>
+
+        <div class="docs-step">
+            <div class="docs-step-number">6</div>
+            <div class="docs-step-content">
+                <strong>Hacim Dogrulama</strong>
+                <p>
+                    Hacim orani (mevcut hacim / ortalama hacim) en az <code>0.8</code> olmali.
+                    Dusuk hacimli sinyaller guvenilmezdir.
+                </p>
+                <p class="docs-source">Esik: <code>Volume.Ratio >= 0.8</code></p>
+            </div>
+        </div>
+
+        <div class="docs-step">
+            <div class="docs-step-number">7</div>
+            <div class="docs-step-content">
+                <strong>Fair Value Araligi</strong>
+                <p>
+                    Hesaplanan fair value (FV) da tradeable aralikta olmali: <code>0.30 - 0.80</code>.
+                    Asiri degerler reddedilir.
+                </p>
+            </div>
+        </div>
+
+        <div class="docs-step">
+            <div class="docs-step-number">8</div>
+            <div class="docs-step-content">
+                <strong>UP/DOWN FV Kontrolleri</strong>
+                <p>
+                    Yonsel ek filtreler:
+                </p>
+                <pre class="docs-code">
+UP sinyal  → FV >= 0.48 zorunlu  (Analyst v2 onerisi)
+DOWN sinyal → FV &lt;= 0.52 zorunlu (Analyst v3 onerisi)
+                </pre>
+                <p>Bu, zayif yonsel sinyallerin filtrelenmesini saglar.</p>
+            </div>
+        </div>
+
+        <div class="docs-step">
+            <div class="docs-step-number">9</div>
+            <div class="docs-step-content">
+                <strong>Rejim Tespiti (Parkinson Volatility)</strong>
+                <p>
+                    Piyasa rejimi (dusuk/yuksek volatilite) Parkinson volatilite tahmincisi ile belirlenir:
+                </p>
+                <pre class="docs-code">
+sigma = sqrt(1/(4n*ln2) * SUM(ln(H/L))^2)
+
+volShort = Parkinson(son 12 mum)
+volLong  = Parkinson(son 144 mum)
+
+volShort > 1.5 × volLong → HighVolatility
+aksi halde               → LowVolatility
+                </pre>
+                <p>
+                    Yuksek volatilite rejiminde minimum edge esigi daha dusuktur (<code>0.12</code>),
+                    dusuk volatilitede daha yuksektir (<code>0.15</code>).
+                </p>
+                <p class="docs-source">Sabitler: <code>RegimeShortPeriod=12</code>, <code>RegimeLongPeriod=144</code>, <code>HighVolMultiplier=1.5</code></p>
+            </div>
+        </div>
+
+        <div class="docs-step">
+            <div class="docs-step-number">10</div>
+            <div class="docs-step-content">
+                <strong>Edge Kontrolu (Position Sizing)</strong>
+                <p>
+                    Kelly Kriteri ile pozisyon buyuklugu hesaplanir. Edge (kenar) minimum esigi asmali:
+                </p>
+                <pre class="docs-code">
+Edge = |FairValue - MarketPrice|
+
+LowVolatility  → MinEdge = 0.15
+HighVolatility  → MinEdge = 0.12
+
+Edge &lt; MinEdge → REDDEDILIR
+                </pre>
+                <p class="docs-source">Kaynak: <code>PositionSizer.cs:8-9</code></p>
+            </div>
+        </div>
+
+        <div class="docs-step">
+            <div class="docs-step-number">11</div>
+            <div class="docs-step-content">
+                <strong>Sinyal Olusturma</strong>
+                <p>
+                    Tum filtrelerden gecen sinyal, SignalScore ile birlikte olusturulur ve ilgili engine'e gonderilir.
+                    SignalScore su bilgileri icerir:
+                </p>
+                <pre class="docs-code">
+SignalScore {
+    FinalScore,            // agirlikli skor (0-1)
+    Edge,                  // |FV - market|
+    HourlyTrendConfirmed,  // 1h trend teyidi
+    VolumeConfirmed,       // hacim >= 0.8
+    IsUpSignal,            // UP yon mu
+    IsDownSignal           // DOWN yon mu
+}
+                </pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bolum 4: Pozisyon Boyutlandirma -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-gold);">
+        <h2 class="docs-title">4. Pozisyon Boyutlandirma</h2>
+        <p class="docs-source">Kaynak: <code>PositionSizer.cs:1-43</code></p>
+
+        <h3 class="docs-subtitle-h3">Kelly Kriteri Formulu</h3>
+        <pre class="docs-code">
+// UP pozisyon icin:
+kellyFull = (fairValue - marketPrice) / (1 - marketPrice)
+
+// DOWN pozisyon icin:
+kellyFull = (marketPrice - fairValue) / marketPrice
+
+// Konservatif carpan:
+kellyFraction = kellyFull × 0.15   // %15 Kelly
+
+// Pozisyon buyuklugu:
+maxPosition = bankroll × 0.02      // max %2
+positionSize = min(kellyFraction × bankroll, maxPosition)
+        </pre>
+
+        <h3 class="docs-subtitle-h3">Neden %15 Konservatif Carpan?</h3>
+        <p>
+            Tam Kelly (100%) teorik optimum olsa da, pratikte cok agresiftir ve buyuk drawdown'lara yol acar.
+            Akademik literaturde genellikle <strong>Half Kelly (%50)</strong> onerilir. Traxon sistemi daha da
+            konservatif bir yaklasim benimseyerek <strong>%15 Kelly</strong> kullanir. Bu:
+        </p>
+        <ul class="docs-list">
+            <li>Drawdown'lari minimize eder</li>
+            <li>Model hatalarina karsi dayaniklilik saglar</li>
+            <li>Uzun vadeli bileşik buyumeyi korur</li>
+        </ul>
+
+        <h3 class="docs-subtitle-h3">Max %2 Pozisyon Limiti</h3>
+        <p>
+            Her islem bakiyenin en fazla <strong>%2</strong>'si kadar olabilir. 50$'lik bakiye ile bu 1$ demektir.
+            Bu kural, tek bir kotu islemin portfoyu ciddi sekilde etkilemesini onler.
+        </p>
+        <p class="docs-source">Sabit: <code>MaxPositionFraction = 0.02</code></p>
+
+        <h3 class="docs-subtitle-h3">Edge Hesabi</h3>
+        <pre class="docs-code">
+Edge = |FairValue - MarketPrice|
+
+// FairValue=0.68, MarketPrice=0.50 → Edge = 0.18 ✓ (> 0.12)
+// FairValue=0.55, MarketPrice=0.50 → Edge = 0.05 ✗ (&lt; 0.12, red)
+        </pre>
+    </div>
+
+    <!-- Bolum 5: PaperBinance Motoru -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-green);">
+        <h2 class="docs-title">5. PaperBinance Motoru</h2>
+        <p class="docs-source">Kaynak: <code>PaperBinanceEngine.cs:1-351</code></p>
+
+        <p>Binance spot trading simulasyonu. ATR tabanli degil, yuzde tabanli SL/TP kullanir.</p>
+
+        <table class="docs-table">
+            <thead>
+                <tr>
+                    <th>Parametre</th>
+                    <th>Deger</th>
+                    <th>Aciklama</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Stop Loss</strong></td>
+                    <td>%0.5</td>
+                    <td>Giris fiyatindan %0.5 uzakta. Scalping icin dar SL.</td>
+                </tr>
+                <tr>
+                    <td><strong>Take Profit</strong></td>
+                    <td>%1.0</td>
+                    <td>Giris fiyatindan %1.0 uzakta. 1:2 Risk/Odul orani saglar.</td>
+                </tr>
+                <tr>
+                    <td><strong>Max Hold</strong></td>
+                    <td>6 mum</td>
+                    <td>6 × 5m = 30 dakika sonra force-close. Uzun bekleyisli zarari onler.</td>
+                </tr>
+                <tr>
+                    <td><strong>Komisyon</strong></td>
+                    <td>%0.075</td>
+                    <td>Binance taker fee (BNB ile odendiginde).</td>
+                </tr>
+                <tr>
+                    <td><strong>Slippage</strong></td>
+                    <td>%0.05</td>
+                    <td>Emir kayma simulasyonu.</td>
+                </tr>
+                <tr>
+                    <td><strong>Min Pozisyon</strong></td>
+                    <td>$1</td>
+                    <td>Minimum islem buyuklugu.</td>
+                </tr>
+                <tr>
+                    <td><strong>TimeFrame</strong></td>
+                    <td>5m</td>
+                    <td>Sadece 5 dakikalik mumlarda islem acar.</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3 class="docs-subtitle-h3">Neden 1:2 Risk/Odul?</h3>
+        <p>
+            SL %0.5, TP %1.0 ile her kazanilan islem kaybedilen islemin 2 katini oduyor.
+            Bu, <strong>%34</strong> kazanma orani ile bile basabas saglama imkani verir:
+        </p>
+        <pre class="docs-code">
+Basabas WR = SL / (SL + TP) = 0.5 / (0.5 + 1.0) = %33.3
+
+// Yani %34+ win rate ile karli olursunuz!
+        </pre>
+
+        <h3 class="docs-subtitle-h3">PnL Formulu</h3>
+        <pre class="docs-code">
+// UP pozisyon icin:
+adjustedExit = exitPrice × (1 - CommissionRate)
+entryPrice   = lastCandle.Close × (1 + SlippageRate + CommissionRate)
+PnL = (adjustedExit - entryPrice) / entryPrice × positionSize
+
+// DOWN pozisyon icin:
+adjustedExit = exitPrice × (1 + CommissionRate)
+PnL = (entryPrice - adjustedExit) / entryPrice × positionSize
+        </pre>
+
+        <h3 class="docs-subtitle-h3">SL/TP Hesaplama</h3>
+        <pre class="docs-code">
+// UP pozisyon:
+SL = entryPrice × (1 - 0.005)   // %0.5 asagi
+TP = entryPrice × (1 + 0.010)   // %1.0 yukari
+
+// DOWN pozisyon:
+SL = entryPrice × (1 + 0.005)   // %0.5 yukari
+TP = entryPrice × (1 - 0.010)   // %1.0 asagi
+        </pre>
+
+        <h3 class="docs-subtitle-h3">Cikis Mantigi</h3>
+        <p>Her mum kapanisinda acik pozisyonlar kontrol edilir:</p>
+        <ul class="docs-list">
+            <li><strong>TP Hit:</strong> Mumun High (UP) veya Low (DOWN) TP'ye ulasti → kar al</li>
+            <li><strong>SL Hit:</strong> Mumun Low (UP) veya High (DOWN) SL'ye ulasti → zarar kes</li>
+            <li><strong>MaxHold:</strong> 6 mum (30 dakika) gectiyse → force close (candle.Close'dan)</li>
+            <li>Hem TP hem SL ayni mumda hit olursa TP onceliklidir</li>
+        </ul>
+    </div>
+
+    <!-- Bolum 6: PaperPoly Motoru -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-gold);">
+        <h2 class="docs-title">6. PaperPoly Motoru</h2>
+        <p class="docs-source">Kaynak: <code>PaperPolymarketEngine.cs:1-276</code></p>
+
+        <p>Polymarket binary-resolution simulasyonu. Kripto fiyat hareketlerini tahmin eden bir tahmin piyasasi motoru.</p>
+
+        <table class="docs-table">
+            <thead>
+                <tr>
+                    <th>Parametre</th>
+                    <th>Deger</th>
+                    <th>Aciklama</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Giris Fiyati</strong></td>
+                    <td>0.41 (sabit)</td>
+                    <td>0.40 baz fiyat + 0.01 slippage. Dusuk giris = yuksek kazanc asimetrisi.</td>
+                </tr>
+                <tr>
+                    <td><strong>Komisyon</strong></td>
+                    <td>%1.8</td>
+                    <td>Taker fee orani.</td>
+                </tr>
+                <tr>
+                    <td><strong>Min Entry</strong></td>
+                    <td>0.25</td>
+                    <td>Minimum kabul edilen giris fiyati.</td>
+                </tr>
+                <tr>
+                    <td><strong>Max Entry</strong></td>
+                    <td>0.55</td>
+                    <td>Maksimum kabul edilen giris fiyati.</td>
+                </tr>
+                <tr>
+                    <td><strong>Pozisyon</strong></td>
+                    <td>Bakiye × %2</td>
+                    <td>Standart Kelly-uyumlu pozisyon buyuklugu.</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3 class="docs-subtitle-h3">Binary Resolution Mantigi</h3>
+        <pre class="docs-code">
+// Trade acilir: entryPrice = 0.41 (sabit)
+
+// Mum kapandiginda:
+candle.Close >= candle.Open → mum YESIL → UP kazanir
+candle.Close &lt;  candle.Open → mum KIRMIZI → DOWN kazanir
+
+// Kazanirsa (resolve = 1.00):
+exitPrice = 1.00
+fee = positionSize × 0.018
+PnL = (1.00 - 0.41) / 0.41 × positionSize - fee
+    = +%143.9 × positionSize - fee
+
+// Kaybederse (resolve = 0.00):
+exitPrice = 0.00
+PnL = -positionSize   // %100 kayip
+        </pre>
+
+        <h3 class="docs-subtitle-h3">Neden Sabit 0.41$ Giris?</h3>
+        <p>
+            Dusuk giris fiyati, kazanc/kayip asimetrisini maximuma cikarir:
+        </p>
+        <pre class="docs-code">
+Giris: 0.41$
+Kazanc: (1.00 - 0.41) / 0.41 = +%143.9
+Kayip:  -%100
+
+Basabas hesabi:
+  WR × Kazanc = (1 - WR) × Kayip
+  WR × 1.439 = (1 - WR) × 1.00
+  WR × 1.439 + WR × 1.00 = 1.00
+  WR × 2.439 = 1.00
+  WR = 1.00 / 2.439 = %41.0
+
+// %41+ kazanma orani → KARLI
+// Ornegin %50 WR ile beklenen kar:
+//   E[R] = 0.50 × 1.439 - 0.50 × 1.00 = +%22.0 per trade
+        </pre>
+    </div>
+
+    <!-- Bolum 7: Portfoy Yonetimi -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-red);">
+        <h2 class="docs-title">7. Portfoy Yonetimi</h2>
+        <p class="docs-source">Kaynak: <code>Portfolio.cs:1-74</code></p>
+
+        <p>
+            Her engine bagimsiz bir portfoy yonetir. Portfoy, pozisyon acma/kapama, bakiye takibi ve risk limitleri saglar.
+        </p>
+
+        <table class="docs-table">
+            <thead>
+                <tr>
+                    <th>Parametre</th>
+                    <th>Deger</th>
+                    <th>Aciklama</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Baslangic Bakiye</strong></td>
+                    <td>$50</td>
+                    <td>Her engine 50$ ile baslar.</td>
+                </tr>
+                <tr>
+                    <td><strong>MaxExposure</strong></td>
+                    <td>Bakiye × %30</td>
+                    <td>Ayni anda acik toplam pozisyon bakiyenin %30'unu asamaz.</td>
+                </tr>
+                <tr>
+                    <td><strong>MaxPositionSize</strong></td>
+                    <td>Bakiye × %2</td>
+                    <td>Tek bir pozisyon bakiyenin %2'sini asamaz.</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3 class="docs-subtitle-h3">Pozisyon Acma Akisi</h3>
+        <pre class="docs-code">
+1. positionSize > MaxPositionSize → RED
+2. TotalExposure + positionSize > MaxExposure → RED
+3. Balance &lt; positionSize → RED
+4. ONAY: Balance -= positionSize (bakiyeden dusulur)
+        </pre>
+
+        <h3 class="docs-subtitle-h3">Pozisyon Kapama Akisi</h3>
+        <pre class="docs-code">
+1. Pozisyonu listeden cikar
+2. Balance += positionSize + PnL (geri eklenir)
+3. TotalPnL += PnL
+4. Win/Loss sayaci guncellenir
+        </pre>
+
+        <h3 class="docs-subtitle-h3">Neden %30 MaxExposure?</h3>
+        <p>
+            Bakiyenin %70'i her zaman "rezervde" tutulur. Bu:
+        </p>
+        <ul class="docs-list">
+            <li>Ayni anda birden fazla kotu islem olursa bile portfoyu korur</li>
+            <li>Yeni firsatlar icin likidite saglar</li>
+            <li>En kotu senaryoda (tum acik pozisyonlar %100 kayip) bile bakiyenin %70'i korunur</li>
+        </ul>
+
+        <h3 class="docs-subtitle-h3">Restore Mekanizmasi</h3>
+        <p>
+            Worker restart sonrasi portfoy durumu SQL Server'daki son snapshot'tan restore edilir.
+            Acik pozisyonlar da DB'den yuklenir, boylece SL/TP takibi ve duplicate trade onleme calismaya devam eder.
+        </p>
+    </div>
+</div>
+
+<style>
+    .docs-container {
+        max-width: 950px;
+        margin: 0 auto;
+        padding: 0 16px 40px 16px;
+        overflow-y: auto;
+    }
+
+    .docs-main-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--color-accent-green);
+        margin-bottom: 4px;
+    }
+
+    .docs-subtitle {
+        font-size: 0.85rem;
+        color: var(--color-text-muted);
+        margin-bottom: 24px;
+    }
+
+    .docs-card {
+        background-color: var(--color-bg-surface);
+        border: 1px solid var(--color-border-default);
+        border-left: 4px solid var(--color-accent-green);
+        border-radius: 10px;
+        padding: 20px 24px;
+        margin-bottom: 20px;
+    }
+
+    .docs-title {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: var(--color-text-primary);
+        margin-bottom: 12px;
+    }
+
+    .docs-subtitle-h3 {
+        font-size: 1.0rem;
+        font-weight: 600;
+        color: var(--color-text-secondary);
+        margin-top: 16px;
+        margin-bottom: 8px;
+    }
+
+    .docs-card p {
+        font-size: 0.95rem;
+        line-height: 1.65;
+        color: var(--color-text-primary);
+        margin-bottom: 8px;
+    }
+
+    .docs-source {
+        font-size: 0.8rem !important;
+        color: var(--color-text-muted) !important;
+        font-style: italic;
+    }
+
+    .docs-code {
+        background-color: var(--color-bg-primary);
+        border: 1px solid var(--color-border-default);
+        border-radius: 6px;
+        padding: 14px 16px;
+        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        font-size: 0.85rem;
+        line-height: 1.5;
+        color: var(--color-accent-gold);
+        overflow-x: auto;
+        white-space: pre;
+        margin: 8px 0;
+    }
+
+    .docs-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 12px 0;
+        font-size: 0.9rem;
+    }
+
+    .docs-table th {
+        text-align: left;
+        padding: 8px 12px;
+        background-color: var(--color-bg-elevated);
+        color: var(--color-text-secondary);
+        font-weight: 600;
+        border-bottom: 1px solid var(--color-border-default);
+    }
+
+    .docs-table td {
+        padding: 8px 12px;
+        color: var(--color-text-primary);
+        border-bottom: 1px solid var(--color-border-subtle);
+    }
+
+    .docs-table code {
+        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        font-size: 0.85rem;
+        color: var(--color-accent-gold);
+        background-color: var(--color-bg-primary);
+        padding: 1px 5px;
+        border-radius: 3px;
+    }
+
+    .docs-list {
+        list-style: none;
+        padding-left: 0;
+        margin-bottom: 8px;
+    }
+
+    .docs-list li {
+        font-size: 0.95rem;
+        line-height: 1.65;
+        color: var(--color-text-primary);
+        padding-left: 16px;
+        position: relative;
+        margin-bottom: 4px;
+    }
+
+    .docs-list li::before {
+        content: "▸";
+        position: absolute;
+        left: 0;
+        color: var(--color-text-muted);
+    }
+
+    .docs-step {
+        display: flex;
+        gap: 14px;
+        align-items: flex-start;
+        margin-bottom: 16px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--color-border-subtle);
+    }
+
+    .docs-step:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+        margin-bottom: 0;
+    }
+
+    .docs-step-number {
+        flex-shrink: 0;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background-color: var(--color-accent-green);
+        color: var(--color-bg-primary);
+        font-weight: 700;
+        font-size: 0.85rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-top: 2px;
+    }
+
+    .docs-step-content {
+        flex: 1;
+    }
+
+    .docs-step-content strong {
+        font-size: 0.95rem;
+        color: var(--color-text-primary);
+    }
+
+    .docs-step-content p {
+        margin-top: 4px;
+    }
+</style>
