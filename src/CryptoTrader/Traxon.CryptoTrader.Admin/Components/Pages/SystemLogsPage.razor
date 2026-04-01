@@ -1,25 +1,28 @@
 @page "/logs"
 @rendermode InteractiveServer
 @inject AdminDataService DataService
-@inject IStringLocalizer<SharedResources> L
 
 <div class="flex flex-col gap-4">
     <div class="flex items-center justify-between">
-        <h1 class="text-lg font-bold">@L["SystemLogs"]</h1>
+        <h1 class="text-lg font-bold">Sistem Günlükleri</h1>
         <button @onclick="RefreshAsync"
-                style="background-color:var(--color-bg-surface); border:1px solid var(--color-border-default); color:var(--color-text-secondary); border-radius:6px; padding:4px 10px; font-size:12px; cursor:pointer;">@L["Refresh"]</button>
+                style="background-color:var(--color-bg-surface); border:1px solid var(--color-border-default); color:var(--color-text-secondary); border-radius:6px; padding:4px 10px; font-size:12px; cursor:pointer;">Yenile</button>
+    </div>
+    <div style="font-size: 0.7rem; color: var(--color-text-muted); margin-bottom: 8px;">
+        Canlı sistem olayları ve hata logları
     </div>
 
-    <!-- Level filter -->
+    <!-- Seviye filtresi -->
     <div class="flex gap-2">
         @foreach (var lvl in new[] { "ALL", "INF", "WRN", "ERR" })
         {
+            var label = lvl switch { "ALL" => "TÜMÜ", _ => lvl };
             <button @onclick="@(() => { _levelFilter = lvl; })"
-                    style="background-color:@(_levelFilter == lvl ? "rgba(168,85,247,0.15)" : "var(--color-bg-surface)"); border:1px solid @(_levelFilter == lvl ? "rgba(168,85,247,0.3)" : "var(--color-border-default)"); color:@(_levelFilter == lvl ? "var(--color-accent-purple)" : "var(--color-text-secondary)"); border-radius:6px; padding:3px 10px; font-size:12px; cursor:pointer;">@lvl</button>
+                    style="background-color:@(_levelFilter == lvl ? "rgba(168,85,247,0.15)" : "var(--color-bg-surface)"); border:1px solid @(_levelFilter == lvl ? "rgba(168,85,247,0.3)" : "var(--color-border-default)"); color:@(_levelFilter == lvl ? "var(--color-accent-purple)" : "var(--color-text-secondary)"); border-radius:6px; padding:3px 10px; font-size:12px; cursor:pointer;">@label</button>
         }
     </div>
 
-    <!-- Log entries -->
+    <!-- Log kayitlari -->
     <div class="rounded-[10px] overflow-auto"
          style="max-height: 70vh; background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default);">
         @foreach (var log in FilteredLogs)
@@ -33,7 +36,7 @@
         }
         @if (FilteredLogs.Count == 0)
         {
-            <p class="px-4 py-8 text-sm text-center" style="color: var(--color-text-muted);">@L["NoLogs"]</p>
+            <p class="px-4 py-8 text-sm text-center" style="color: var(--color-text-muted);">Günlük kaydı bulunamadı</p>
         }
     </div>
 </div>

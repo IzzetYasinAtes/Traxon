@@ -1,8 +1,6 @@
 using ApexCharts;
-using Microsoft.AspNetCore.Localization;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
-using System.Globalization;
 using Traxon.CryptoTrader.Admin.Components;
 using Traxon.CryptoTrader.Admin.Services;
 using Traxon.CryptoTrader.Infrastructure;
@@ -26,9 +24,6 @@ try
         .AddInteractiveServerComponents();
     builder.Services.AddApexCharts();
 
-    // Localization
-    builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
-
     var app = builder.Build();
 
     // Auto-migrate on startup
@@ -44,14 +39,6 @@ try
         app.UseExceptionHandler("/Error", createScopeForErrors: true);
         app.UseHsts();
     }
-
-    var supportedCultures = new[] { new CultureInfo("en"), new CultureInfo("tr") };
-    app.UseRequestLocalization(new RequestLocalizationOptions
-    {
-        DefaultRequestCulture = new RequestCulture("en"),
-        SupportedCultures = supportedCultures,
-        SupportedUICultures = supportedCultures
-    });
 
     app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
     app.UseHttpsRedirection();

@@ -1,49 +1,51 @@
 @page "/engines"
 @rendermode InteractiveServer
 @inject AdminDataService DataService
-@inject IStringLocalizer<SharedResources> L
 
 <div class="flex flex-col gap-6">
     <div class="flex items-center justify-between">
-        <h1 class="text-lg font-bold">@L["EngineStatus"]</h1>
-        <button @onclick="RefreshAsync" style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default); color: var(--color-text-secondary); border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer;">@L["Refresh"]</button>
+        <h1 class="text-lg font-bold">Motor Durumu</h1>
+        <button @onclick="RefreshAsync" style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default); color: var(--color-text-secondary); border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer;">Yenile</button>
+    </div>
+    <div style="font-size: 0.7rem; color: var(--color-text-muted); margin-bottom: 8px;">
+        Çalışan motorların anlık durumu ve açık pozisyonlar
     </div>
 
     @if (_engines.Count == 0)
     {
-        <p class="text-sm" style="color: var(--color-text-muted);">@L["NoEngineSnapshot"]</p>
+        <p class="text-sm" style="color: var(--color-text-muted);">Motor verisi bulunamadı</p>
     }
     else
     {
-        <!-- Total Summary -->
+        <!-- Toplam Ozet -->
         <div class="rounded-[10px] p-5"
              style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default);">
-            <h2 class="text-sm font-bold mb-3" style="color: var(--color-text-secondary);">All Engines Summary</h2>
+            <h2 class="text-sm font-bold mb-3" style="color: var(--color-text-secondary);">Tüm Motorlar Özeti</h2>
             <div class="grid grid-cols-5 gap-4">
                 <div>
-                    <p class="text-xs" style="color: var(--color-text-muted);">@L["Balance"]</p>
+                    <p class="text-xs" style="color: var(--color-text-muted);">Bakiye</p>
                     <p class="text-xl font-mono font-bold">$@TotalBalance.ToString("N2")</p>
                 </div>
                 <div>
-                    <p class="text-xs" style="color: var(--color-text-muted);">@L["TotalPnL"]</p>
+                    <p class="text-xs" style="color: var(--color-text-muted);">Toplam Kar/Zarar</p>
                     <p class="text-xl font-mono font-bold"
                        style="color: @(TotalPnl >= 0 ? "var(--color-accent-green)" : "var(--color-accent-red)")">
                         @($"{(TotalPnl >= 0 ? "+$" : "-$")}{Math.Abs(TotalPnl):N2}")
                     </p>
                 </div>
                 <div>
-                    <p class="text-xs" style="color: var(--color-text-muted);">@($"{L["PnL"]} %")</p>
+                    <p class="text-xs" style="color: var(--color-text-muted);">Kar/Zarar %</p>
                     <p class="text-xl font-mono font-bold"
                        style="color: @(TotalPctPnl >= 0 ? "var(--color-accent-green)" : "var(--color-accent-red)")">
                         @($"{(TotalPctPnl >= 0 ? "+" : "")}{TotalPctPnl:F2}%")
                     </p>
                 </div>
                 <div>
-                    <p class="text-xs" style="color: var(--color-text-muted);">@L["TotalTrades"]</p>
+                    <p class="text-xs" style="color: var(--color-text-muted);">Toplam İşlem</p>
                     <p class="text-xl font-mono font-bold">@_engines.Sum(e => e.TradeCount)</p>
                 </div>
                 <div>
-                    <p class="text-xs" style="color: var(--color-text-muted);">@L["OpenPositions"]</p>
+                    <p class="text-xs" style="color: var(--color-text-muted);">Açık Pozisyonlar</p>
                     <p class="text-xl font-mono font-bold">@_engines.Sum(e => e.OpenPositions)</p>
                 </div>
             </div>
@@ -67,38 +69,38 @@
 
                     <div class="grid grid-cols-3 gap-4">
                         <div>
-                            <p class="text-xs" style="color: var(--color-text-muted);">@L["Balance"]</p>
+                            <p class="text-xs" style="color: var(--color-text-muted);">Bakiye</p>
                             <p class="text-xl font-mono font-bold">$@engine.Balance.ToString("N2")</p>
                         </div>
                         <div>
-                            <p class="text-xs" style="color: var(--color-text-muted);">@L["TotalPnL"]</p>
+                            <p class="text-xs" style="color: var(--color-text-muted);">Toplam Kar/Zarar</p>
                             <p class="text-xl font-mono font-bold"
                                style="color: @(engine.TotalPnL >= 0 ? "var(--color-accent-green)" : "var(--color-accent-red)")">
                                 @($"{(engine.TotalPnL >= 0 ? "+$" : "-$")}{Math.Abs(engine.TotalPnL):N2}")
                             </p>
                         </div>
                         <div>
-                            <p class="text-xs" style="color: var(--color-text-muted);">@($"{L["PnL"]} %")</p>
+                            <p class="text-xs" style="color: var(--color-text-muted);">Kar/Zarar %</p>
                             <p class="text-xl font-mono font-bold"
                                style="color: @(engine.TotalPnL >= 0 ? "var(--color-accent-green)" : "var(--color-accent-red)")">
                                 @FormatEnginePctPnl(engine)
                             </p>
                         </div>
                         <div>
-                            <p class="text-xs" style="color: var(--color-text-muted);">@L["WinRate"]</p>
+                            <p class="text-xs" style="color: var(--color-text-muted);">Kazanma Oranı</p>
                             <p class="text-base font-mono">@($"{engine.WinRate * 100:F1}%")</p>
                         </div>
                         <div>
-                            <p class="text-xs" style="color: var(--color-text-muted);">@L["OpenPositions"]</p>
+                            <p class="text-xs" style="color: var(--color-text-muted);">Açık Pozisyonlar</p>
                             <p class="text-base font-mono">@engine.OpenPositions</p>
                         </div>
                         <div>
-                            <p class="text-xs" style="color: var(--color-text-muted);">@L["TotalTrades"]</p>
+                            <p class="text-xs" style="color: var(--color-text-muted);">Toplam İşlem</p>
                             <p class="text-base font-mono">@engine.TradeCount</p>
                         </div>
                         <div class="col-span-3">
-                            <p class="text-xs" style="color: var(--color-text-muted);">@L["TradesLastUpdate"]</p>
-                            <p class="text-xs font-mono" style="color: var(--color-text-secondary);">@engine.TradeCount trades — @engine.LastUpdated.ToString("yyyy-MM-dd HH:mm") UTC</p>
+                            <p class="text-xs" style="color: var(--color-text-muted);">Son Güncelleme</p>
+                            <p class="text-xs font-mono" style="color: var(--color-text-secondary);">@engine.TradeCount işlem — @engine.LastUpdated.ToString("yyyy-MM-dd HH:mm") UTC</p>
                         </div>
                     </div>
                 </div>

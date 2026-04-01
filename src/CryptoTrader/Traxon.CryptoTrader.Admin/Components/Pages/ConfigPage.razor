@@ -1,45 +1,47 @@
 @page "/config"
 @rendermode InteractiveServer
 @inject ConfigService ConfigSvc
-@inject IStringLocalizer<SharedResources> L
 
 <div class="flex flex-col gap-6">
-    <h1 class="text-lg font-bold">@L["Configuration"]</h1>
+    <h1 class="text-lg font-bold">Yapılandırma</h1>
+    <div style="font-size: 0.7rem; color: var(--color-text-muted); margin-bottom: 8px;">
+        Trading parametrelerini ayarlayın. Değişiklikler anında uygulanır
+    </div>
 
     <div class="rounded-[10px] p-5 max-w-lg"
          style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default);">
-        <h2 class="text-sm font-bold mb-4" style="color: var(--color-text-secondary);">@L["TradingParameters"]</h2>
+        <h2 class="text-sm font-bold mb-4" style="color: var(--color-text-secondary);">İşlem Parametreleri</h2>
 
         <div class="flex flex-col gap-1">
-            <ConfigRow Label="Min Edge" Description="Minimum required edge to take a trade (e.g. 0.05 = 5%)">
+            <ConfigRow Label="Min Kenar" Description="İşlem açmak için gereken minimum kenar (ör. 0.05 = %5)">
                 <input type="number" step="0.01" min="0" max="1" @bind="_minEdge"
                        style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:4px 8px; font-size:12px; font-family:monospace;" />
             </ConfigRow>
-            <ConfigRow Label="Kelly Fraction" Description="Fraction of Kelly to use (0.25 = Quarter Kelly)">
+            <ConfigRow Label="Kelly Oranı" Description="Kelly'nin kullanılacak oranı (0.25 = Çeyrek Kelly)">
                 <input type="number" step="0.05" min="0.05" max="1" @bind="_kellyFraction"
                        style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:4px 8px; font-size:12px; font-family:monospace;" />
             </ConfigRow>
-            <ConfigRow Label="Max Position Size ($)" Description="Maximum dollars per single trade">
+            <ConfigRow Label="Maks Pozisyon ($)" Description="Tek işlem başına maksimum dolar">
                 <input type="number" step="5" min="5" max="10000" @bind="_maxPositionSize"
                        style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:4px 8px; font-size:12px; font-family:monospace;" />
             </ConfigRow>
-            <ConfigRow Label="Bankroll ($)" Description="Total capital allocated">
+            <ConfigRow Label="Sermaye ($)" Description="Tahsis edilen toplam sermaye">
                 <input type="number" step="100" min="100" @bind="_bankroll"
                        style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:4px 8px; font-size:12px; font-family:monospace;" />
             </ConfigRow>
-            <ConfigRow Label="Min Confidence" Description="Minimum signal confidence (0.5–1.0)">
+            <ConfigRow Label="Min Güven" Description="Minimum sinyal güveni (0.5–1.0)">
                 <input type="number" step="0.01" min="0.5" max="1" @bind="_minConfidence"
                        style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:4px 8px; font-size:12px; font-family:monospace;" />
             </ConfigRow>
-            <ConfigRow Label="Max Open Positions" Description="Max simultaneous positions across all engines">
+            <ConfigRow Label="Maks Açık Pozisyon" Description="Tüm motorlarda eşzamanlı maksimum pozisyon sayısı">
                 <input type="number" step="1" min="1" max="20" @bind="_maxOpenPositions"
                        style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:4px 8px; font-size:12px; font-family:monospace;" />
             </ConfigRow>
         </div>
 
-        <!-- Engine Toggles -->
+        <!-- Motor Acma/Kapama -->
         <div class="mt-5 pt-4" style="border-top: 1px solid var(--color-border-default);">
-            <h3 class="text-xs font-bold mb-3" style="color: var(--color-text-muted);">@L["EngineToggles"]</h3>
+            <h3 class="text-xs font-bold mb-3" style="color: var(--color-text-muted);">Motor Açma/Kapama</h3>
             <div class="flex gap-6">
                 <label class="flex items-center gap-2 text-sm cursor-pointer">
                     <input type="checkbox" @bind="_paperPolyEnabled" />
@@ -55,15 +57,15 @@
         <div class="mt-6 flex items-center gap-3">
             <button @onclick="SaveConfig"
                     style="background-color:rgba(168,85,247,0.15); border:1px solid rgba(168,85,247,0.3); color:var(--color-accent-purple); border-radius:6px; padding:6px 16px; font-size:13px; cursor:pointer;">
-                @L["Apply"]
+                Uygula
             </button>
             <button @onclick="ResetConfig"
                     style="background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-secondary); border-radius:6px; padding:6px 16px; font-size:13px; cursor:pointer;">
-                @L["Reset"]
+                Sıfırla
             </button>
             @if (_saved)
             {
-                <span class="text-xs" style="color: var(--color-accent-green);">@L["Applied"]</span>
+                <span class="text-xs" style="color: var(--color-accent-green);">Uygulandı</span>
             }
         </div>
     </div>

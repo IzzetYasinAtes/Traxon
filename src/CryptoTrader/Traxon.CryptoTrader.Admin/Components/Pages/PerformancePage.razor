@@ -1,59 +1,61 @@
 @page "/"
 @rendermode InteractiveServer
 @inject AdminDataService DataService
-@inject IStringLocalizer<SharedResources> L
 
 <div class="flex flex-col gap-6">
-    <h1 class="text-lg font-bold">@L["PerformanceOverview"]</h1>
+    <h1 class="text-lg font-bold">Performans Özeti</h1>
+    <div style="font-size: 0.7rem; color: var(--color-text-muted); margin-bottom: 8px;">
+        Genel sistem performansı ve motor karşılaştırması
+    </div>
 
     @if (_summary == null)
     {
-        <p class="text-sm" style="color: var(--color-text-muted);">@L["Loading"]</p>
+        <p class="text-sm" style="color: var(--color-text-muted);">Yükleniyor...</p>
     }
     else
     {
-        <!-- KPI Cards -->
+        <!-- KPI Kartlari -->
         <div class="grid grid-cols-5 gap-3">
-            <StatCard Title="@L["WinRate"]"
+            <StatCard Title="Kazanma Oranı"
                       Value="@($"{_summary.WinRate * 100:F1}%")"
                       Color="@(_summary.WinRate >= 0.5m ? "var(--color-accent-green)" : "var(--color-accent-red)")" />
-            <StatCard Title="@L["TotalPnL"]"
+            <StatCard Title="Toplam Kar/Zarar"
                       Value="@($"{(_summary.TotalPnL >= 0 ? "+$" : "-$")}{Math.Abs(_summary.TotalPnL):N2}")"
                       Color="@(_summary.TotalPnL >= 0 ? "var(--color-accent-green)" : "var(--color-accent-red)")" />
-            <StatCard Title="@($"{L["PnL"]} %")"
+            <StatCard Title="Kar/Zarar %"
                       Value="@FormatPctPnl()"
                       Color="@(_summary.TotalPnL >= 0 ? "var(--color-accent-green)" : "var(--color-accent-red)")" />
-            <StatCard Title="@L["SharpeRatio"]"
+            <StatCard Title="Sharpe Oranı"
                       Value="@($"{_summary.SharpeRatio:F2}")"
                       Color="@(_summary.SharpeRatio >= 1 ? "var(--color-accent-green)" : "var(--color-text-primary)")" />
-            <StatCard Title="@L["TotalTrades"]"
+            <StatCard Title="Toplam İşlem"
                       Value="@_summary.TotalTrades.ToString()"
-                      Subtitle="@($"{_summary.WinCount} {L["Wins"]}")" />
+                      Subtitle="@($"{_summary.WinCount} Kazanç")" />
         </div>
 
-        <!-- Equity Curve -->
+        <!-- Sermaye Egrisi -->
         <div class="rounded-[10px] p-4"
              style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default); max-height: 460px; overflow: hidden;">
-            <h2 class="text-sm font-bold mb-3" style="color: var(--color-text-secondary);">@L["EquityCurve"]</h2>
+            <h2 class="text-sm font-bold mb-3" style="color: var(--color-text-secondary);">Sermaye Eğrisi</h2>
             <div style="max-height: 400px; overflow: hidden;">
                 <AdminEquityChart Points="_equityPoints" />
             </div>
         </div>
 
-        <!-- Engine Comparison Table -->
+        <!-- Motor Karsilastirma Tablosu -->
         <div class="rounded-[10px] overflow-hidden"
              style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default);">
             <div class="px-4 py-3" style="border-bottom: 1px solid var(--color-border-default);">
-                <h2 class="text-sm font-bold" style="color: var(--color-text-secondary);">@L["EngineComparison"]</h2>
+                <h2 class="text-sm font-bold" style="color: var(--color-text-secondary);">Motor Karşılaştırması</h2>
             </div>
             <table class="w-full text-sm">
                 <thead>
                     <tr class="text-xs" style="color: var(--color-text-muted);">
-                        <th class="py-2 px-4 text-left">@L["Engine"]</th>
-                        <th class="py-2 px-4 text-right">@L["Trades"]</th>
-                        <th class="py-2 px-4 text-right">@L["WinRate"]</th>
-                        <th class="py-2 px-4 text-right">@L["PnL"]</th>
-                        <th class="py-2 px-4 text-right">@L["Sharpe"]</th>
+                        <th class="py-2 px-4 text-left">Motor</th>
+                        <th class="py-2 px-4 text-right">İşlemler</th>
+                        <th class="py-2 px-4 text-right">Kazanma Oranı</th>
+                        <th class="py-2 px-4 text-right">Kar/Zarar</th>
+                        <th class="py-2 px-4 text-right">Sharpe</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -73,7 +75,7 @@
                     }
                     @if (_summary.ByEngine.Count == 0)
                     {
-                        <tr><td colspan="5" class="py-6 text-center text-xs" style="color: var(--color-text-muted);">@L["NoData"]</td></tr>
+                        <tr><td colspan="5" class="py-6 text-center text-xs" style="color: var(--color-text-muted);">Veri bulunamadı</td></tr>
                     }
                 </tbody>
             </table>
