@@ -24,7 +24,7 @@ public sealed class PaperPolymarketEngine : ITradingEngine
     private readonly SemaphoreSlim                          _initLock          = new(1, 1);
     private volatile bool                                   _initialized;
 
-    private const decimal InitialBalance = 10_000m;
+    private const decimal InitialBalance = 50m;
     private const decimal Slippage       = 0.01m;
     private const decimal TakerFeeRate   = 0.018m; // Crypto markets max %1.8
     private const decimal MinEntryPrice  = 0.25m;  // Analyst v4: 0.30 → 0.25
@@ -107,7 +107,7 @@ public sealed class PaperPolymarketEngine : ITradingEngine
             // Entry 0.40 ile: kazancta (1.00-0.40)/0.40 = +%150, kayipta -%100.
             var rawEntry = 0.40m;
             var entryPrice = rawEntry + Slippage;
-            var positionSize = Math.Min(signal.KellyFraction * _portfolio.Balance, Math.Min(_portfolio.MaxPositionSize, 100m));
+            var positionSize = Math.Max(_portfolio.Balance * 0.02m, 1m);
 
             var position = new Position(
                 asset:        signal.Asset,

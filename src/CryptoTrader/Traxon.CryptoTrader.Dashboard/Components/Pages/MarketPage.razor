@@ -22,7 +22,7 @@
                                   Value="@($"{(portfolio.TotalPnL >= 0 ? "+$" : "-$")}{Math.Abs(portfolio.TotalPnL):N2}")"
                                   Color="@(portfolio.TotalPnL >= 0 ? "var(--color-accent-green)" : "var(--color-accent-red)")" />
                         <StatCard Title="Kar Oranı %"
-                                  Value="@($"{(portfolio.TotalPnL >= 0 ? "+" : "")}{(portfolio.TotalPnL / 10000m) * 100m:F2}%")"
+                                  Value="@($"{(portfolio.TotalPnL >= 0 ? "+" : "")}{(portfolio.TotalPnL / 50m) * 100m:F2}%")"
                                   Color="@(portfolio.TotalPnL >= 0 ? "var(--color-accent-green)" : "var(--color-accent-red)")" />
                         <StatCard Title="Kazanma Oranı"
                                   Value="@($"{portfolio.WinRate * 100:F1}%")"

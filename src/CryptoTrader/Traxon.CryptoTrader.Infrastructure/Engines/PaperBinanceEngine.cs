@@ -31,13 +31,13 @@ public sealed class PaperBinanceEngine : ITradingEngine
         [property: System.Text.Json.Serialization.JsonPropertyName("sl")] decimal Sl,
         [property: System.Text.Json.Serialization.JsonPropertyName("tp")] decimal Tp);
 
-    private const decimal InitialBalance  = 10_000m;
+    private const decimal InitialBalance  = 50m;
     private const decimal SlippageRate    = 0.0005m;
     private const decimal CommissionRate  = 0.00075m; // BNB ile taker %0.075
     private const decimal SlPercent       = 0.005m;   // 0.5% from entry (scalping)
     private const decimal TpPercent       = 0.010m;   // 1.0% from entry (1:2 ratio)
     private const int     MaxHoldCandles  = 6;        // force-close after 6× timeframe durations (30min for 5m)
-    private const decimal MinPositionSize = 150m;     // minimum $150 per trade
+    private const decimal MinPositionSize = 1m;        // minimum $1 per trade
 
     public string EngineName => "PaperBinance";
 
@@ -138,8 +138,7 @@ public sealed class PaperBinanceEngine : ITradingEngine
             var atr          = signal.Indicators.Atr.Value; // kept in snapshot for reference only
             var lastCandle   = candlesResult.Value![^1];
             var entryPrice   = lastCandle.Close * (1 + SlippageRate + CommissionRate);
-            var positionSize = Math.Min(signal.KellyFraction * _portfolio.Balance, _portfolio.MaxPositionSize);
-            positionSize = Math.Max(positionSize, MinPositionSize);
+            var positionSize = Math.Max(_portfolio.Balance * 0.02m, 1m);
 
             // Percentage-based SL/TP from entry (1:2 risk/reward ratio).
             // ATR-based levels were too wide; percentage-based gives consistent 1:2 R/R.
