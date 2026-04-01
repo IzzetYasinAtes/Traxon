@@ -6,9 +6,9 @@
 <div>
     <h1 class="text-lg font-bold mb-4">@L["Trades"]</h1>
 
-    <!-- Tabs: Open | All -->
+    <!-- Tabs: All | Open | Closed -->
     <div class="flex gap-2 mb-4">
-        @foreach (var tab in new[] { "OPEN", "ALL" })
+        @foreach (var tab in new[] { "ALL", "OPEN", "CLOSED" })
         {
             <button @onclick="@(() => _activeTab = tab)"
                     class="px-4 py-1.5 rounded text-sm"
@@ -38,17 +38,25 @@
                 {
                     <TradeRow Trade="trade" />
                 }
+                @if (!FilteredTrades.Any())
+                {
+                    <tr>
+                        <td colspan="7" class="py-8 text-center text-sm" style="color: var(--color-text-muted);">
+                            @L["NoData"]
+                        </td>
+                    </tr>
+                }
             </tbody>
         </table>
     </div>
 </div>
 
 @code {
-    private string _activeTab = "OPEN";
+    private string _activeTab = "ALL";
 
     private IEnumerable<TradeDto> FilteredTrades =>
         Feed.RecentTrades
-            .Where(t => _activeTab == "ALL" || t.Status == _activeTab)
+            .Where(t => _activeTab == "ALL" || t.Status.Equals(_activeTab, StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(t => t.OpenedAt);
 
     protected override void OnInitialized()

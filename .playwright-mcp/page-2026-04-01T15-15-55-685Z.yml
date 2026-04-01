@@ -1,0 +1,64 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e4]: TRAXON ADMIN
+    - generic [ref=e7]: DB OK
+  - generic [ref=e8]:
+    - navigation [ref=e9]:
+      - link "📊 Performance" [ref=e10] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e11]: 📊
+        - generic [ref=e12]: Performance
+      - link "🎯 Calibration" [ref=e13] [cursor=pointer]:
+        - /url: /calibration
+        - generic [ref=e14]: 🎯
+        - generic [ref=e15]: Calibration
+      - link "📋 Trades" [ref=e16] [cursor=pointer]:
+        - /url: /trades
+        - generic [ref=e17]: 📋
+        - generic [ref=e18]: Trades
+      - link "⚙️ Engines" [ref=e19] [cursor=pointer]:
+        - /url: /engines
+        - generic [ref=e20]: ⚙️
+        - generic [ref=e21]: Engines
+      - link "🔧 Config" [ref=e22] [cursor=pointer]:
+        - /url: /config
+        - generic [ref=e23]: 🔧
+        - generic [ref=e24]: Config
+      - link "📜 Logs" [ref=e25] [cursor=pointer]:
+        - /url: /logs
+        - generic [ref=e26]: 📜
+        - generic [ref=e27]: Logs
+    - main [ref=e28]:
+      - generic [ref=e29]:
+        - heading "CalibrationAnalysis" [level=1] [ref=e30]
+        - generic [ref=e31]:
+          - heading "PredictedVsActualWinRate" [level=2] [ref=e33]
+          - generic [ref=e34]:
+            - heading "CalibrationBins" [level=2] [ref=e35]
+            - table [ref=e36]:
+              - rowgroup [ref=e37]:
+                - row "Bin Predicted Actual Count" [ref=e38]:
+                  - columnheader "Bin" [ref=e39]
+                  - columnheader "Predicted" [ref=e40]
+                  - columnheader "Actual" [ref=e41]
+                  - columnheader "Count" [ref=e42]
+              - rowgroup [ref=e43]:
+                - row "%30-%40 %32,5 %33,3 9" [ref=e44]:
+                  - cell "%30-%40" [ref=e45]
+                  - cell "%32,5" [ref=e46]
+                  - cell "%33,3" [ref=e47]
+                  - cell "9" [ref=e48]
+                - row "%60-%70 %67,4 %41,3 75" [ref=e49]:
+                  - cell "%60-%70" [ref=e50]
+                  - cell "%67,4" [ref=e51]
+                  - cell "%41,3" [ref=e52]
+                  - cell "75" [ref=e53]
+                - row "%70-%80 %75,4 %36,3 215" [ref=e54]:
+                  - cell "%70-%80" [ref=e55]
+                  - cell "%75,4" [ref=e56]
+                  - cell "%36,3" [ref=e57]
+                  - cell "215" [ref=e58]
+            - generic [ref=e59]:
+              - paragraph [ref=e60]: BrierScore
+              - paragraph [ref=e61]: 0,3627
+              - paragraph [ref=e62]: NeedsCalibration (0=Mukemmel, 0.25=Random)

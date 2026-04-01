@@ -1,0 +1,76 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e4]: TRAXON ADMIN
+    - generic [ref=e7]: DB OK
+  - generic [ref=e8]:
+    - navigation [ref=e9]:
+      - link "📊 Performance" [ref=e10] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e11]: 📊
+        - generic [ref=e12]: Performance
+      - link "🎯 Calibration" [ref=e13] [cursor=pointer]:
+        - /url: /calibration
+        - generic [ref=e14]: 🎯
+        - generic [ref=e15]: Calibration
+      - link "📋 Trades" [ref=e16] [cursor=pointer]:
+        - /url: /trades
+        - generic [ref=e17]: 📋
+        - generic [ref=e18]: Trades
+      - link "⚙️ Engines" [ref=e19] [cursor=pointer]:
+        - /url: /engines
+        - generic [ref=e20]: ⚙️
+        - generic [ref=e21]: Engines
+      - link "🔧 Config" [ref=e22] [cursor=pointer]:
+        - /url: /config
+        - generic [ref=e23]: 🔧
+        - generic [ref=e24]: Config
+      - link "📜 Logs" [ref=e25] [cursor=pointer]:
+        - /url: /logs
+        - generic [ref=e26]: 📜
+        - generic [ref=e27]: Logs
+    - main [ref=e28]:
+      - generic [ref=e29]:
+        - generic [ref=e30]:
+          - heading "EngineStatus" [level=1] [ref=e31]
+          - button "Refresh" [ref=e32] [cursor=pointer]
+        - generic [ref=e33]:
+          - generic [ref=e34]:
+            - generic [ref=e35]:
+              - generic [ref=e38]: PaperPoly
+              - generic [ref=e39]: Running
+            - generic [ref=e40]:
+              - generic [ref=e41]:
+                - paragraph [ref=e42]: Balance
+                - paragraph [ref=e43]: $12.526,04
+              - generic [ref=e44]:
+                - paragraph [ref=e45]: TotalPnL
+                - paragraph [ref=e46]: +$2.626,04
+              - generic [ref=e47]:
+                - paragraph [ref=e48]: WinRate
+                - paragraph [ref=e49]: 46,0%
+              - generic [ref=e50]:
+                - paragraph [ref=e51]: OpenPositions
+                - paragraph [ref=e52]: "1"
+              - generic [ref=e53]:
+                - paragraph [ref=e54]: TradesLastUpdate
+                - paragraph [ref=e55]: 211 trades — 2026-04-01 15:14 UTC
+          - generic [ref=e56]:
+            - generic [ref=e57]:
+              - generic [ref=e60]: PaperBinance
+              - generic [ref=e61]: Running
+            - generic [ref=e62]:
+              - generic [ref=e63]:
+                - paragraph [ref=e64]: Balance
+                - paragraph [ref=e65]: $9.567,29
+              - generic [ref=e66]:
+                - paragraph [ref=e67]: TotalPnL
+                - paragraph [ref=e68]: "-$42,20"
+              - generic [ref=e69]:
+                - paragraph [ref=e70]: WinRate
+                - paragraph [ref=e71]: 16,0%
+              - generic [ref=e72]:
+                - paragraph [ref=e73]: OpenPositions
+                - paragraph [ref=e74]: "2"
+              - generic [ref=e75]:
+                - paragraph [ref=e76]: TradesLastUpdate
+                - paragraph [ref=e77]: 88 trades — 2026-04-01 15:14 UTC
