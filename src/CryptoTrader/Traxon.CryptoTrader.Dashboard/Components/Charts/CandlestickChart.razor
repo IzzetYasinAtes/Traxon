@@ -14,7 +14,7 @@
 
 @code {
     [Parameter, EditorRequired] public string Symbol { get; set; } = "BTCUSDT";
-    [Parameter, EditorRequired] public string Interval { get; set; } = "5m";
+    [Parameter, EditorRequired] public string Interval { get; set; } = "1m";
     [Parameter] public int Height { get; set; } = 400;
 
     private readonly string _chartId = "chart" + Guid.NewGuid().ToString("N");
