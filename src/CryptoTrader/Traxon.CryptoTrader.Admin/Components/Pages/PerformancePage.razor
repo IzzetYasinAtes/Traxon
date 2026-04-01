@@ -2,10 +2,12 @@
 @rendermode InteractiveServer
 @inject AdminDataService DataService
 
-<div class="flex flex-col gap-6">
-    <h1 class="text-lg font-bold">Performans Özeti</h1>
-    <div style="font-size: 0.7rem; color: var(--color-text-muted); margin-bottom: 8px;">
-        Genel sistem performans metrikleri. Kazanma oranı, toplam kar/zarar, Sharpe oranı ve motor bazlı karşılaştırma burada görüntülenir.
+<div class="flex flex-col gap-2" style="height: calc(100vh - 60px); overflow: hidden;">
+    <div>
+        <h1 class="text-lg font-bold" style="margin: 0;">Performans Özeti</h1>
+        <div style="font-size: 0.8rem; color: var(--color-text-muted); margin-bottom: 8px;">
+            Genel sistem performans metrikleri. Kazanma oranı, toplam kar/zarar, Sharpe oranı ve motor bazlı karşılaştırma burada görüntülenir.
+        </div>
     </div>
 
     @if (_summary == null)
@@ -15,7 +17,7 @@
     else
     {
         <!-- KPI Kartlari -->
-        <div class="grid grid-cols-5 gap-3">
+        <div class="grid grid-cols-5 gap-2">
             <StatCard Title="Kazanma Oranı"
                       Value="@($"{_summary.WinRate * 100:F1}%")"
                       Color="@(_summary.WinRate >= 0.5m ? "var(--color-accent-green)" : "var(--color-accent-red)")" />
@@ -33,29 +35,20 @@
                       Subtitle="@($"{_summary.WinCount} Kazanç")" />
         </div>
 
-        <!-- Sermaye Egrisi -->
-        <div class="rounded-[10px] p-4"
-             style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default); max-height: 460px; overflow: hidden;">
-            <h2 class="text-sm font-bold mb-3" style="color: var(--color-text-secondary);">Sermaye Eğrisi</h2>
-            <div style="max-height: 400px; overflow: hidden;">
-                <AdminEquityChart Points="_equityPoints" />
-            </div>
-        </div>
-
         <!-- Motor Karsilastirma Tablosu -->
-        <div class="rounded-[10px] overflow-hidden"
+        <div class="rounded-[8px] overflow-hidden"
              style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default);">
-            <div class="px-4 py-3" style="border-bottom: 1px solid var(--color-border-default);">
-                <h2 class="text-sm font-bold" style="color: var(--color-text-secondary);">Motor Karşılaştırması</h2>
+            <div class="px-3 py-2" style="border-bottom: 1px solid var(--color-border-default);">
+                <h2 style="font-size: 0.7rem; font-weight: 700; color: var(--color-text-secondary); margin: 0;">Motor Karşılaştırması</h2>
             </div>
             <table class="w-full text-sm">
                 <thead>
                     <tr class="text-xs" style="color: var(--color-text-muted);">
-                        <th class="py-2 px-4 text-left">Motor</th>
-                        <th class="py-2 px-4 text-right">İşlemler</th>
-                        <th class="py-2 px-4 text-right">Kazanma Oranı</th>
-                        <th class="py-2 px-4 text-right">Kar/Zarar</th>
-                        <th class="py-2 px-4 text-right">Sharpe</th>
+                        <th class="py-1 px-3 text-left">Motor</th>
+                        <th class="py-1 px-3 text-right">İşlemler</th>
+                        <th class="py-1 px-3 text-right">Kazanma Oranı</th>
+                        <th class="py-1 px-3 text-right">Kar/Zarar</th>
+                        <th class="py-1 px-3 text-right">Sharpe</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -63,22 +56,30 @@
                     {
                         var wr = e.Trades > 0 ? (decimal)e.Wins / e.Trades : 0;
                         <tr style="border-top: 1px solid var(--color-border-default);">
-                            <td class="py-2 px-4 font-mono text-xs"
+                            <td class="py-1 px-3 font-mono text-xs"
                                 style="color: var(--color-accent-purple);">@e.Engine</td>
-                            <td class="py-2 px-4 text-right font-mono">@e.Trades</td>
-                            <td class="py-2 px-4 text-right font-mono"
+                            <td class="py-1 px-3 text-right font-mono">@e.Trades</td>
+                            <td class="py-1 px-3 text-right font-mono"
                                 style="color: @(wr >= 0.5m ? "var(--color-accent-green)" : "var(--color-accent-red)")">@($"{wr * 100:F1}%")</td>
-                            <td class="py-2 px-4 text-right font-mono"
+                            <td class="py-1 px-3 text-right font-mono"
                                 style="color: @(e.TotalPnL >= 0 ? "var(--color-accent-green)" : "var(--color-accent-red)")">@($"{(e.TotalPnL >= 0 ? "+$" : "-$")}{Math.Abs(e.TotalPnL):N2}")</td>
-                            <td class="py-2 px-4 text-right font-mono">@($"{e.Sharpe:F2}")</td>
+                            <td class="py-1 px-3 text-right font-mono">@($"{e.Sharpe:F2}")</td>
                         </tr>
                     }
                     @if (_summary.ByEngine.Count == 0)
                     {
-                        <tr><td colspan="5" class="py-6 text-center text-xs" style="color: var(--color-text-muted);">Veri bulunamadı</td></tr>
+                        <tr><td colspan="5" class="py-4 text-center text-xs" style="color: var(--color-text-muted);">Veri bulunamadı</td></tr>
                     }
                 </tbody>
             </table>
+        </div>
+
+        <!-- Sermaye Egrisi -->
+        <div class="rounded-[8px]" style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default); padding: 8px 12px; flex: 0.94 1 0; min-height: 0; overflow: hidden;">
+            <h2 style="font-size: 0.7rem; font-weight: 700; margin-bottom: 4px; color: var(--color-text-secondary);">Sermaye Eğrisi</h2>
+            <div style="height: calc(100% - 20px); overflow: hidden;">
+                <AdminEquityChart Points="_equityPoints" />
+            </div>
         </div>
     }
 </div>
