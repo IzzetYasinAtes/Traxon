@@ -22,6 +22,20 @@
         }
     </div>
 
+    <!-- Motor Filtresi -->
+    <div class="flex gap-2 mb-4">
+        @foreach (var (engine, label) in new[] { ("ALL", "TÜMÜ"), ("PaperPoly", "PaperPoly"), ("PaperBinance", "PaperBinance") })
+        {
+            <button @onclick="@(() => _activeEngine = engine)"
+                    class="px-4 py-1.5 rounded text-sm"
+                    style="background-color: @(_activeEngine == engine ? "rgba(0,212,170,0.15)" : "var(--color-bg-surface)");
+                           color: @(_activeEngine == engine ? "var(--color-accent-green)" : "var(--color-text-secondary)");
+                           border: 1px solid var(--color-border-default);">
+                @label
+            </button>
+        }
+    </div>
+
     <div class="rounded-[10px] overflow-hidden" style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default);">
         <table class="w-full text-sm">
             <thead>
@@ -55,10 +69,12 @@
 
 @code {
     private string _activeTab = "ALL";
+    private string _activeEngine = "ALL";
 
     private IEnumerable<TradeDto> FilteredTrades =>
         Feed.RecentTrades
             .Where(t => _activeTab == "ALL" || t.Status.Equals(_activeTab, StringComparison.OrdinalIgnoreCase))
+            .Where(t => _activeEngine == "ALL" || t.Engine.Equals(_activeEngine, StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(t => t.OpenedAt);
 
     protected override void OnInitialized()
