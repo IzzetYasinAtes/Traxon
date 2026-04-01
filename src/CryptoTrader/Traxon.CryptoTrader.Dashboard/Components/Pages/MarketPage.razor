@@ -9,7 +9,7 @@
         <section>
             <h2 class="text-sm font-bold mb-1" style="color: var(--color-text-secondary);">Portföy Özeti</h2>
             <div style="font-size: 0.7rem; color: var(--color-text-muted); margin-bottom: 8px;">
-                Her motorun anlık bakiye, kar/zarar ve kazanma oranı
+                Çalışan motorların anlık özet bilgileri. Bakiye, toplam kar/zarar, kazanma oranı ve açık pozisyon sayısı burada görünür.
             </div>
             @foreach (var (engine, portfolio) in Feed.Portfolios)
             {
@@ -36,7 +36,7 @@
     <section>
         <h2 class="text-sm font-bold mb-1" style="color: var(--color-text-secondary);">Aktif Sinyaller</h2>
         <div style="font-size: 0.7rem; color: var(--color-text-muted); margin-bottom: 8px;">
-            Son üretilen alım-satım sinyalleri. Yeşil = Yukarı, Kırmızı = Aşağı
+            Sistem tarafından üretilen son alım-satım sinyalleri. Her kart bir kripto para için üretilen yön tahminini gösterir. UP = fiyat artacak, DOWN = fiyat düşecek.
         </div>
         <div class="grid grid-cols-4 gap-3">
             @foreach (var signal in Feed.RecentSignals.TakeLast(8).Reverse())
@@ -50,7 +50,7 @@
     <section>
         <h2 class="text-sm font-bold mb-1" style="color: var(--color-text-secondary);">Son İşlemler</h2>
         <div style="font-size: 0.7rem; color: var(--color-text-muted); margin-bottom: 8px;">
-            En son açılan ve kapanan işlemler
+            En son gerçekleştirilen alım-satım işlemleri. Giriş fiyatı, kar/zarar ve işlem durumu burada takip edilir.
         </div>
         <div class="rounded-[10px] overflow-hidden" style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default);">
             <table class="w-full text-sm">
