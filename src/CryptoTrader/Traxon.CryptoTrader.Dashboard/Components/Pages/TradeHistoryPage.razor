@@ -1,0 +1,156 @@
+@page "/trades"
+@rendermode InteractiveServer
+@inject AdminDataService DataService
+@using Traxon.CryptoTrader.Domain.Trading
+
+<div class="flex flex-col gap-4">
+    <div class="flex items-center justify-between">
+        <h1 class="text-lg font-bold">İşlem Geçmişi</h1>
+        <span class="text-xs" style="color: var(--color-text-muted);">@_totalCount toplam işlem</span>
+    </div>
+    <div style="font-size: 0.7rem; color: var(--color-text-muted); margin-bottom: 8px;">
+        Detaylı işlem geçmişi. Motor, sembol ve sonuç bazlı filtreleme yapabilirsiniz. Her işlemin giriş/çıkış fiyatı, kar/zarar ve indikatör bilgileri görüntülenir.
+    </div>
+
+    <!-- Filtreler -->
+    <div class="flex gap-3 flex-wrap items-end">
+        <div>
+            <p class="text-xs mb-1" style="color: var(--color-text-muted);">Motor</p>
+            <select @bind="_filterEngine"
+                    style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default); color: var(--color-text-primary); border-radius: 6px; padding: 4px 8px; font-size: 12px;">
+                <option value="">Tüm Motorlar</option>
+                <option value="PaperPoly">PaperPoly</option>
+                <option value="PaperBinance">PaperBinance</option>
+            </select>
+        </div>
+        <div>
+            <p class="text-xs mb-1" style="color: var(--color-text-muted);">Sonuç</p>
+            <select @bind="_filterOutcome"
+                    style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default); color: var(--color-text-primary); border-radius: 6px; padding: 4px 8px; font-size: 12px;">
+                <option value="">Tümü</option>
+                <option value="Win">Kazanç</option>
+                <option value="Loss">Kayıp</option>
+            </select>
+        </div>
+        <div>
+            <p class="text-xs mb-1" style="color: var(--color-text-muted);">Sembol</p>
+            <input type="text" placeholder="BTCUSDT" @bind="_filterSymbol"
+                   style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default); color: var(--color-text-primary); border-radius: 6px; padding: 4px 8px; font-size: 12px; width: 100px;" />
+        </div>
+        <button @onclick="ApplyFilterAsync"
+                style="background-color: rgba(168,85,247,0.15); border: 1px solid rgba(168,85,247,0.3); color: var(--color-accent-purple); border-radius: 6px; padding: 5px 12px; font-size: 12px; cursor: pointer;">
+            Filtrele
+        </button>
+    </div>
+
+    <!-- Tablo -->
+    <div class="rounded-[10px] overflow-hidden"
+         style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default);">
+        <table class="w-full text-xs">
+            <thead>
+                <tr style="color: var(--color-text-muted); border-bottom: 1px solid var(--color-border-default);">
+                    <th class="py-2 px-3 text-left">Motor</th>
+                    <th class="py-2 px-3 text-left">Sembol</th>
+                    <th class="py-2 px-3 text-left">Zaman Dilimi</th>
+                    <th class="py-2 px-3 text-left">Yön</th>
+                    <th class="py-2 px-3 text-right">Giriş</th>
+                    <th class="py-2 px-3 text-right">Çıkış</th>
+                    <th class="py-2 px-3 text-right">Adil Değer</th>
+                    <th class="py-2 px-3 text-right">Kenar</th>
+                    <th class="py-2 px-3 text-right">Kar/Zarar</th>
+                    <th class="py-2 px-3 text-left">Sonuç</th>
+                    <th class="py-2 px-3 text-left">Rejim</th>
+                    <th class="py-2 px-3 text-left">Zaman</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var t in _trades)
+                {
+                    <tr style="border-top: 1px solid var(--color-border-default);">
+                        <td class="py-1.5 px-3 font-mono" style="color: var(--color-accent-purple);">@t.Engine</td>
+                        <td class="py-1.5 px-3 font-mono">@t.Symbol</td>
+                        <td class="py-1.5 px-3 font-mono" style="color: var(--color-text-muted);">@t.Interval</td>
+                        <td class="py-1.5 px-3 font-mono"
+                            style="color: @(t.Direction == "Up" ? "var(--color-accent-green)" : "var(--color-accent-red)")">
+                            @t.Direction
+                        </td>
+                        <td class="py-1.5 px-3 text-right font-mono">@($"${t.EntryPrice:F4}")</td>
+                        <td class="py-1.5 px-3 text-right font-mono" style="color: var(--color-text-muted);">
+                            @(t.ExitPrice.HasValue ? $"${t.ExitPrice:F4}" : "—")
+                        </td>
+                        <td class="py-1.5 px-3 text-right font-mono">@($"{t.FairValue:P1}")</td>
+                        <td class="py-1.5 px-3 text-right font-mono" style="color: var(--color-accent-gold);">@($"{t.Edge:P1}")</td>
+                        <td class="py-1.5 px-3 text-right font-mono"
+                            style="color: @(t.PnL >= 0 ? "var(--color-accent-green)" : "var(--color-accent-red)")">
+                            @(t.PnL.HasValue ? $"{(t.PnL >= 0 ? "+$" : "-$")}{Math.Abs(t.PnL!.Value):N2}" : "—")
+                        </td>
+                        <td class="py-1.5 px-3 font-mono"
+                            style="color: @(t.Outcome == "Win" ? "var(--color-accent-green)" : t.Outcome == "Loss" ? "var(--color-accent-red)" : "var(--color-text-muted)")">
+                            @(t.Outcome ?? "AÇIK")
+                        </td>
+                        <td class="py-1.5 px-3 font-mono" style="color: var(--color-text-muted);">@t.Regime</td>
+                        <td class="py-1.5 px-3 font-mono" style="color: var(--color-text-muted);">
+                            @t.OpenedAt.ToString("MM/dd HH:mm")
+                        </td>
+                    </tr>
+                }
+                @if (_trades.Count == 0)
+                {
+                    <tr><td colspan="12" class="py-8 text-center" style="color: var(--color-text-muted);">Veri bulunamadı</td></tr>
+                }
+            </tbody>
+        </table>
+
+        <!-- Sayfalama -->
+        <div class="px-4 py-2 flex items-center gap-4 text-xs"
+             style="color: var(--color-text-muted); border-top: 1px solid var(--color-border-default);">
+            <button @onclick="PrevPageAsync" disabled="@(_page == 0)"
+                    style="color: @(_page == 0 ? "var(--color-text-muted)" : "var(--color-accent-purple)"); cursor: pointer;">Önceki</button>
+            <span>Sayfa @(_page + 1) / @Math.Max(1, _totalPages)</span>
+            <button @onclick="NextPageAsync" disabled="@(_page >= _totalPages - 1)"
+                    style="color: @(_page >= _totalPages - 1 ? "var(--color-text-muted)" : "var(--color-accent-purple)"); cursor: pointer;">Sonraki</button>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<AdminTradeRow> _trades = [];
+    private string _filterEngine = "";
+    private string _filterSymbol = "";
+    private string _filterOutcome = "";
+    private int _page = 0;
+    private int _totalPages = 1;
+    private int _totalCount = 0;
+    private const int PageSize = 50;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task ApplyFilterAsync()
+    {
+        _page = 0;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        var outcome = _filterOutcome == "Win" ? TradeOutcome.Win
+                    : _filterOutcome == "Loss" ? TradeOutcome.Loss
+                    : (TradeOutcome?)null;
+
+        var filter = new AdminTradeFilter
+        {
+            Engine = string.IsNullOrEmpty(_filterEngine) ? null : _filterEngine,
+            Symbol = string.IsNullOrEmpty(_filterSymbol) ? null : _filterSymbol,
+            Outcome = outcome,
+            Page = _page,
+            PageSize = PageSize
+        };
+
+        _trades = await DataService.GetTradeHistoryAsync(filter);
+        _totalCount = await DataService.GetTradeCountAsync(filter);
+        _totalPages = Math.Max(1, (int)Math.Ceiling(_totalCount / (double)PageSize));
+    }
+
+    private async Task PrevPageAsync() { if (_page > 0) { _page--; await LoadAsync(); } }
+    private async Task NextPageAsync() { if (_page < _totalPages - 1) { _page++; await LoadAsync(); } }
+}
