@@ -13,7 +13,7 @@
     <Project Path="src/CryptoTrader/Traxon.CryptoTrader.Polymarket/Traxon.CryptoTrader.Polymarket.csproj" />
     <Project Path="src/CryptoTrader/Traxon.CryptoTrader.Worker/Traxon.CryptoTrader.Worker.csproj" />
     <Project Path="src/CryptoTrader/Traxon.CryptoTrader.Dashboard/Traxon.CryptoTrader.Dashboard.csproj" />
-    <Project Path="src/CryptoTrader/Traxon.CryptoTrader.Admin/Traxon.CryptoTrader.Admin.csproj" />
+
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Traxon.CryptoTrader.Binance.Tests/Traxon.CryptoTrader.Binance.Tests.csproj" />
