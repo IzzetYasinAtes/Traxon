@@ -1,0 +1,89 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e4]: TRAXON
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - generic [ref=e7]: BNB
+        - generic [ref=e8]: $612,43
+        - generic [ref=e9]: "-0,22%"
+      - generic [ref=e10]:
+        - generic [ref=e11]: BTC
+        - generic [ref=e12]: $68.489,19
+        - generic [ref=e13]: "-0,15%"
+      - generic [ref=e14]:
+        - generic [ref=e15]: DOGE
+        - generic [ref=e16]: $0,09
+        - generic [ref=e17]: "-0,22%"
+      - generic [ref=e18]:
+        - generic [ref=e19]: DOT
+        - generic [ref=e20]: $1,27
+        - generic [ref=e21]: "-0,39%"
+      - generic [ref=e22]:
+        - generic [ref=e23]: ETH
+        - generic [ref=e24]: $2.124,79
+        - generic [ref=e25]: "-0,09%"
+      - generic [ref=e26]:
+        - generic [ref=e27]: SOL
+        - generic [ref=e28]: $83,21
+        - generic [ref=e29]: "-0,16%"
+      - generic [ref=e30]:
+        - generic [ref=e31]: XRP
+        - generic [ref=e32]: $1,35
+        - generic [ref=e33]: "-0,30%"
+  - generic [ref=e34]:
+    - navigation [ref=e35]:
+      - link "📊 Market" [ref=e36] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e37]: 📊
+        - generic [ref=e38]: Market
+      - link "⚡ Signals" [ref=e39] [cursor=pointer]:
+        - /url: /signals
+        - generic [ref=e40]: ⚡
+        - generic [ref=e41]: Signals
+      - link "📋 Trades" [ref=e42] [cursor=pointer]:
+        - /url: /trades
+        - generic [ref=e43]: 📋
+        - generic [ref=e44]: Trades
+      - link "💼 Portfolio" [ref=e45] [cursor=pointer]:
+        - /url: /portfolio
+        - generic [ref=e46]: 💼
+        - generic [ref=e47]: Portfolio
+      - generic [ref=e50]: Running
+    - main [ref=e51]:
+      - generic [ref=e52]:
+        - heading "Portfolio" [active] [level=1] [ref=e53]
+        - generic [ref=e54]:
+          - heading "PaperPoly" [level=2] [ref=e55]
+          - generic [ref=e56]:
+            - generic [ref=e57]:
+              - paragraph [ref=e58]: Balance
+              - paragraph [ref=e59]: $12.526,04
+            - generic [ref=e60]:
+              - paragraph [ref=e61]: TotalPnL
+              - paragraph [ref=e62]: +$2.626,04
+            - generic [ref=e63]:
+              - paragraph [ref=e64]: WinRate
+              - paragraph [ref=e65]: 46,0%
+              - paragraph [ref=e66]: 97W / 114L
+            - generic [ref=e67]:
+              - paragraph [ref=e68]: TotalTrades
+              - paragraph [ref=e69]: "211"
+              - paragraph [ref=e70]: 1 open
+        - generic [ref=e71]:
+          - heading "PaperBinance" [level=2] [ref=e72]
+          - generic [ref=e73]:
+            - generic [ref=e74]:
+              - paragraph [ref=e75]: Balance
+              - paragraph [ref=e76]: $9.567,29
+            - generic [ref=e77]:
+              - paragraph [ref=e78]: TotalPnL
+              - paragraph [ref=e79]: "-$42,20"
+            - generic [ref=e80]:
+              - paragraph [ref=e81]: WinRate
+              - paragraph [ref=e82]: 16,0%
+              - paragraph [ref=e83]: 14W / 74L
+            - generic [ref=e84]:
+              - paragraph [ref=e85]: TotalTrades
+              - paragraph [ref=e86]: "88"
+              - paragraph [ref=e87]: 2 open
+        - heading "EquityCurve" [level=2] [ref=e89]

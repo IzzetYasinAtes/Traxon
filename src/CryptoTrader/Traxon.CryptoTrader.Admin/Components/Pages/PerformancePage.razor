@@ -13,12 +13,15 @@
     else
     {
         <!-- KPI Cards -->
-        <div class="grid grid-cols-4 gap-3">
+        <div class="grid grid-cols-5 gap-3">
             <StatCard Title="@L["WinRate"]"
                       Value="@($"{_summary.WinRate * 100:F1}%")"
                       Color="@(_summary.WinRate >= 0.5m ? "var(--color-accent-green)" : "var(--color-accent-red)")" />
             <StatCard Title="@L["TotalPnL"]"
                       Value="@($"{(_summary.TotalPnL >= 0 ? "+$" : "-$")}{Math.Abs(_summary.TotalPnL):N2}")"
+                      Color="@(_summary.TotalPnL >= 0 ? "var(--color-accent-green)" : "var(--color-accent-red)")" />
+            <StatCard Title="@($"{L["PnL"]} %")"
+                      Value="@FormatPctPnl()"
                       Color="@(_summary.TotalPnL >= 0 ? "var(--color-accent-green)" : "var(--color-accent-red)")" />
             <StatCard Title="@L["SharpeRatio"]"
                       Value="@($"{_summary.SharpeRatio:F2}")"
@@ -30,9 +33,11 @@
 
         <!-- Equity Curve -->
         <div class="rounded-[10px] p-4"
-             style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default);">
+             style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default); max-height: 460px; overflow: hidden;">
             <h2 class="text-sm font-bold mb-3" style="color: var(--color-text-secondary);">@L["EquityCurve"]</h2>
-            <AdminEquityChart Points="_equityPoints" />
+            <div style="max-height: 400px; overflow: hidden;">
+                <AdminEquityChart Points="_equityPoints" />
+            </div>
         </div>
 
         <!-- Engine Comparison Table -->
@@ -79,10 +84,22 @@
 @code {
     private PerformanceSummary? _summary;
     private List<EquityPoint> _equityPoints = [];
+    private decimal _totalInitialBalance;
 
     protected override async Task OnInitializedAsync()
     {
         _summary = await DataService.GetPerformanceSummaryAsync();
         _equityPoints = await DataService.GetEquityCurveAsync();
+
+        // Calculate initial balance per engine from latest snapshot (Balance - TotalPnL)
+        var engines = await DataService.GetEngineStatusAsync();
+        _totalInitialBalance = engines.Sum(e => e.Balance - e.TotalPnL);
+    }
+
+    private string FormatPctPnl()
+    {
+        if (_summary is null || _totalInitialBalance == 0) return "0.00%";
+        var pct = (_summary.TotalPnL / _totalInitialBalance) * 100m;
+        return $"{(pct >= 0 ? "+" : "")}{pct:F2}%";
     }
 }

@@ -1,0 +1,68 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e4]: TRAXON
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - generic [ref=e7]: BNB
+        - generic [ref=e8]: $612,71
+        - generic [ref=e9]: +0,01%
+      - generic [ref=e10]:
+        - generic [ref=e11]: BTC
+        - generic [ref=e12]: $68.505,92
+        - generic [ref=e13]: +0,01%
+      - generic [ref=e14]:
+        - generic [ref=e15]: DOGE
+        - generic [ref=e16]: $0,09
+        - generic [ref=e17]: +0,03%
+      - generic [ref=e18]:
+        - generic [ref=e19]: DOT
+        - generic [ref=e20]: $1,27
+        - generic [ref=e21]: +0,00%
+      - generic [ref=e22]:
+        - generic [ref=e23]: ETH
+        - generic [ref=e24]: $2.125,43
+        - generic [ref=e25]: "-0,02%"
+      - generic [ref=e26]:
+        - generic [ref=e27]: SOL
+        - generic [ref=e28]: $83,26
+        - generic [ref=e29]: +0,04%
+      - generic [ref=e30]:
+        - generic [ref=e31]: XRP
+        - generic [ref=e32]: $1,35
+        - generic [ref=e33]: +0,01%
+  - generic [ref=e34]:
+    - navigation [ref=e35]:
+      - link "📊 Market" [ref=e36] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e37]: 📊
+        - generic [ref=e38]: Market
+      - link "⚡ Signals" [ref=e39] [cursor=pointer]:
+        - /url: /signals
+        - generic [ref=e40]: ⚡
+        - generic [ref=e41]: Signals
+      - link "📋 Trades" [ref=e42] [cursor=pointer]:
+        - /url: /trades
+        - generic [ref=e43]: 📋
+        - generic [ref=e44]: Trades
+      - link "💼 Portfolio" [ref=e45] [cursor=pointer]:
+        - /url: /portfolio
+        - generic [ref=e46]: 💼
+        - generic [ref=e47]: Portfolio
+      - generic [ref=e50]: Running
+    - main [ref=e51]:
+      - generic [ref=e318]:
+        - heading "Trades" [active] [level=1] [ref=e319]
+        - generic [ref=e320]:
+          - button "OPEN" [ref=e321]
+          - button "ALL" [ref=e322]
+        - table [ref=e324]:
+          - rowgroup [ref=e325]:
+            - row "Symbol Direction Engine Entry PnL Status Time" [ref=e326]:
+              - columnheader "Symbol" [ref=e327]
+              - columnheader "Direction" [ref=e328]
+              - columnheader "Engine" [ref=e329]
+              - columnheader "Entry" [ref=e330]
+              - columnheader "PnL" [ref=e331]
+              - columnheader "Status" [ref=e332]
+              - columnheader "Time" [ref=e333]
+          - rowgroup

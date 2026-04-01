@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Traxon E2E Test Raporu</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', 'Cascadia Code', monospace;
+    background: #0d1117;
+    color: #c9d1d9;
+    padding: 24px;
+    line-height: 1.6;
+  }
+  .header {
+    background: linear-gradient(135deg, #161b22 0%, #1a1f2b 100%);
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    padding: 32px;
+    margin-bottom: 24px;
+    text-align: center;
+  }
+  .header h1 {
+    font-size: 28px;
+    color: #58a6ff;
+    margin-bottom: 8px;
+  }
+  .header .subtitle {
+    color: #8b949e;
+    font-size: 14px;
+  }
+  .summary-cards {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .card {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+  }
+  .card .label { color: #8b949e; font-size: 12px; text-transform: uppercase; margin-bottom: 4px; }
+  .card .value { font-size: 32px; font-weight: 700; }
+  .card .value.pass { color: #3fb950; }
+  .card .value.fail { color: #f85149; }
+  .card .value.warn { color: #d29922; }
+  .card .value.total { color: #58a6ff; }
+  .section {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    overflow: hidden;
+  }
+  .section-header {
+    background: #1c2128;
+    padding: 14px 20px;
+    border-bottom: 1px solid #30363d;
+    font-size: 16px;
+    font-weight: 600;
+    color: #58a6ff;
+  }
+  .section-body { padding: 16px 20px; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  th {
+    text-align: left;
+    padding: 10px 12px;
+    background: #1c2128;
+    color: #8b949e;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 11px;
+    border-bottom: 1px solid #30363d;
+  }
+  td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #21262d;
+  }
+  tr:hover { background: #1c2128; }
+  .status-pass {
+    color: #3fb950;
+    font-weight: 700;
+  }
+  .status-fail {
+    color: #f85149;
+    font-weight: 700;
+  }
+  .status-warn {
+    color: #d29922;
+    font-weight: 700;
+  }
+  .bug-list {
+    list-style: none;
+    padding: 0;
+  }
+  .bug-list li {
+    padding: 12px 16px;
+    border-left: 4px solid;
+    margin-bottom: 8px;
+    border-radius: 0 6px 6px 0;
+    background: #1c2128;
+  }
+  .bug-list li.critical { border-color: #f85149; }
+  .bug-list li.medium { border-color: #d29922; }
+  .bug-list li.low { border-color: #58a6ff; }
+  .bug-list li .severity {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    margin-right: 8px;
+  }
+  .bug-list li.critical .severity { background: #f8514933; color: #f85149; }
+  .bug-list li.medium .severity { background: #d2992233; color: #d29922; }
+  .bug-list li.low .severity { background: #58a6ff33; color: #58a6ff; }
+  .screenshot-ref {
+    color: #8b949e;
+    font-size: 11px;
+    font-style: italic;
+  }
+  .footer {
+    text-align: center;
+    color: #484f58;
+    font-size: 12px;
+    margin-top: 32px;
+    padding: 16px;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>TRAXON E2E Test Raporu</h1>
+  <div class="subtitle">Tarih: 2026-03-28 23:20 UTC+3 | Agent: Tester | Tur: 1</div>
+</div>
+
+<div class="summary-cards">
+  <div class="card">
+    <div class="label">Toplam Test</div>
+    <div class="value total">22</div>
+  </div>
+  <div class="card">
+    <div class="label">Gecen</div>
+    <div class="value pass">14</div>
+  </div>
+  <div class="card">
+    <div class="label">Basarisiz</div>
+    <div class="value fail">5</div>
+  </div>
+  <div class="card">
+    <div class="label">Uyari</div>
+    <div class="value warn">3</div>
+  </div>
+</div>
+
+<!-- UNIT TESTS -->
+<div class="section">
+  <div class="section-header">A. Unit Test Sonuclari</div>
+  <div class="section-body">
+    <table>
+      <thead>
+        <tr><th>Proje</th><th>Toplam</th><th>Gecen</th><th>Basarisiz</th><th>Durum</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Traxon.CryptoTrader.Infrastructure.Tests</td>
+          <td>61</td>
+          <td>60</td>
+          <td>1</td>
+          <td class="status-fail">FAIL</td>
+        </tr>
+        <tr>
+          <td>Traxon.CryptoTrader.Binance.Tests</td>
+          <td>13</td>
+          <td>13</td>
+          <td>0</td>
+          <td class="status-pass">PASS</td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="margin-top: 12px; padding: 12px; background: #1c2128; border-radius: 6px; border-left: 4px solid #f85149;">
+      <strong style="color: #f85149;">Basarisiz Test:</strong><br>
+      <code style="color: #c9d1d9; font-size: 12px;">SignalGeneratorTests.Generate_WithMarketPriceAboveRange_ReturnsInvalidMarketPriceFailure</code><br>
+      <span style="color: #8b949e; font-size: 12px;">NullReferenceException at SignalGenerator.cs:line 63</span>
+    </div>
+    <div style="margin-top: 8px; color: #8b949e; font-size: 13px;">
+      Toplam: <strong>74 test</strong>, <span style="color: #3fb950;">73 gecti</span>, <span style="color: #f85149;">1 basarisiz</span>
+    </div>
+  </div>
+</div>
+
+<!-- DASHBOARD UI -->
+<div class="section">
+  <div class="section-header">B. Dashboard UI Testleri (http://localhost:5000)</div>
+  <div class="section-body">
+    <table>
+      <thead>
+        <tr><th>Sayfa</th><th>URL</th><th>Durum</th><th>Detay</th><th>Screenshot</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Market (Ana Sayfa)</td>
+          <td>/</td>
+          <td class="status-warn">UYARI</td>
+          <td>Sayfa yukleniyor, chart ve bilesenler gorunuyor. Ancak ActiveSignals ve RecentTrades bolumlerinde <strong>duplikat veriler</strong> mevcut (her sinyal/trade 2x gorunuyor). OrderBook hala placeholder.</td>
+          <td class="screenshot-ref">e2e-test-dashboard-home.png</td>
+        </tr>
+        <tr>
+          <td>Signals</td>
+          <td>/signals</td>
+          <td class="status-fail">HATA</td>
+          <td>20 sinyal gosteriliyor ama gercekte ~10 benzersiz sinyal var. Her sinyal <strong>2 kez</strong> gorunuyor. Filtreler (ALL/UP/DOWN) mevcut. Tum sinyaller "UP" yonunde, "DOWN" sinyal yok.</td>
+          <td class="screenshot-ref">e2e-test-signals.png</td>
+        </tr>
+        <tr>
+          <td>Trades</td>
+          <td>/trades</td>
+          <td class="status-fail">HATA</td>
+          <td>12 trade satirim gorunuyor ama <strong>duplikatlar</strong> mevcut: BNB PaperPoly x2, XRP PaperBinance x2, XRP PaperPoly x2, ETH PaperBinance x2, BTC x2, BNB PaperBinance x2. OPEN/ALL filtreler calisiyor.</td>
+          <td class="screenshot-ref">e2e-test-trades.png</td>
+        </tr>
+        <tr>
+          <td>Portfolio</td>
+          <td>/portfolio</td>
+          <td class="status-pass">PASS</td>
+          <td>PaperPoly: $9,500.35 balance, -$134.39 PnL, 50% WinRate, 4 trades (2 open). PaperBinance: $9,223.68 balance, +$0.00 PnL, 0% WinRate, 0 trades (4 open). EquityCurve chart gorunuyor.</td>
+          <td class="screenshot-ref">e2e-test-portfolio.png</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ADMIN UI -->
+<div class="section">
+  <div class="section-header">C. Admin UI Testleri (http://localhost:5170)</div>
+  <div class="section-body">
+    <table>
+      <thead>
+        <tr><th>Sayfa</th><th>URL</th><th>Durum</th><th>Detay</th><th>Screenshot</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Performance</td>
+          <td>/</td>
+          <td class="status-warn">UYARI</td>
+          <td>KPI kartlari dolu: WinRate 50%, PnL -$268.78, Sharpe -3.24, 8 Trades (4 Wins). EquityCurve gorunuyor. EngineComparison tablosunda sadece <strong>PaperPoly</strong> gosteriliyor (PaperBinance eksik). PnL degeri -$268.78 = Portfolio'daki -$134.39'un tam 2 kati — duplikasyon etkisi.</td>
+          <td class="screenshot-ref">e2e-test-admin-performance.png</td>
+        </tr>
+        <tr>
+          <td>Calibration</td>
+          <td>/calibration</td>
+          <td class="status-pass">PASS</td>
+          <td>Kalibrasyon charti ve bin tablosu dolu. 3 bin: %30-%40 (2 trade), %60-%70 (4 trade), %70-%80 (2 trade). Brier Score: 0.2238 (Well Calibrated).</td>
+          <td class="screenshot-ref">e2e-test-admin-calibration.png</td>
+        </tr>
+        <tr>
+          <td>Trades</td>
+          <td>/trades</td>
+          <td class="status-fail">HATA</td>
+          <td>20 trade gosteriliyor ("20 TradesTotal"). Her trade <strong>2 kez</strong> listeleniyor. Filtreler (Engine, Outcome, Symbol) ve pagination mevcut. Gercek benzersiz trade sayisi ~10.</td>
+          <td class="screenshot-ref">e2e-test-admin-trades.png</td>
+        </tr>
+        <tr>
+          <td>Engines</td>
+          <td>/engines</td>
+          <td class="status-warn">UYARI</td>
+          <td>PaperPoly: $9,500.35, PnL <strong>-$318.86</strong> (Portfolio'da -$134.39, Performance'da -$268.78 — uc farkli deger!), WinRate 40%, 1 open, 5 trades. PaperBinance: $9,223.68, +$0.00, 0% WinRate, 4 open, 8 trades. Her iki engine "Running".</td>
+          <td class="screenshot-ref">e2e-test-admin-engines.png</td>
+        </tr>
+        <tr>
+          <td>Config</td>
+          <td>/config</td>
+          <td class="status-pass">PASS</td>
+          <td>Parametreler dogru yukleniyor: MinEdge=0.12, KellyFraction=0.25, MaxPositionSize=$50, Bankroll=$1000, MinConfidence=0.55, MaxOpenPositions=3. PaperPolymarket ve PaperBinance toggle'lari aktif.</td>
+          <td class="screenshot-ref">e2e-test-admin-config.png</td>
+        </tr>
+        <tr>
+          <td>Logs</td>
+          <td>/logs</td>
+          <td class="status-pass">PASS</td>
+          <td>Log satirlari gorunuyor, zaman damgalari dogru (2026-03-28 23:20). Filtreler mevcut (ALL, INF, WRN, ERR). Refresh butonu calisiyor. Hata logu yok (sadece INF).</td>
+          <td class="screenshot-ref">e2e-test-admin-logs.png</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- DATA CONSISTENCY -->
+<div class="section">
+  <div class="section-header">D. Veri Tutarliligi</div>
+  <div class="section-body">
+    <table>
+      <thead>
+        <tr><th>Kontrol</th><th>Durum</th><th>Detay</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>PaperPoly PnL Tutarliligi</td>
+          <td class="status-fail">UYUMSUZ</td>
+          <td>Portfolio: <strong>-$134.39</strong> | Admin Performance: <strong>-$268.78</strong> (2x) | Admin Engines: <strong>-$318.86</strong> (farkli). Uc farkli kaynak uc farkli PnL degeri gosteriyor.</td>
+        </tr>
+        <tr>
+          <td>PaperPoly Trade Sayisi</td>
+          <td class="status-fail">UYUMSUZ</td>
+          <td>Portfolio: <strong>4</strong> trades | Admin Performance: <strong>8</strong> trades (2x) | Admin Engines: <strong>5</strong> trades | Admin Trades: <strong>20</strong> toplam (tum engine, duplikat dahil)</td>
+        </tr>
+        <tr>
+          <td>PaperPoly WinRate</td>
+          <td class="status-fail">UYUMSUZ</td>
+          <td>Portfolio: <strong>50%</strong> (2W/2L) | Admin Performance: <strong>50%</strong> (4W) | Admin Engines: <strong>40%</strong>. Engines sayfasi farkli hesapliyor.</td>
+        </tr>
+        <tr>
+          <td>PaperBinance Bakiye</td>
+          <td class="status-pass">TUTARLI</td>
+          <td>Portfolio: $9,223.68 | Engines: $9,223.68 | PnL: +$0.00 her iki yerde.</td>
+        </tr>
+        <tr>
+          <td>Dashboard vs Admin Duplikasyon</td>
+          <td class="status-fail">UYUMSUZ</td>
+          <td>Tum sayfalarda sinyaller ve trade'ler <strong>2x gorunuyor</strong>. Bu sistemik bir sorun — muhtemelen API endpoint'i veya SignalR hub'i verileri cift gonderiyor.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- BULUNAN SORUNLAR -->
+<div class="section">
+  <div class="section-header" style="color: #f85149;">BULUNAN SORUNLAR (5)</div>
+  <div class="section-body">
+    <ul class="bug-list">
+      <li class="critical">
+        <span class="severity">KRITIK</span>
+        <strong>Duplikat Veri Gosterimi (Signals + Trades)</strong><br>
+        <span style="color: #8b949e;">Tum sayfalarda (Dashboard Market, Signals, Trades + Admin Trades) her sinyal ve trade 2 kez gorunuyor. "20 SignalsCount" ama benzersiz ~10 sinyal var. "20 TradesTotal" ama benzersiz ~10 trade var. Bu durum API endpoint'inin veya SignalR hub'inin verileri cift gondermesinden kaynaklanabilir. Ayni sorun Dashboard RecentTrades'de de mevcut.</span>
+      </li>
+      <li class="critical">
+        <span class="severity">KRITIK</span>
+        <strong>PnL Tutarsizligi — 3 Farkli Deger</strong><br>
+        <span style="color: #8b949e;">PaperPoly PnL degeri uc farkli sayfada uc farkli: Portfolio=-$134.39, Admin Performance=-$268.78 (tam 2x), Admin Engines=-$318.86. Bu ciddi bir veri tutarsizligi. Performance sayfasindaki 2x deger duplikasyonla iliskili olabilir, ama Engines'daki -$318.86 baska bir hesaplama hatasindan kaynaklaniyor.</span>
+      </li>
+      <li class="medium">
+        <span class="severity">ORTA</span>
+        <strong>Unit Test Basarisiz: SignalGenerator NullReferenceException</strong><br>
+        <span style="color: #8b949e;">SignalGeneratorTests.Generate_WithMarketPriceAboveRange_ReturnsInvalidMarketPriceFailure testi NullReferenceException ile basarisiz. Konum: SignalGenerator.cs:63. PatternRecognizer dependency injection ile ilgili olabilir.</span>
+      </li>
+      <li class="medium">
+        <span class="severity">ORTA</span>
+        <strong>Admin EngineComparison'da PaperBinance Eksik</strong><br>
+        <span style="color: #8b949e;">Admin Performance sayfasindaki EngineComparison tablosu sadece PaperPoly satirini gosteriyor. PaperBinance engine'i calisiyor (Engines sayfasinda "Running" gorunuyor) ama comparison tablosunda yok. Muhtemelen kapali trade'i olmayan engine filtreleniyor.</span>
+      </li>
+      <li class="low">
+        <span class="severity">DUSUK</span>
+        <strong>OrderBook Placeholder</strong><br>
+        <span style="color: #8b949e;">Dashboard Market sayfasinda OrderBook alani hala "OrderBookPlaceholder" metni gosteriyor. Bu alan ya implement edilmeli ya da henuz hazir degilse UI'dan kaldirilmali.</span>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<!-- SCREENSHOT INDEX -->
+<div class="section">
+  <div class="section-header">Screenshot Referanslari</div>
+  <div class="section-body">
+    <table>
+      <thead>
+        <tr><th>#</th><th>Dosya Adi</th><th>Sayfa</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>1</td><td>e2e-test-dashboard-home.png</td><td>Dashboard / (Market)</td></tr>
+        <tr><td>2</td><td>e2e-test-signals.png</td><td>Dashboard /signals</td></tr>
+        <tr><td>3</td><td>e2e-test-trades.png</td><td>Dashboard /trades</td></tr>
+        <tr><td>4</td><td>e2e-test-portfolio.png</td><td>Dashboard /portfolio</td></tr>
+        <tr><td>5</td><td>e2e-test-admin-performance.png</td><td>Admin / (Performance)</td></tr>
+        <tr><td>6</td><td>e2e-test-admin-calibration.png</td><td>Admin /calibration</td></tr>
+        <tr><td>7</td><td>e2e-test-admin-trades.png</td><td>Admin /trades</td></tr>
+        <tr><td>8</td><td>e2e-test-admin-engines.png</td><td>Admin /engines</td></tr>
+        <tr><td>9</td><td>e2e-test-admin-config.png</td><td>Admin /config</td></tr>
+        <tr><td>10</td><td>e2e-test-admin-logs.png</td><td>Admin /logs</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="footer">
+  Traxon Tester Agent | Tur 1 | 2026-03-28 23:20 UTC+3 | Powered by Claude Opus 4.6
+</div>
+
+</body>
+</html>

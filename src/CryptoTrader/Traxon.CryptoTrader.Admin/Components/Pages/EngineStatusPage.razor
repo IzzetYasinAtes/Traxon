@@ -15,6 +15,40 @@
     }
     else
     {
+        <!-- Total Summary -->
+        <div class="rounded-[10px] p-5"
+             style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default);">
+            <h2 class="text-sm font-bold mb-3" style="color: var(--color-text-secondary);">All Engines Summary</h2>
+            <div class="grid grid-cols-5 gap-4">
+                <div>
+                    <p class="text-xs" style="color: var(--color-text-muted);">@L["Balance"]</p>
+                    <p class="text-xl font-mono font-bold">$@TotalBalance.ToString("N2")</p>
+                </div>
+                <div>
+                    <p class="text-xs" style="color: var(--color-text-muted);">@L["TotalPnL"]</p>
+                    <p class="text-xl font-mono font-bold"
+                       style="color: @(TotalPnl >= 0 ? "var(--color-accent-green)" : "var(--color-accent-red)")">
+                        @($"{(TotalPnl >= 0 ? "+$" : "-$")}{Math.Abs(TotalPnl):N2}")
+                    </p>
+                </div>
+                <div>
+                    <p class="text-xs" style="color: var(--color-text-muted);">@($"{L["PnL"]} %")</p>
+                    <p class="text-xl font-mono font-bold"
+                       style="color: @(TotalPctPnl >= 0 ? "var(--color-accent-green)" : "var(--color-accent-red)")">
+                        @($"{(TotalPctPnl >= 0 ? "+" : "")}{TotalPctPnl:F2}%")
+                    </p>
+                </div>
+                <div>
+                    <p class="text-xs" style="color: var(--color-text-muted);">@L["TotalTrades"]</p>
+                    <p class="text-xl font-mono font-bold">@_engines.Sum(e => e.TradeCount)</p>
+                </div>
+                <div>
+                    <p class="text-xs" style="color: var(--color-text-muted);">@L["OpenPositions"]</p>
+                    <p class="text-xl font-mono font-bold">@_engines.Sum(e => e.OpenPositions)</p>
+                </div>
+            </div>
+        </div>
+
         <div class="grid grid-cols-2 gap-4">
             @foreach (var engine in _engines)
             {
@@ -31,7 +65,7 @@
                               style="background-color: rgba(0,212,170,0.1); color: var(--color-accent-green);">@engine.Status</span>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-4">
+                    <div class="grid grid-cols-3 gap-4">
                         <div>
                             <p class="text-xs" style="color: var(--color-text-muted);">@L["Balance"]</p>
                             <p class="text-xl font-mono font-bold">$@engine.Balance.ToString("N2")</p>
@@ -44,6 +78,13 @@
                             </p>
                         </div>
                         <div>
+                            <p class="text-xs" style="color: var(--color-text-muted);">@($"{L["PnL"]} %")</p>
+                            <p class="text-xl font-mono font-bold"
+                               style="color: @(engine.TotalPnL >= 0 ? "var(--color-accent-green)" : "var(--color-accent-red)")">
+                                @FormatEnginePctPnl(engine)
+                            </p>
+                        </div>
+                        <div>
                             <p class="text-xs" style="color: var(--color-text-muted);">@L["WinRate"]</p>
                             <p class="text-base font-mono">@($"{engine.WinRate * 100:F1}%")</p>
                         </div>
@@ -51,7 +92,11 @@
                             <p class="text-xs" style="color: var(--color-text-muted);">@L["OpenPositions"]</p>
                             <p class="text-base font-mono">@engine.OpenPositions</p>
                         </div>
-                        <div class="col-span-2">
+                        <div>
+                            <p class="text-xs" style="color: var(--color-text-muted);">@L["TotalTrades"]</p>
+                            <p class="text-base font-mono">@engine.TradeCount</p>
+                        </div>
+                        <div class="col-span-3">
                             <p class="text-xs" style="color: var(--color-text-muted);">@L["TradesLastUpdate"]</p>
                             <p class="text-xs font-mono" style="color: var(--color-text-secondary);">@engine.TradeCount trades — @engine.LastUpdated.ToString("yyyy-MM-dd HH:mm") UTC</p>
                         </div>
@@ -65,8 +110,20 @@
 @code {
     private List<EngineStatusRow> _engines = [];
 
+    private decimal TotalPnl => _engines.Sum(e => e.TotalPnL);
+    private decimal TotalBalance => _engines.Sum(e => e.Balance);
+    private decimal TotalInitial => _engines.Sum(e => e.Balance - e.TotalPnL);
+    private decimal TotalPctPnl => TotalInitial != 0 ? (TotalPnl / TotalInitial) * 100m : 0m;
+
     protected override async Task OnInitializedAsync() => await RefreshAsync();
 
     private async Task RefreshAsync()
         => _engines = await DataService.GetEngineStatusAsync();
+
+    private static string FormatEnginePctPnl(EngineStatusRow engine)
+    {
+        var initial = engine.Balance - engine.TotalPnL;
+        var pct = initial != 0 ? (engine.TotalPnL / initial) * 100m : 0m;
+        return $"{(pct >= 0 ? "+" : "")}{pct:F2}%";
+    }
 }

@@ -11,10 +11,13 @@
     {
         <div>
             <h2 class="text-sm font-bold mb-3" style="color: var(--color-text-secondary);">@engine</h2>
-            <div class="grid grid-cols-4 gap-3">
+            <div class="grid grid-cols-5 gap-3">
                 <StatCard Title="@L["Balance"]" Value="@($"${portfolio.Balance:N2}")" />
                 <StatCard Title="@L["TotalPnL"]"
                           Value="@($"{(portfolio.TotalPnL >= 0 ? "+$" : "-$")}{Math.Abs(portfolio.TotalPnL):N2}")"
+                          Color="@(portfolio.TotalPnL >= 0 ? "var(--color-accent-green)" : "var(--color-accent-red)")" />
+                <StatCard Title="@($"{L["PnL"]} %")"
+                          Value="@(FormatPctPnl(portfolio.TotalPnL, portfolio.InitialBalance))"
                           Color="@(portfolio.TotalPnL >= 0 ? "var(--color-accent-green)" : "var(--color-accent-red)")" />
                 <StatCard Title="@L["WinRate"]"
                           Value="@($"{portfolio.WinRate * 100:F1}%")"
@@ -32,9 +35,11 @@
     }
 
     <!-- Equity Curve -->
-    <div class="rounded-[10px] p-4" style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default);">
+    <div class="rounded-[10px] p-4" style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default); max-height: 460px; overflow: hidden;">
         <h2 class="text-sm font-bold mb-3" style="color: var(--color-text-secondary);">@L["EquityCurve"]</h2>
-        <EquityChart />
+        <div style="max-height: 400px; overflow: hidden;">
+            <EquityChart />
+        </div>
     </div>
 </div>
 
@@ -42,4 +47,10 @@
     protected override void OnInitialized() => Feed.OnPortfolioUpdate += OnPortfolio;
     private void OnPortfolio(PortfolioDto _) => InvokeAsync(StateHasChanged);
     public void Dispose() => Feed.OnPortfolioUpdate -= OnPortfolio;
+
+    private static string FormatPctPnl(decimal totalPnl, decimal initialBalance)
+    {
+        var pct = initialBalance != 0 ? (totalPnl / initialBalance) * 100m : 0m;
+        return $"{(pct >= 0 ? "+" : "")}{pct:F2}%";
+    }
 }

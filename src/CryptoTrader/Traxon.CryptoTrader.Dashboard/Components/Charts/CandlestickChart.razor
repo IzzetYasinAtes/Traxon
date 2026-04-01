@@ -2,16 +2,15 @@
 @inject IDbContextFactory<Traxon.CryptoTrader.Infrastructure.Persistence.AppDbContext> DbFactory
 @inject IJSRuntime JS
 
-<div style="width:100%; height:@(Height)px; background-color: var(--color-bg-surface); border-radius: var(--radius-card); overflow: hidden;">
+<div style="width:100%; height:@(Height)px; background-color: var(--color-bg-surface); border-radius: var(--radius-card); overflow: hidden; position: relative;">
     <div id="@_chartId" style="width:100%; height:100%;"></div>
+    @if (_candleDataJson is null)
+    {
+        <div style="position:absolute; top:0; left:0; right:0; bottom:0; display:flex; align-items:center; justify-content:center; color: var(--color-text-muted); font-size: 0.75rem;">
+            No candle data available
+        </div>
+    }
 </div>
-
-@if (_candleDataJson is null)
-{
-    <div style="display:flex; align-items:center; justify-content:center; height:100%; color: var(--color-text-muted); font-size: 0.75rem;">
-        No candle data available
-    </div>
-}
 
 @code {
     [Parameter, EditorRequired] public string Symbol { get; set; } = "BTCUSDT";
@@ -30,10 +29,12 @@
         _prevKey = key;
 
         await using var db = await DbFactory.CreateDbContextAsync();
+
+        // Use FromSqlRaw to avoid owned entity LINQ translation issues
         var candles = await db.Candles
-            .Where(c => c.Asset.Symbol == Symbol && c.TimeFrame.Value == Interval)
-            .OrderByDescending(c => c.OpenTime)
-            .Take(200)
+            .FromSqlRaw(
+                "SELECT TOP 200 * FROM Candles WHERE Symbol = {0} AND [Interval] = {1} ORDER BY OpenTime DESC",
+                Symbol, Interval)
             .ToListAsync();
         candles.Reverse();
 

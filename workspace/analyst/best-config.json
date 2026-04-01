@@ -1,12 +1,22 @@
 {
-  "configId": "initial",
-  "recordedAt": "2026-03-28T00:00:00Z",
+  "configId": "analyst-v4-20260329",
+  "recordedAt": "2026-03-29T12:00:00Z",
   "parameters": {
-    "minEdge": 0.05,
+    "minCandlesForSignal": 20,
+    "minEdge": 0.12,
+    "minEdgeLowVol": 0.15,
     "kellyMultiplier": 0.15,
     "maxPositionFraction": 0.02,
-    "maxExposureFraction": 0.12,
+    "maxExposureFraction": 0.10,
     "minConfirmation": 2,
+    "minBearishConfirmations": 4,
+    "disableDown": true,
+    "fairValueDirectionFilter": true,
+    "fairValueMinForUp": 0.48,
+    "fairValueMaxForDown": 0.52,
+    "entryEdgeMultiplier": 0.8,
+    "maxEntryPrice": 0.55,
+    "minEntryPrice": 0.30,
     "rsiPeriod": 14,
     "macdFast": 12,
     "macdSlow": 26,
@@ -14,17 +24,29 @@
     "bollingerPeriod": 20,
     "bollingerStdDev": 2.0,
     "atrPeriod": 14,
-    "stopLossPercent": 0.5,
-    "takeProfitPercent": 1.0
+    "stopLossPercent": 0.4,
+    "takeProfitPercent": 1.2,
+    "minMarketPrice": 0.30,
+    "maxMarketPrice": 0.80,
+    "enabledSymbols": ["BTCUSDT", "SOLUSDT", "XRPUSDT", "BNBUSDT", "DOTUSDT"],
+    "removedSymbols": ["DOGEUSDT", "AVAXUSDT", "ETHUSDT", "ADAUSDT"],
+    "enabledTimeframes": {
+      "PaperBinance": ["5m"],
+      "PaperPoly": ["5m", "15m"]
+    },
+    "maxOpenPositions": 3,
+    "bankroll": 10000
   },
   "performance": {
-    "totalPnl": 0,
-    "winRate": 0,
-    "sharpeRatio": 0,
-    "maxDrawdown": 0,
-    "totalTrades": 0,
-    "profitFactor": 0,
-    "measurementPeriodHours": 0
+    "totalPnl": -527.14,
+    "winRate": 55.7,
+    "sharpeRatio": -0.35,
+    "maxDrawdown": 8.5,
+    "totalTrades": 61,
+    "profitFactor": 0.90,
+    "measurementPeriodHours": 6,
+    "upOnly_PnL": 319.96,
+    "upOnly_WinRate": 61.11
   },
-  "source": "Initial default configuration"
+  "source": "Analyst v4 — DOWN kapat (WR %48 < breakeven %58.4), entry Edge*0.8 (0.59→0.53), MaxEntry 0.55, MinEdge 0.12, ETH/ADA çıkar DOT ekle. UP-only +$320 zaten karlı."
 }

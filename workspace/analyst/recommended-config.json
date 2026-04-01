@@ -1,0 +1,83 @@
+{
+  "configId": "analyst-v3-20260329",
+  "recordedAt": "2026-03-29T10:00:00Z",
+  "basedOn": "DB analizi: 0 trade, 46 candle. Sistem trade ACAMIYOR cunku 50 candle gereksinimi karsilanmiyor + edge esigi cok yuksek. Web arastirmasi: Polymarket 5dk stratejileri, RSI scalping, Kelly criterion binary options.",
+  "previousConfigId": "analyst-v2-20260329",
+  "changes": [
+    "P0-KRITIK: MinCandlesForSignal 50 → 20 (hicbir symbol 50 candle'a ulasamamis, sinyal uretimi IMKANSIZ)",
+    "P0-KRITIK: MinEdge 0.20 → 0.08 (market=0.50 hardcoded ile FV 0.55-0.70 arasi → edge max 0.20, esik cok yuksek)",
+    "P0-KRITIK: MinEdgeLowVol 0.25 → 0.12 (LowVol'da da trade acilabilmeli)",
+    "P1-YUKSEK: MinBullishConfirmations 3 → 2 (5dk kriptoda 3/5 bullish nadir, 2/5 daha gercekci)",
+    "P1-YUKSEK: MinBearishConfirmations 99 → 4 (DOWN trade'leri dikkatli acilamali, 4/5 bearish = guclu sinyal)",
+    "P2-ORTA: KellyMultiplier 0.05 → 0.15 (arastirma 0.25-0.50 oneriyor, 0.15 hala muhafazakar)",
+    "P2-ORTA: MaxPositionFraction 0.005 → 0.02 ($50 → $200 max pozisyon, anlamli kar icin gerekli)",
+    "P2-ORTA: fairValueMinForUp 0.48 → 0.45 (daha genis UP sinyal araliği)"
+  ],
+  "parameters": {
+    "minCandlesForSignal": 20,
+    "minEdge": 0.08,
+    "minEdgeLowVol": 0.12,
+    "kellyMultiplier": 0.15,
+    "maxPositionFraction": 0.02,
+    "maxExposureFraction": 0.10,
+    "minConfirmation": 2,
+    "minBearishConfirmations": 4,
+    "disableDown": false,
+    "fairValueDirectionFilter": true,
+    "fairValueMinForUp": 0.45,
+    "fairValueMaxForDown": 0.52,
+    "rsiPeriod": 14,
+    "macdFast": 12,
+    "macdSlow": 26,
+    "macdSignal": 9,
+    "bollingerPeriod": 20,
+    "bollingerStdDev": 2.0,
+    "atrPeriod": 14,
+    "stopLossPercent": 0.4,
+    "takeProfitPercent": 1.2,
+    "minMarketPrice": 0.30,
+    "maxMarketPrice": 0.80,
+    "enabledSymbols": ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT", "BNBUSDT"],
+    "removedSymbols": ["DOGEUSDT", "AVAXUSDT"],
+    "enabledTimeframes": {
+      "PaperBinance": ["5m"],
+      "PaperPoly": ["5m", "15m"]
+    },
+    "maxOpenPositions": 3,
+    "bankroll": 10000
+  },
+  "expectedImpact": {
+    "tradeGeneration": "20 candle ile sinyal uretimi ~100dk sonra baslar (vs 250dk). Trade acilma ihtimali DRAMATIK artar.",
+    "edgeFiltering": "MinEdge 0.08 ile FV=0.58+ olan sinyaller gecebilir (vs 0.70+ gerekiyordu)",
+    "downTrades": "4/5 bearish = guclu dusus sinyalinde DOWN trade acilir. Dusus piyasasindan kar firsati.",
+    "positionSizing": "$200 max pozisyon ile %1.2 TP = $2.40 kar/trade (vs $0.60)",
+    "estimatedTradeFrequency": "Saatte 2-5 trade (vs 0)",
+    "estimatedWinRate": "50-55% (gevsetilmis filtreler ama hala anlamli esikler)",
+    "worstCaseScenario": "5 ust uste kayip = $1000 (bankroll'un %10'u — kabul edilebilir)"
+  },
+  "criticalFindings": {
+    "zeroTrades": "Trades tablosu BOS — sistem hicbir trade acamamis. Bu #1 oncelik.",
+    "insufficientCandles": "Max 32 candle (BNB), 50 candle gereksinimi karsilanmiyor.",
+    "hardcodedMarketPrice": "simulatedMarketPrice=0.50 hardcoded — gercek Polymarket fiyati ~0.52-0.55. Edge hesabi yanlis.",
+    "missingSymbolData": "SOLUSDT enabledSymbols'de ama DB'de 0 candle. Veri akisi kontrol edilmeli.",
+    "tooConservative": "v2 config 'risk azaltma' amacliydi ama sistemi tamamen durma noktasina getirdi."
+  },
+  "researchBasis": {
+    "polymarket5min": "5dk BTC binary'ler random walk'a yakin (%25-27 naive WR). 10dk trend filtresi ile kayip %93→%13 azaltilmis.",
+    "endcycleSniper": "Son 30-60 saniyede 0.95+ fiyattan giris → %5 kar. Dusuk likidite riski.",
+    "meanReversion": "Sharpe ~2.3, WR %60-70. Bollinger+RSI en etkili combo.",
+    "rsiScalping": "RSI(7) 5dk icin optimal. RSI<30 + yesil mum = oversold bounce. 20+50 EMA trend filtre.",
+    "kellyCriterion": "Binary options icin %25-50 fractional Kelly onerilir. Mevcut %5 cok dusuk."
+  },
+  "performance": {
+    "totalPnl": 0,
+    "winRate": null,
+    "sharpeRatio": null,
+    "maxDrawdown": 0,
+    "totalTrades": 0,
+    "profitFactor": null,
+    "measurementPeriodHours": 0,
+    "note": "DB bos — performans verisi yok. Oncelik: trade acmak ve veri toplamak."
+  },
+  "source": "Analyst agent v3 — ACIL: sistemi trade acabilir hale getir. 50→20 candle, edge 0.20→0.08, DOWN aktif (4/5), position size 4x artis. Arastirma: Polymarket 5dk stratejileri + RSI scalping + Kelly criterion."
+}
