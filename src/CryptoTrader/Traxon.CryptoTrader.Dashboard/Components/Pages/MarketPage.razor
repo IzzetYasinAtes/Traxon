@@ -4,32 +4,6 @@
 @implements IDisposable
 
 <div class="flex flex-col gap-4">
-    <!-- Symbol + Interval selector -->
-    <div class="flex items-center gap-3">
-        <select @bind="_selectedSymbol" class="px-2 py-1 rounded text-sm"
-                style="background-color: var(--color-bg-surface); color: var(--color-text-primary); border: 1px solid var(--color-border-default);">
-            @foreach (var s in _symbols)
-            {
-                <option value="@s">@s.Replace("USDT", "")</option>
-            }
-        </select>
-        @foreach (var tf in new[] { "1m", "5m", "15m" })
-        {
-            <button @onclick="@(() => _selectedInterval = tf)"
-                    class="px-3 py-1 rounded text-xs"
-                    style="background-color: @(_selectedInterval == tf ? "rgba(0,212,170,0.15)" : "var(--color-bg-surface)");
-                           color: @(_selectedInterval == tf ? "var(--color-accent-green)" : "var(--color-text-secondary)");
-                           border: 1px solid var(--color-border-default);">
-                @tf
-            </button>
-        }
-    </div>
-
-    <!-- Chart (full width) -->
-    <div>
-        <CandlestickChart Symbol="@_selectedSymbol" Interval="@_selectedInterval" Height="420" />
-    </div>
-
     <!-- Active Signals -->
     <section>
         <h2 class="text-sm font-bold mb-3" style="color: var(--color-text-secondary);">@L["ActiveSignals"]</h2>
@@ -95,10 +69,6 @@
 </div>
 
 @code {
-    private string _selectedSymbol = "BTCUSDT";
-    private string _selectedInterval = "1m";
-    private readonly string[] _symbols = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT", "DOGEUSDT", "BNBUSDT", "HYPEUSDT"];
-
     protected override void OnInitialized()
     {
         Feed.OnSignalGenerated += OnSignal;
