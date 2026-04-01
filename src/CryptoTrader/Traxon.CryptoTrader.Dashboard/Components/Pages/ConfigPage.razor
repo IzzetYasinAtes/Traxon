@@ -1,193 +1,61 @@
 @page "/config"
 @rendermode InteractiveServer
 
-<div style="display: flex; flex-direction: column; height: calc(100vh - 50px); overflow: hidden; gap: 4px; padding: 4px;">
+<div style="display: flex; flex-direction: column; height: calc(100vh - 50px); overflow: hidden; gap: 8px; padding: 8px;">
     <div style="flex-shrink: 0;">
-        <h1 class="text-lg font-bold" style="margin: 0;">Yapılandırma</h1>
-        <div style="font-size: 0.85rem; color: var(--color-text-muted); margin-bottom: 4px;">
+        <h1 style="font-size: 1rem; font-weight: 700; margin: 0;">Yapılandırma</h1>
+        <div style="font-size: 0.75rem; color: var(--color-text-muted); margin-bottom: 4px;">
             Tüm ayarlar kodda sabit olarak tanımlıdır. Değiştirmek için kod güncellemesi gerekir.
         </div>
     </div>
 
-    <!-- İlk 3 bölüm yan yana -->
-    <div class="grid grid-cols-3 gap-2" style="flex-shrink: 0;">
+    <div class="grid grid-cols-3 gap-3" style="flex: 1; min-height: 0;">
 
-    @* PaperBinance Sabitleri *@
-    <div class="rounded-[8px]"
-         style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default); padding: 6px 8px;">
-        <h2 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 2px; color: var(--color-text-secondary);">PaperBinance Ayarları</h2>
-        <p style="font-size: 0.85rem; margin-bottom: 4px; color: var(--color-text-muted);">
-            Binance paper trading motoru sabitleri.
-        </p>
-
-        <div class="flex flex-col gap-1">
-            <ConfigRow Label="Başlangıç Bakiyesi" Description="InitialBalance — Sanal başlangıç sermayesi">
-                <div class="flex items-center gap-1">
-                    <input type="text" value="$10,000" disabled
-                           style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:2px 6px; font-size:0.9rem; font-family:monospace; opacity:0.6; cursor:not-allowed;" />
-                    <span class="text-xs" style="color:var(--color-text-muted); white-space:nowrap;">(PaperBinanceEngine.cs)</span>
-                </div>
-            </ConfigRow>
-            <ConfigRow Label="Slippage" Description="SlippageRate — Fiyat kayması oranı">
-                <div class="flex items-center gap-1">
-                    <input type="text" value="%0.05" disabled
-                           style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:2px 6px; font-size:0.9rem; font-family:monospace; opacity:0.6; cursor:not-allowed;" />
-                    <span class="text-xs" style="color:var(--color-text-muted); white-space:nowrap;">(PaperBinanceEngine.cs)</span>
-                </div>
-            </ConfigRow>
-            <ConfigRow Label="Komisyon" Description="CommissionRate — BNB ile taker komisyonu">
-                <div class="flex items-center gap-1">
-                    <input type="text" value="%0.075" disabled
-                           style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:2px 6px; font-size:0.9rem; font-family:monospace; opacity:0.6; cursor:not-allowed;" />
-                    <span class="text-xs" style="color:var(--color-text-muted); white-space:nowrap;">(PaperBinanceEngine.cs)</span>
-                </div>
-            </ConfigRow>
-            <ConfigRow Label="Stop Loss" Description="SlPercent — Girişten yüzde uzaklık">
-                <div class="flex items-center gap-1">
-                    <input type="text" value="%0.5" disabled
-                           style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:2px 6px; font-size:0.9rem; font-family:monospace; opacity:0.6; cursor:not-allowed;" />
-                    <span class="text-xs" style="color:var(--color-text-muted); white-space:nowrap;">(PaperBinanceEngine.cs)</span>
-                </div>
-            </ConfigRow>
-            <ConfigRow Label="Take Profit" Description="TpPercent — Girişten yüzde uzaklık (1:2 oran)">
-                <div class="flex items-center gap-1">
-                    <input type="text" value="%1.0" disabled
-                           style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:2px 6px; font-size:0.9rem; font-family:monospace; opacity:0.6; cursor:not-allowed;" />
-                    <span class="text-xs" style="color:var(--color-text-muted); white-space:nowrap;">(PaperBinanceEngine.cs)</span>
-                </div>
-            </ConfigRow>
-            <ConfigRow Label="Max Tutma Süresi" Description="MaxHoldCandles — Zorunlu kapanış süresi (5dk mumda 30dk)">
-                <div class="flex items-center gap-1">
-                    <input type="text" value="6 mum" disabled
-                           style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:2px 6px; font-size:0.9rem; font-family:monospace; opacity:0.6; cursor:not-allowed;" />
-                    <span class="text-xs" style="color:var(--color-text-muted); white-space:nowrap;">(PaperBinanceEngine.cs)</span>
-                </div>
-            </ConfigRow>
-            <ConfigRow Label="Min Pozisyon" Description="MinPositionSize — İşlem başına minimum tutar">
-                <div class="flex items-center gap-1">
-                    <input type="text" value="$150" disabled
-                           style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:2px 6px; font-size:0.9rem; font-family:monospace; opacity:0.6; cursor:not-allowed;" />
-                    <span class="text-xs" style="color:var(--color-text-muted); white-space:nowrap;">(PaperBinanceEngine.cs)</span>
-                </div>
-            </ConfigRow>
+        @* PaperBinance *@
+        <div class="rounded-[8px]" style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default); padding: 10px 12px; overflow-y: auto;">
+            <h2 style="font-size: 1rem; font-weight: 700; margin: 0 0 8px 0; color: var(--color-text-primary);">PaperBinance</h2>
+            <div style="display: flex; flex-direction: column;">
+                <ConfigRow Label="Başlangıç Bakiyesi" Value="$10,000" Source="PaperBinanceEngine.cs" />
+                <ConfigRow Label="Slippage" Value="%0.05" Source="PaperBinanceEngine.cs" />
+                <ConfigRow Label="Komisyon" Value="%0.075" Source="PaperBinanceEngine.cs" />
+                <ConfigRow Label="Stop Loss" Value="%0.5" Source="PaperBinanceEngine.cs" />
+                <ConfigRow Label="Take Profit" Value="%1.0" Source="PaperBinanceEngine.cs" />
+                <ConfigRow Label="Max Tutma Süresi" Value="6 mum" Source="PaperBinanceEngine.cs" />
+                <ConfigRow Label="Min Pozisyon" Value="$150" Source="PaperBinanceEngine.cs" />
+            </div>
         </div>
+
+        @* PaperPoly *@
+        <div class="rounded-[8px]" style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default); padding: 10px 12px; overflow-y: auto;">
+            <h2 style="font-size: 1rem; font-weight: 700; margin: 0 0 8px 0; color: var(--color-text-primary);">PaperPoly</h2>
+            <div style="display: flex; flex-direction: column;">
+                <ConfigRow Label="Başlangıç Bakiyesi" Value="$10,000" Source="PaperPolymarketEngine.cs" />
+                <ConfigRow Label="Slippage" Value="%1" Source="PaperPolymarketEngine.cs" />
+                <ConfigRow Label="Taker Fee" Value="%1.8" Source="PaperPolymarketEngine.cs" />
+                <ConfigRow Label="Min Giriş Fiyatı" Value="0.25" Source="PaperPolymarketEngine.cs" />
+                <ConfigRow Label="Max Giriş Fiyatı" Value="0.55" Source="PaperPolymarketEngine.cs" />
+            </div>
+        </div>
+
+        @* Sinyal *@
+        <div class="rounded-[8px]" style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default); padding: 10px 12px; overflow-y: auto;">
+            <h2 style="font-size: 1rem; font-weight: 700; margin: 0 0 8px 0; color: var(--color-text-primary);">Sinyal</h2>
+            <div style="display: flex; flex-direction: column;">
+                <ConfigRow Label="Min Boğa Onayı" Value="3" Source="SignalGenerator.cs" />
+                <ConfigRow Label="Min Ayı Onayı" Value="99 / Kapalı" Source="SignalGenerator.cs" />
+                <ConfigRow Label="Min Edge (Yüksek Vol)" Value="%12" Source="PositionSizer.cs" />
+                <ConfigRow Label="Min Edge (Düşük Vol)" Value="%15" Source="PositionSizer.cs" />
+                <ConfigRow Label="Max Pozisyon Oranı" Value="%2" Source="PositionSizer.cs" />
+                <ConfigRow Label="Kelly Çarpanı" Value="%15" Source="PositionSizer.cs" />
+                <ConfigRow Label="Simüle Bankroll" Value="$10,000" Source="SignalGenerator.cs" />
+            </div>
+        </div>
+
     </div>
 
-    @* PaperPoly Sabitleri *@
-    <div class="rounded-[8px]"
-         style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default); padding: 6px 8px;">
-        <h2 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 2px; color: var(--color-text-secondary);">PaperPoly Ayarları</h2>
-        <p style="font-size: 0.85rem; margin-bottom: 4px; color: var(--color-text-muted);">
-            Polymarket paper trading motoru sabitleri.
-        </p>
-
-        <div class="flex flex-col gap-1">
-            <ConfigRow Label="Başlangıç Bakiyesi" Description="InitialBalance — Sanal başlangıç sermayesi">
-                <div class="flex items-center gap-1">
-                    <input type="text" value="$10,000" disabled
-                           style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:2px 6px; font-size:0.9rem; font-family:monospace; opacity:0.6; cursor:not-allowed;" />
-                    <span class="text-xs" style="color:var(--color-text-muted); white-space:nowrap;">(PaperPolymarketEngine.cs)</span>
-                </div>
-            </ConfigRow>
-            <ConfigRow Label="Slippage" Description="Slippage — Fiyat kayması oranı">
-                <div class="flex items-center gap-1">
-                    <input type="text" value="%1" disabled
-                           style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:2px 6px; font-size:0.9rem; font-family:monospace; opacity:0.6; cursor:not-allowed;" />
-                    <span class="text-xs" style="color:var(--color-text-muted); white-space:nowrap;">(PaperPolymarketEngine.cs)</span>
-                </div>
-            </ConfigRow>
-            <ConfigRow Label="Taker Fee" Description="TakerFeeRate — Crypto markets max %1.8">
-                <div class="flex items-center gap-1">
-                    <input type="text" value="%1.8" disabled
-                           style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:2px 6px; font-size:0.9rem; font-family:monospace; opacity:0.6; cursor:not-allowed;" />
-                    <span class="text-xs" style="color:var(--color-text-muted); white-space:nowrap;">(PaperPolymarketEngine.cs)</span>
-                </div>
-            </ConfigRow>
-            <ConfigRow Label="Min Giriş Fiyatı" Description="MinEntryPrice — Minimum kontrat giriş fiyatı">
-                <div class="flex items-center gap-1">
-                    <input type="text" value="0.25" disabled
-                           style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:2px 6px; font-size:0.9rem; font-family:monospace; opacity:0.6; cursor:not-allowed;" />
-                    <span class="text-xs" style="color:var(--color-text-muted); white-space:nowrap;">(PaperPolymarketEngine.cs)</span>
-                </div>
-            </ConfigRow>
-            <ConfigRow Label="Max Giriş Fiyatı" Description="MaxEntryPrice — Maximum kontrat giriş fiyatı">
-                <div class="flex items-center gap-1">
-                    <input type="text" value="0.55" disabled
-                           style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:2px 6px; font-size:0.9rem; font-family:monospace; opacity:0.6; cursor:not-allowed;" />
-                    <span class="text-xs" style="color:var(--color-text-muted); white-space:nowrap;">(PaperPolymarketEngine.cs)</span>
-                </div>
-            </ConfigRow>
-        </div>
-    </div>
-
-    @* Sinyal ve Pozisyon Sabitleri *@
-    <div class="rounded-[8px]"
-         style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default); padding: 6px 8px;">
-        <h2 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 2px; color: var(--color-text-secondary);">Sinyal ve Pozisyon Ayarları</h2>
-        <p style="font-size: 0.85rem; margin-bottom: 4px; color: var(--color-text-muted);">
-            Sinyal ve pozisyon boyutlandırma sabitleri.
-        </p>
-
-        <div class="flex flex-col gap-1">
-            <ConfigRow Label="Min Boga Onayi" Description="MinBullishConfirmations — UP sinyal icin gereken min onay sayisi">
-                <div class="flex items-center gap-1">
-                    <input type="text" value="3" disabled
-                           style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:2px 6px; font-size:0.9rem; font-family:monospace; opacity:0.6; cursor:not-allowed;" />
-                    <span class="text-xs" style="color:var(--color-text-muted); white-space:nowrap;">(SignalGenerator.cs)</span>
-                </div>
-            </ConfigRow>
-            <ConfigRow Label="Min Ayi Onayi" Description="MinBearishConfirmations — DOWN kapatildi (Analyst v4)">
-                <div class="flex items-center gap-1">
-                    <input type="text" value="99 / Kapali" disabled
-                           style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:2px 6px; font-size:0.9rem; font-family:monospace; opacity:0.6; cursor:not-allowed;" />
-                    <span class="text-xs" style="color:var(--color-text-muted); white-space:nowrap;">(SignalGenerator.cs)</span>
-                </div>
-            </ConfigRow>
-            <ConfigRow Label="Min Edge (Yuksek Vol)" Description="MinEdge — Yuksek volatilitede minimum kenar esigi">
-                <div class="flex items-center gap-1">
-                    <input type="text" value="%12" disabled
-                           style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:2px 6px; font-size:0.9rem; font-family:monospace; opacity:0.6; cursor:not-allowed;" />
-                    <span class="text-xs" style="color:var(--color-text-muted); white-space:nowrap;">(PositionSizer.cs)</span>
-                </div>
-            </ConfigRow>
-            <ConfigRow Label="Min Edge (Dusuk Vol)" Description="MinEdgeLowVol — Dusuk volatilitede minimum kenar esigi">
-                <div class="flex items-center gap-1">
-                    <input type="text" value="%15" disabled
-                           style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:2px 6px; font-size:0.9rem; font-family:monospace; opacity:0.6; cursor:not-allowed;" />
-                    <span class="text-xs" style="color:var(--color-text-muted); white-space:nowrap;">(PositionSizer.cs)</span>
-                </div>
-            </ConfigRow>
-            <ConfigRow Label="Max Pozisyon Orani" Description="MaxPositionFraction — Bankroll'un max yuzdesi ($10k'da ~$200)">
-                <div class="flex items-center gap-1">
-                    <input type="text" value="%2" disabled
-                           style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:2px 6px; font-size:0.9rem; font-family:monospace; opacity:0.6; cursor:not-allowed;" />
-                    <span class="text-xs" style="color:var(--color-text-muted); white-space:nowrap;">(PositionSizer.cs)</span>
-                </div>
-            </ConfigRow>
-            <ConfigRow Label="Kelly Carpani" Description="KellyMultiplier — Tam Kelly'nin kullanilan fraksiyonu">
-                <div class="flex items-center gap-1">
-                    <input type="text" value="%15" disabled
-                           style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:2px 6px; font-size:0.9rem; font-family:monospace; opacity:0.6; cursor:not-allowed;" />
-                    <span class="text-xs" style="color:var(--color-text-muted); white-space:nowrap;">(PositionSizer.cs)</span>
-                </div>
-            </ConfigRow>
-            <ConfigRow Label="Simule Bankroll" Description="SimulatedBankroll — Sinyal uretiminde kullanilan sanal sermaye">
-                <div class="flex items-center gap-1">
-                    <input type="text" value="$10,000" disabled
-                           style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:2px 6px; font-size:0.9rem; font-family:monospace; opacity:0.6; cursor:not-allowed;" />
-                    <span class="text-xs" style="color:var(--color-text-muted); white-space:nowrap;">(SignalGenerator.cs)</span>
-                </div>
-            </ConfigRow>
-        </div>
-    </div>
-
-    </div> @* grid-cols-3 kapanisi *@
-
-    @* Bilgi Notu *@
-    <div class="rounded-[8px]"
-         style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default); padding: 6px 8px; flex-shrink: 0;">
-        <p style="font-size: 0.85rem; color: var(--color-text-muted); margin: 0;">
-            Tum ayarlar ilgili dosyalarda <code>const</code> olarak tanimlidir. Degistirmek icin kod guncellemesi gerekir.
+    <div style="flex-shrink: 0; padding: 2px 0;">
+        <p style="font-size: 0.7rem; color: var(--color-text-muted); margin: 0;">
+            Tüm ayarlar ilgili dosyalarda <code>const</code> olarak tanımlıdır. Değiştirmek için kod güncellemesi gerekir.
         </p>
     </div>
 </div>
