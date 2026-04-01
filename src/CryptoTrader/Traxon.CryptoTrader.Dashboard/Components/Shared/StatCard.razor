@@ -1,9 +1,9 @@
-<div class="rounded-[10px] p-5" style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default);">
-    <p class="text-xs mb-1" style="color: var(--color-text-muted);">@Title</p>
-    <p class="text-2xl font-bold font-mono" style="color: @Color;">@Value</p>
+<div class="rounded-[8px]" style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default); padding: 8px 12px;">
+    <p style="font-size: 0.65rem; margin-bottom: 2px; color: var(--color-text-muted);">@Title</p>
+    <p class="font-bold font-mono" style="font-size: 1.05rem; color: @Color; line-height: 1.2;">@Value</p>
     @if (!string.IsNullOrEmpty(Subtitle))
     {
-        <p class="text-xs mt-1" style="color: var(--color-text-secondary);">@Subtitle</p>
+        <p style="font-size: 0.65rem; margin-top: 2px; color: var(--color-text-secondary);">@Subtitle</p>
     }
 </div>
 
