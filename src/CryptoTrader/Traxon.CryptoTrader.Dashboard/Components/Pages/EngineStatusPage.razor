@@ -1,0 +1,97 @@
+@page "/engines"
+@rendermode InteractiveServer
+@inject AdminDataService DataService
+
+<div class="flex flex-col gap-6">
+    <div class="flex items-center justify-between">
+        <h1 class="text-lg font-bold">Motor Durumu</h1>
+        <button @onclick="RefreshAsync" style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default); color: var(--color-text-secondary); border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer;">Yenile</button>
+    </div>
+    <div style="font-size: 0.7rem; color: var(--color-text-muted); margin-bottom: 8px;">
+        Her motorun çalışma durumu, açık pozisyon sayısı ve anlık kar/zarar bilgisi. Yeşil = motor çalışıyor, kırmızı = motor durmuş.
+    </div>
+
+    @if (_engines.Count == 0)
+    {
+        <p class="text-sm" style="color: var(--color-text-muted);">Motor verisi bulunamadı</p>
+    }
+    else
+    {
+        <div class="grid grid-cols-2 gap-4">
+            @foreach (var engine in _engines)
+            {
+                <div class="rounded-[10px] p-5"
+                     style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default);">
+
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full animate-pulse"
+                                  style="background-color: var(--color-accent-green);"></span>
+                            <span class="text-sm font-bold font-mono" style="color: var(--color-accent-purple);">@engine.Engine</span>
+                        </div>
+                        <span class="text-xs px-2 py-0.5 rounded"
+                              style="background-color: rgba(0,212,170,0.1); color: var(--color-accent-green);">@engine.Status</span>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-4">
+                        <div>
+                            <p class="text-xs" style="color: var(--color-text-muted);">Bakiye</p>
+                            <p class="text-xl font-mono font-bold">$@engine.Balance.ToString("N2")</p>
+                        </div>
+                        <div>
+                            <p class="text-xs" style="color: var(--color-text-muted);">Toplam Kar/Zarar</p>
+                            <p class="text-xl font-mono font-bold"
+                               style="color: @(engine.TotalPnL >= 0 ? "var(--color-accent-green)" : "var(--color-accent-red)")">
+                                @($"{(engine.TotalPnL >= 0 ? "+$" : "-$")}{Math.Abs(engine.TotalPnL):N2}")
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-xs" style="color: var(--color-text-muted);">Kar/Zarar %</p>
+                            <p class="text-xl font-mono font-bold"
+                               style="color: @(engine.TotalPnL >= 0 ? "var(--color-accent-green)" : "var(--color-accent-red)")">
+                                @FormatEnginePctPnl(engine)
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-xs" style="color: var(--color-text-muted);">Kazanma Oranı</p>
+                            <p class="text-base font-mono">@($"{engine.WinRate * 100:F1}%")</p>
+                        </div>
+                        <div>
+                            <p class="text-xs" style="color: var(--color-text-muted);">Açık Pozisyonlar</p>
+                            <p class="text-base font-mono">@engine.OpenPositions</p>
+                        </div>
+                        <div>
+                            <p class="text-xs" style="color: var(--color-text-muted);">Toplam İşlem</p>
+                            <p class="text-base font-mono">@engine.TradeCount</p>
+                        </div>
+                        <div class="col-span-3">
+                            <p class="text-xs" style="color: var(--color-text-muted);">Son Güncelleme</p>
+                            <p class="text-xs font-mono" style="color: var(--color-text-secondary);">@engine.TradeCount işlem — @engine.LastUpdated.ToString("yyyy-MM-dd HH:mm") UTC</p>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private List<EngineStatusRow> _engines = [];
+
+    private decimal TotalPnl => _engines.Sum(e => e.TotalPnL);
+    private decimal TotalBalance => _engines.Sum(e => e.Balance);
+    private decimal TotalInitial => _engines.Sum(e => e.Balance - e.TotalPnL);
+    private decimal TotalPctPnl => TotalInitial != 0 ? (TotalPnl / TotalInitial) * 100m : 0m;
+
+    protected override async Task OnInitializedAsync() => await RefreshAsync();
+
+    private async Task RefreshAsync()
+        => _engines = await DataService.GetEngineStatusAsync();
+
+    private static string FormatEnginePctPnl(EngineStatusRow engine)
+    {
+        var initial = engine.Balance - engine.TotalPnL;
+        var pct = initial != 0 ? (engine.TotalPnL / initial) * 100m : 0m;
+        return $"{(pct >= 0 ? "+" : "")}{pct:F2}%";
+    }
+}

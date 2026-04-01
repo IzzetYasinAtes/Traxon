@@ -40,6 +40,9 @@ try
     foreach (var descriptor in engineDescriptors)
         builder.Services.Remove(descriptor);
 
+    // Admin data service (DB queries for performance, calibration, trades, engines, logs)
+    builder.Services.AddSingleton<AdminDataService>();
+
     // LiveFeedService: ILiveFeedService + IMarketEventPublisher (same singleton)
     builder.Services.AddSingleton<LiveFeedService>();
     builder.Services.AddSingleton<ILiveFeedService>(sp => sp.GetRequiredService<LiveFeedService>());
