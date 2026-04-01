@@ -417,28 +417,16 @@ FodyWeavers.xsd
 *.msm
 *.msp
 
-# Workspace runtime
-workspace/
-!workspace/plans/MASTER_PLAN_V4.md
-
-# Node/test files
-package.json
-package-lock.json
-test-pages.mjs
-
-# Scripts (agent başlatma, izleme)
-scripts/
-
-# Agent talimatları (yerel kullanım)
-agents/
-
-# Claude config
-.claude/
+# Workspace runtime (loglar, screenshotlar, analizler)
+workspace/logs/
+workspace/*.png
+workspace/*.html
+workspace/analyst/
 
 # Playwright MCP snapshots
 .playwright-mcp/
 
-# Start scripts
-start-commander.bat
+# Claude memory (kişisel konuşma geçmişi)
+.claude/projects/
 
 tailwindcss.exe
