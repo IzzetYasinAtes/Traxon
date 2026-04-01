@@ -5,15 +5,188 @@
 <div class="flex flex-col gap-6">
     <h1 class="text-lg font-bold">Yapılandırma</h1>
     <div style="font-size: 0.7rem; color: var(--color-text-muted); margin-bottom: 8px;">
-        Trading parametrelerini buradan ayarlayabilirsiniz. Min Edge = minimum kâr eşiği, Kelly = pozisyon büyüklük oranı, Max Pozisyon = tek işlem limiti. Değişiklikler anında uygulanır.
+        Kodda tanımlı sabit değerler ve çalışma zamanında değiştirilebilir dinamik ayarlar.
     </div>
 
+    @* ═══════════════ Bölüm 1: PaperBinance Sabitleri ═══════════════ *@
     <div class="rounded-[10px] p-5 max-w-lg"
          style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default);">
-        <h2 class="text-sm font-bold mb-4" style="color: var(--color-text-secondary);">İşlem Parametreleri</h2>
+        <h2 class="text-sm font-bold mb-1" style="color: var(--color-text-secondary);">PaperBinance Ayarları</h2>
+        <p class="text-xs mb-4" style="color: var(--color-text-muted);" title="Binance paper trading motoru sabitleri. Bu değerler kodda tanımlıdır ve buradan değiştirilemez.">
+            Binance paper trading motoru sabitleri. Bu değerler kodda tanımlıdır ve buradan değiştirilemez.
+        </p>
 
         <div class="flex flex-col gap-1">
-            <ConfigRow Label="Min Kenar" Description="İşlem açmak için gereken minimum kenar (ör. 0.05 = %5)">
+            <ConfigRow Label="Başlangıç Bakiyesi" Description="InitialBalance — Sanal başlangıç sermayesi">
+                <div class="flex items-center gap-1">
+                    <input type="text" value="$10,000" disabled
+                           style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:4px 8px; font-size:12px; font-family:monospace; opacity:0.6; cursor:not-allowed;" />
+                    <span class="text-xs" style="color:var(--color-text-muted); white-space:nowrap;">(sabit)</span>
+                </div>
+            </ConfigRow>
+            <ConfigRow Label="Slippage" Description="SlippageRate — Fiyat kayması oranı">
+                <div class="flex items-center gap-1">
+                    <input type="text" value="%0.05" disabled
+                           style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:4px 8px; font-size:12px; font-family:monospace; opacity:0.6; cursor:not-allowed;" />
+                    <span class="text-xs" style="color:var(--color-text-muted); white-space:nowrap;">(sabit)</span>
+                </div>
+            </ConfigRow>
+            <ConfigRow Label="Komisyon" Description="CommissionRate — BNB ile taker komisyonu">
+                <div class="flex items-center gap-1">
+                    <input type="text" value="%0.075" disabled
+                           style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:4px 8px; font-size:12px; font-family:monospace; opacity:0.6; cursor:not-allowed;" />
+                    <span class="text-xs" style="color:var(--color-text-muted); white-space:nowrap;">(sabit)</span>
+                </div>
+            </ConfigRow>
+            <ConfigRow Label="Stop Loss" Description="SlPercent — Girişten yüzde uzaklık">
+                <div class="flex items-center gap-1">
+                    <input type="text" value="%0.5" disabled
+                           style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:4px 8px; font-size:12px; font-family:monospace; opacity:0.6; cursor:not-allowed;" />
+                    <span class="text-xs" style="color:var(--color-text-muted); white-space:nowrap;">(sabit)</span>
+                </div>
+            </ConfigRow>
+            <ConfigRow Label="Take Profit" Description="TpPercent — Girişten yüzde uzaklık (1:2 oran)">
+                <div class="flex items-center gap-1">
+                    <input type="text" value="%1.0" disabled
+                           style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:4px 8px; font-size:12px; font-family:monospace; opacity:0.6; cursor:not-allowed;" />
+                    <span class="text-xs" style="color:var(--color-text-muted); white-space:nowrap;">(sabit)</span>
+                </div>
+            </ConfigRow>
+            <ConfigRow Label="Max Tutma Süresi" Description="MaxHoldCandles — Zorunlu kapanış süresi (5dk mumda 30dk)">
+                <div class="flex items-center gap-1">
+                    <input type="text" value="6 mum" disabled
+                           style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:4px 8px; font-size:12px; font-family:monospace; opacity:0.6; cursor:not-allowed;" />
+                    <span class="text-xs" style="color:var(--color-text-muted); white-space:nowrap;">(sabit)</span>
+                </div>
+            </ConfigRow>
+            <ConfigRow Label="Min Pozisyon" Description="MinPositionSize — İşlem başına minimum tutar">
+                <div class="flex items-center gap-1">
+                    <input type="text" value="$150" disabled
+                           style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:4px 8px; font-size:12px; font-family:monospace; opacity:0.6; cursor:not-allowed;" />
+                    <span class="text-xs" style="color:var(--color-text-muted); white-space:nowrap;">(sabit)</span>
+                </div>
+            </ConfigRow>
+        </div>
+    </div>
+
+    @* ═══════════════ Bölüm 2: PaperPoly Sabitleri ═══════════════ *@
+    <div class="rounded-[10px] p-5 max-w-lg"
+         style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default);">
+        <h2 class="text-sm font-bold mb-1" style="color: var(--color-text-secondary);">PaperPoly Ayarları</h2>
+        <p class="text-xs mb-4" style="color: var(--color-text-muted);" title="Polymarket paper trading motoru sabitleri. Bu değerler kodda tanımlıdır ve buradan değiştirilemez.">
+            Polymarket paper trading motoru sabitleri. Bu değerler kodda tanımlıdır ve buradan değiştirilemez.
+        </p>
+
+        <div class="flex flex-col gap-1">
+            <ConfigRow Label="Başlangıç Bakiyesi" Description="InitialBalance — Sanal başlangıç sermayesi">
+                <div class="flex items-center gap-1">
+                    <input type="text" value="$10,000" disabled
+                           style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:4px 8px; font-size:12px; font-family:monospace; opacity:0.6; cursor:not-allowed;" />
+                    <span class="text-xs" style="color:var(--color-text-muted); white-space:nowrap;">(sabit)</span>
+                </div>
+            </ConfigRow>
+            <ConfigRow Label="Slippage" Description="Slippage — Fiyat kayması oranı">
+                <div class="flex items-center gap-1">
+                    <input type="text" value="%1" disabled
+                           style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:4px 8px; font-size:12px; font-family:monospace; opacity:0.6; cursor:not-allowed;" />
+                    <span class="text-xs" style="color:var(--color-text-muted); white-space:nowrap;">(sabit)</span>
+                </div>
+            </ConfigRow>
+            <ConfigRow Label="Taker Fee" Description="TakerFeeRate — Crypto markets max %1.8">
+                <div class="flex items-center gap-1">
+                    <input type="text" value="%1.8" disabled
+                           style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:4px 8px; font-size:12px; font-family:monospace; opacity:0.6; cursor:not-allowed;" />
+                    <span class="text-xs" style="color:var(--color-text-muted); white-space:nowrap;">(sabit)</span>
+                </div>
+            </ConfigRow>
+            <ConfigRow Label="Min Giriş Fiyatı" Description="MinEntryPrice — Minimum kontrat giriş fiyatı">
+                <div class="flex items-center gap-1">
+                    <input type="text" value="0.25" disabled
+                           style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:4px 8px; font-size:12px; font-family:monospace; opacity:0.6; cursor:not-allowed;" />
+                    <span class="text-xs" style="color:var(--color-text-muted); white-space:nowrap;">(sabit)</span>
+                </div>
+            </ConfigRow>
+            <ConfigRow Label="Max Giriş Fiyatı" Description="MaxEntryPrice — Maximum kontrat giriş fiyatı">
+                <div class="flex items-center gap-1">
+                    <input type="text" value="0.55" disabled
+                           style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:4px 8px; font-size:12px; font-family:monospace; opacity:0.6; cursor:not-allowed;" />
+                    <span class="text-xs" style="color:var(--color-text-muted); white-space:nowrap;">(sabit)</span>
+                </div>
+            </ConfigRow>
+        </div>
+    </div>
+
+    @* ═══════════════ Bölüm 3: Sinyal ve Pozisyon Sabitleri ═══════════════ *@
+    <div class="rounded-[10px] p-5 max-w-lg"
+         style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default);">
+        <h2 class="text-sm font-bold mb-1" style="color: var(--color-text-secondary);">Sinyal ve Pozisyon Ayarları</h2>
+        <p class="text-xs mb-4" style="color: var(--color-text-muted);" title="Sinyal üretimi ve pozisyon boyutlandırma sabitleri. Bu değerler kodda tanımlıdır.">
+            Sinyal üretimi ve pozisyon boyutlandırma sabitleri. Bu değerler kodda tanımlıdır.
+        </p>
+
+        <div class="flex flex-col gap-1">
+            <ConfigRow Label="Min Boğa Onayı" Description="MinBullishConfirmations — UP sinyal için gereken min onay sayısı">
+                <div class="flex items-center gap-1">
+                    <input type="text" value="3" disabled
+                           style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:4px 8px; font-size:12px; font-family:monospace; opacity:0.6; cursor:not-allowed;" />
+                    <span class="text-xs" style="color:var(--color-text-muted); white-space:nowrap;">(sabit)</span>
+                </div>
+            </ConfigRow>
+            <ConfigRow Label="Min Ayı Onayı" Description="MinBearishConfirmations — DOWN kapatıldı (Analyst v4)">
+                <div class="flex items-center gap-1">
+                    <input type="text" value="99 / Kapalı" disabled
+                           style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:4px 8px; font-size:12px; font-family:monospace; opacity:0.6; cursor:not-allowed;" />
+                    <span class="text-xs" style="color:var(--color-text-muted); white-space:nowrap;">(sabit)</span>
+                </div>
+            </ConfigRow>
+            <ConfigRow Label="Min Edge (Yüksek Vol)" Description="MinEdge — Yüksek volatilitede minimum kenar eşiği">
+                <div class="flex items-center gap-1">
+                    <input type="text" value="%12" disabled
+                           style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:4px 8px; font-size:12px; font-family:monospace; opacity:0.6; cursor:not-allowed;" />
+                    <span class="text-xs" style="color:var(--color-text-muted); white-space:nowrap;">(sabit)</span>
+                </div>
+            </ConfigRow>
+            <ConfigRow Label="Min Edge (Düşük Vol)" Description="MinEdgeLowVol — Düşük volatilitede minimum kenar eşiği">
+                <div class="flex items-center gap-1">
+                    <input type="text" value="%15" disabled
+                           style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:4px 8px; font-size:12px; font-family:monospace; opacity:0.6; cursor:not-allowed;" />
+                    <span class="text-xs" style="color:var(--color-text-muted); white-space:nowrap;">(sabit)</span>
+                </div>
+            </ConfigRow>
+            <ConfigRow Label="Max Pozisyon Oranı" Description="MaxPositionFraction — Bankroll'un max yüzdesi ($10k'da ~$200)">
+                <div class="flex items-center gap-1">
+                    <input type="text" value="%2" disabled
+                           style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:4px 8px; font-size:12px; font-family:monospace; opacity:0.6; cursor:not-allowed;" />
+                    <span class="text-xs" style="color:var(--color-text-muted); white-space:nowrap;">(sabit)</span>
+                </div>
+            </ConfigRow>
+            <ConfigRow Label="Kelly Çarpanı" Description="KellyMultiplier — Tam Kelly'nin kullanılan fraksiyonu">
+                <div class="flex items-center gap-1">
+                    <input type="text" value="%15" disabled
+                           style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:4px 8px; font-size:12px; font-family:monospace; opacity:0.6; cursor:not-allowed;" />
+                    <span class="text-xs" style="color:var(--color-text-muted); white-space:nowrap;">(sabit)</span>
+                </div>
+            </ConfigRow>
+            <ConfigRow Label="Simüle Bankroll" Description="SimulatedBankroll — Sinyal üretiminde kullanılan sanal sermaye">
+                <div class="flex items-center gap-1">
+                    <input type="text" value="$10,000" disabled
+                           style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:4px 8px; font-size:12px; font-family:monospace; opacity:0.6; cursor:not-allowed;" />
+                    <span class="text-xs" style="color:var(--color-text-muted); white-space:nowrap;">(sabit)</span>
+                </div>
+            </ConfigRow>
+        </div>
+    </div>
+
+    @* ═══════════════ Bölüm 4: Dinamik Ayarlar (ConfigService) ═══════════════ *@
+    <div class="rounded-[10px] p-5 max-w-lg"
+         style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default);">
+        <h2 class="text-sm font-bold mb-1" style="color: var(--color-text-secondary);">Dinamik Ayarlar</h2>
+        <p class="text-xs mb-4" style="color: var(--color-text-muted);" title="Bu ayarlar çalışma zamanında değiştirilebilir ve anında uygulanır.">
+            Bu ayarlar çalışma zamanında değiştirilebilir ve anında uygulanır.
+        </p>
+
+        <div class="flex flex-col gap-1">
+            <ConfigRow Label="Min Kenar" Description="İşlem açmak için gereken minimum kenar (ör. 0.12 = %12)">
                 <input type="number" step="0.01" min="0" max="1" @bind="_minEdge"
                        style="width:100%; background-color:var(--color-bg-elevated); border:1px solid var(--color-border-default); color:var(--color-text-primary); border-radius:6px; padding:4px 8px; font-size:12px; font-family:monospace;" />
             </ConfigRow>
@@ -39,7 +212,7 @@
             </ConfigRow>
         </div>
 
-        <!-- Motor Acma/Kapama -->
+        <!-- Motor Açma/Kapama -->
         <div class="mt-5 pt-4" style="border-top: 1px solid var(--color-border-default);">
             <h3 class="text-xs font-bold mb-3" style="color: var(--color-text-muted);">Motor Açma/Kapama</h3>
             <div class="flex gap-6">
