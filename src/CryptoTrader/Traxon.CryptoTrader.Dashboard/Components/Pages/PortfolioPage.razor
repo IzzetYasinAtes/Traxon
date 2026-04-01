@@ -2,34 +2,36 @@
 @inject ILiveFeedService Feed
 @implements IDisposable
 
-<div class="flex flex-col gap-6">
-    <h1 class="text-lg font-bold">Portföy</h1>
-    <div style="font-size: 0.7rem; color: var(--color-text-muted); margin-bottom: 8px;">
-        Motor bazlı performans ve sermaye eğrisi
+<div class="flex flex-col gap-2">
+    <div style="display: flex; align-items: baseline; gap: 8px;">
+        <h1 class="text-lg font-bold" style="margin: 0;">Portföy</h1>
+        <span style="font-size: 0.65rem; color: var(--color-text-muted);">Motor bazlı performans ve sermaye eğrisi</span>
     </div>
 
-    <!-- Motor bazli kartlar -->
-    @foreach (var (engine, portfolio) in Feed.Portfolios)
-    {
-        <div>
-            <h2 class="text-sm font-bold mb-3" style="color: var(--color-text-secondary);">@engine</h2>
-            <div class="grid grid-cols-5 gap-3">
-                <StatCard Title="Bakiye" Value="@($"${portfolio.Balance:N2}")" />
-                <StatCard Title="Toplam Kar/Zarar"
-                          Value="@($"{(portfolio.TotalPnL >= 0 ? "+$" : "-$")}{Math.Abs(portfolio.TotalPnL):N2}")"
-                          Color="@(portfolio.TotalPnL >= 0 ? "var(--color-accent-green)" : "var(--color-accent-red)")" />
-                <StatCard Title="Kar/Zarar %"
-                          Value="@(FormatPctPnl(portfolio.TotalPnL, portfolio.InitialBalance))"
-                          Color="@(portfolio.TotalPnL >= 0 ? "var(--color-accent-green)" : "var(--color-accent-red)")" />
-                <StatCard Title="Kazanma Oranı"
-                          Value="@($"{portfolio.WinRate * 100:F1}%")"
-                          Subtitle="@($"{portfolio.WinCount}W / {portfolio.LossCount}L")" />
-                <StatCard Title="Toplam İşlem"
-                          Value="@portfolio.TotalTrades.ToString()"
-                          Subtitle="@($"{portfolio.OpenPositionCount} açık")" />
+    <!-- Motor bazli kartlar - yan yana -->
+    <div class="grid grid-cols-2 gap-2">
+        @foreach (var (engine, portfolio) in Feed.Portfolios)
+        {
+            <div>
+                <h2 style="font-size: 0.7rem; font-weight: 700; margin-bottom: 4px; color: var(--color-text-secondary);">@engine</h2>
+                <div class="grid grid-cols-5 gap-1">
+                    <StatCard Title="Bakiye" Value="@($"${portfolio.Balance:N2}")" />
+                    <StatCard Title="Toplam Kar/Zarar"
+                              Value="@($"{(portfolio.TotalPnL >= 0 ? "+$" : "-$")}{Math.Abs(portfolio.TotalPnL):N2}")"
+                              Color="@(portfolio.TotalPnL >= 0 ? "var(--color-accent-green)" : "var(--color-accent-red)")" />
+                    <StatCard Title="Kar/Zarar %"
+                              Value="@(FormatPctPnl(portfolio.TotalPnL, portfolio.InitialBalance))"
+                              Color="@(portfolio.TotalPnL >= 0 ? "var(--color-accent-green)" : "var(--color-accent-red)")" />
+                    <StatCard Title="Kazanma Oranı"
+                              Value="@($"{portfolio.WinRate * 100:F1}%")"
+                              Subtitle="@($"{portfolio.WinCount}W / {portfolio.LossCount}L")" />
+                    <StatCard Title="Toplam İşlem"
+                              Value="@portfolio.TotalTrades.ToString()"
+                              Subtitle="@($"{portfolio.OpenPositionCount} açık")" />
+                </div>
             </div>
-        </div>
-    }
+        }
+    </div>
 
     @if (Feed.Portfolios.Count == 0)
     {
@@ -37,9 +39,9 @@
     }
 
     <!-- Sermaye Egrisi -->
-    <div class="rounded-[10px] p-4" style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default); max-height: 460px; overflow: hidden;">
-        <h2 class="text-sm font-bold mb-3" style="color: var(--color-text-secondary);">Sermaye Eğrisi</h2>
-        <div style="max-height: 400px; overflow: hidden;">
+    <div class="rounded-[8px]" style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default); padding: 8px 12px; max-height: 280px; overflow: hidden;">
+        <h2 style="font-size: 0.7rem; font-weight: 700; margin-bottom: 4px; color: var(--color-text-secondary);">Sermaye Eğrisi</h2>
+        <div style="max-height: 240px; overflow: hidden;">
             <EquityChart />
         </div>
     </div>
