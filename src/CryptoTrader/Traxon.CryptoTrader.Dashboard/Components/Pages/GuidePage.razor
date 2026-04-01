@@ -2,397 +2,752 @@
 
 <div class="guide-container">
     <h1 class="guide-main-title">Finansal Rehber</h1>
-    <p class="guide-subtitle">Sıfırdan başlayanlar için borsa, kripto para ve trading kavramları</p>
+    <p class="guide-subtitle">Sifirdan baslayanlara borsa, kripto para, teknik analiz ve risk yonetimi rehberi</p>
 
-    <!-- Bölüm 1: Borsa ve Kripto Para -->
+    <!-- ================================================================== -->
+    <!-- BOLUM 1: Borsa ve Kripto Para -->
+    <!-- ================================================================== -->
     <div class="guide-card" style="border-left-color: var(--color-accent-blue);">
-        <h2 class="guide-title">1. Borsa ve Kripto Para Nedir?</h2>
+        <h2 class="guide-title">1. Borsa ve Kripto Para</h2>
 
-        <h3 class="guide-subtitle-h3">Borsa Kavramı</h3>
+        <h3 class="guide-subtitle-h3">Borsa Nedir? Alici-Satici Nasil Bulusur?</h3>
         <p>
-            Borsa, alıcıların ve satıcıların bir araya geldiği organize bir piyasadır. Geleneksel borsalarda (örneğin İstanbul Borsa) şirket hisseleri,
-            kripto borsalarında ise dijital para birimleri alınıp satılır. Temel mantık basittir: bir varlığı düşük fiyattan alır, yüksek fiyattan satarsanız
-            <strong>kar</strong> edersiniz.
+            Borsa, alicilarin ve saticilarin bir araya gelerek varlik alis-verisinde bulundugu <strong>organize bir piyasadir</strong>.
+            Geleneksel borsalarda (BIST, NYSE, NASDAQ) sirket hisseleri, tahviller ve emtialar alinip satilirken; kripto
+            borsalarinda dijital para birimleri ve tokenlar islem gorur. Borsanin temel islevleri sunlardir: <strong>fiyat kesfi</strong>
+            (arz ve talebe gore dogru fiyatin belirlenmesi), <strong>likidite saglama</strong> (istediginiz anda alim-satim yapabilme)
+            ve <strong>guvenlik</strong> (islemlerin kurallara gore gerceklesmesinin garanti edilmesi).
         </p>
         <p>
-            Borsada her işlemin iki tarafı vardır: <strong>alıcı</strong> (buyer) ve <strong>satıcı</strong> (seller). Alıcı belirli bir fiyattan almak ister,
-            satıcı belirli bir fiyattan satmak ister. Bu iki fiyat eşleştiğinde işlem gerçekleşir. Buna <strong>emir eşleşmesi</strong> (order matching) denir.
+            Her borsada bir <strong>emir defteri (order book)</strong> vardir. Alicilar "su fiyattan almak istiyorum" diye bir emir
+            girer (bid), saticilar ise "su fiyattan satmak istiyorum" diye bir emir girer (ask). En yuksek bid ile en dusuk ask
+            arasindaki farka <strong>spread</strong> denir. Spread ne kadar darsa, piyasa o kadar likittir. Bir alicinin emri ile
+            bir saticinin emri fiyat olarak eslesitiginde <strong>trade gerceklesir</strong> ve buna <strong>emir eslesmesi (order matching)</strong>
+            denir. Modern borsalar saniyede milyonlarca emri eslestirebilir.
+        </p>
+        <p>
+            Borsalarda iki tur emir vardir: <strong>Limit emir</strong> belirli bir fiyattan almak/satmak istediginizi belirtir ve
+            o fiyat gelene kadar emir defterinde bekler. <strong>Market emir</strong> ise aninda en iyi mevcut fiyattan islem yapar.
+            Market emirleri hizli ama fiyat garantisi yoktur; limit emirleri ise fiyat garantisi verir ama islem olmama riski tasir.
+            Profesyonel traderlar genellikle limit emir kullanarak maliyetlerini kontrol altinda tutar.
         </p>
 
-        <h3 class="guide-subtitle-h3">Kripto Para Nedir?</h3>
+        <h3 class="guide-subtitle-h3">Kripto Para Nedir? Bitcoin Nasil Calisir?</h3>
         <p>
-            Kripto para, şifreleme (kriptografi) teknolojisi kullanılarak güvence altına alınan dijital para birimidir. Merkezi bir otorite (banka, devlet)
-            tarafından kontrol edilmez — bunun yerine <strong>blockchain</strong> adı verilen dağıtık bir defter teknolojisi üzerinde çalışır.
+            Kripto para, sifreleme (kriptografi) teknolojisi kullanilarak guvence altina alinan <strong>dijital para birimidir</strong>.
+            Bankalar veya devletler tarafindan kontrol edilmez; bunun yerine <strong>blockchain</strong> adi verilen dagitik bir defter
+            teknolojisi uzerinde calisir. Blockchain, islemlerin kronolojik sirada zincirlenmis bloklara kaydedildigi, herkesin
+            gorebilecegi ama kimsenin tek basina degistiremeyecegi seffaf bir kayit sistemidir.
         </p>
         <p>
-            <strong>Bitcoin (BTC)</strong>, 2009 yılında "Satoshi Nakamoto" takma adlı bir kişi veya grup tarafından yaratılan ilk kripto paradır.
-            Toplam arzı 21 milyon ile sınırlıdır. Ethereum (ETH), Solana (SOL), BNB gibi binlerce farklı kripto para bulunmaktadır.
+            <strong>Bitcoin (BTC)</strong>, 2009 yilinda "Satoshi Nakamoto" takma adli bir kisi veya grup tarafindan yaratilan ilk
+            kripto paradir. Toplam arzi <strong>21 milyon</strong> ile sinirlidir ve bu sinir, Bitcoin'in "dijital altin" olarak
+            adlandirilmasinin temel sebebidir. Bitcoin madenciligi (mining) islemi, guclcu bilgisayarlarin karmasik matematik
+            problemlerini cozerek yeni bloklari zincire eklemesi ve odullendirilmesidir. Her 4 yilda bir odulun yarilmasi (halving)
+            arzi daha da kisitlar.
+        </p>
+        <p>
+            Bitcoin disinda binlerce kripto para vardir: <strong>Ethereum (ETH)</strong> akilli sozlesmeler calistirabilir,
+            <strong>Solana (SOL)</strong> yuksek hizli islemler sunar, <strong>BNB</strong> Binance ekosisteminin tokenidir,
+            <strong>XRP</strong> bankalar arasi havale icin tasarlanmistir. Her birinin farkli bir kullanim alani ve teknolojisi
+            vardir, ancak hepsi blockchain altyapisini kullanir.
         </p>
 
-        <h3 class="guide-subtitle-h3">USDT (Stablecoin) Nedir?</h3>
+        <h3 class="guide-subtitle-h3">Neden Kripto Para Trade Edilir? Volatilite Avantaji</h3>
         <p>
-            <strong>USDT (Tether)</strong>, 1 ABD Doları'na sabitlenmiş bir <strong>stablecoin</strong>'dir. Yani 1 USDT her zaman yaklaşık 1 USD değerindedir.
-            Kripto borsalarında fiyatlar genellikle USDT cinsinden gösterilir. Örneğin "BTCUSDT = 65,000" demek, 1 Bitcoin'in 65,000 USDT (yani ~65,000 USD)
-            değerinde olduğu anlamına gelir. Trader'lar stablecoin kullanarak volatil piyasada güvenli bir liman bulabilir.
+            Kripto paralarin en buyuk ozelliklerinden biri <strong>yuksek volatilitedir</strong>. Volatilite, fiyatin ne kadar
+            hizli ve buyuk dalgalandigini ifade eder. Geleneksel borsalarda bir hisse senedi gunde %1-2 hareket ederse "hareketli
+            bir gun" sayilirken, Bitcoin gunde %5-10 hareket edebilir. Bu volatilite, <strong>trader'lar icin firsattir</strong>
+            cunku kar etmek icin fiyat hareketi gerekir; fiyat hic hareket etmezse kar etme sansiniz yoktur.
+        </p>
+        <p>
+            Kripto piyasalari <strong>7/24 aciktir</strong> — hafta sonu, tatil, gece demeden islem yapilabilir. Geleneksel
+            borsalar ise genellikle hafta ici 09:00-17:30 arasinda aciktir. Bu surekli aciklik, algoritmik trading sistemleri
+            icin idealdir cunku sistem kesintisiz calisabilir. Ayrica kripto piyasalarinda <strong>minimum islem tutarlari
+            cok dusuktur</strong>; 1$'lik Bitcoin bile satin alabilirsiniz. Bu, kucuk sermayelerle bile trading yapmayi mumkun kilar.
+        </p>
+
+        <h3 class="guide-subtitle-h3">USDT Nedir? Neden USDT ile Trade Ediyoruz?</h3>
+        <p>
+            <strong>USDT (Tether)</strong>, 1 ABD Dolari'na sabitlenmis bir <strong>stablecoin</strong>'dir. Yani 1 USDT her zaman
+            yaklasik 1 USD degerindedir. Stablecoin'ler, kripto piyasasinin "guvenli limani" olarak kullanilir: fiyatlar
+            dustugunde kripto varliklarinizi USDT'ye cevirip degerinizi koruyabilirsiniz.
+        </p>
+        <p>
+            Kripto borsalarinda fiyatlar genellikle USDT cinsinden gosterilir. Ornegin "BTCUSDT = 65,000" demek, 1 Bitcoin'in
+            65,000 USDT (yani ~65,000 USD) degerinde oldugu anlamina gelir. USDT ile trade etmenin avantajlari: fiyat istikrari
+            sayesinde kar/zarar hesaplamasi kolaydir, tum buyuk borsalarda desteklenir ve anlık donus mumkundur. Traxon sistemi
+            tum islemlerini <strong>USDT bazli ciftlerde</strong> (BTCUSDT, ETHUSDT, SOLUSDT vb.) yapar.
+        </p>
+
+        <h3 class="guide-subtitle-h3">Binance Nedir?</h3>
+        <p>
+            <strong>Binance</strong>, dunyanin en buyuk kripto para borsasidir. 2017 yilinda Changpeng Zhao (CZ) tarafindan
+            kurulmustur. Gunluk islem hacmi milyarlarca dolari bulur. Binance, spot trading, vadeli islemler (futures),
+            staking, launchpad ve daha bircok hizmet sunar. Traxon sistemi, Binance'in <strong>WebSocket API'sini</strong>
+            kullanarak canli fiyat verisi alir. Bu API sayesinde her mum kapanisinda aninda veri alinir ve islem kararlari
+            milisaniyeler icinde verilebilir.
+        </p>
+
+        <h3 class="guide-subtitle-h3">Polymarket Nedir? Tahmin Piyasasi Nasil Calisir?</h3>
+        <p>
+            <strong>Polymarket</strong>, Polygon blockchain uzerinde calisan bir <strong>tahmin piyasasidir (prediction market)</strong>.
+            Gercek dunya olaylarinin sonuclari uzerine hisse alip satabilirsiniz. Ornegin: "Bitcoin yarin 70,000$'i gecer mi?"
+            sorusuna EVET veya HAYIR hisseleri alinir. Olay gerceklesirse EVET hisseleri 1.00$'a, gerceklesmezse 0.00$'a
+            <strong>resolve</strong> olur (sonuclanir). Bu <strong>binary outcome</strong> (ikili sonuc) mantigini,
+            Traxon sistemi kripto fiyat tahminlerine uygulamaktadir.
+        </p>
+
+        <h3 class="guide-subtitle-h3">Paper Trading Nedir?</h3>
+        <p>
+            <strong>Paper trading (kagit uzerinde islem)</strong>, gercek para kullanmadan sanal bakiye ile islem yapmayi
+            ifade eder. Stratejinizi test etmek, sistemin karliligini olcmek ve risk yonetimini denemek icin idealdir.
+            Traxon sistemi <strong>tamamen paper trading</strong> yapar — gercek para riski yoktur, ama gercek piyasa
+            verilerini kullanir. Her iki motor da (PaperBinance ve PaperPoly) 50$'lik sanal bakiye ile baslar. Paper
+            trading, bir stratejinin gercek parayla kullanilmadan once kanitlanmasi icin kritik bir adimdir.
         </p>
     </div>
 
-    <!-- Bölüm 2: Alım-Satım Temelleri -->
-    <div class="guide-card" style="border-left-color: var(--color-accent-green);">
-        <h2 class="guide-title">2. Alım-Satım (Trading) Temelleri</h2>
-
-        <h3 class="guide-subtitle-h3">Long (Uzun Pozisyon) — Fiyat Artışından Kar</h3>
-        <p>
-            <strong>Long</strong> pozisyon, bir varlığın fiyatının <strong>artacağına</strong> bahis yapmaktır. Düşük fiyattan alır, yüksek fiyattan satarsınız.
-        </p>
-        <div class="guide-example">
-            <strong>Örnek:</strong> BTCUSDT'yi 60,000'den aldınız, 62,000'e çıktığında sattınız.<br />
-            Kar = (62,000 - 60,000) / 60,000 = <span class="text-green">+%3.33</span>
-        </div>
-
-        <h3 class="guide-subtitle-h3">Short (Kısa Pozisyon) — Fiyat Düşüşünden Kar</h3>
-        <p>
-            <strong>Short</strong> pozisyon, bir varlığın fiyatının <strong>düşeceğine</strong> bahis yapmaktır. Önce yüksek fiyattan satarsınız (ödünç alarak),
-            sonra düşük fiyattan geri alırsınız. Fark sizin karınızdır.
-        </p>
-        <div class="guide-example">
-            <strong>Örnek:</strong> ETHUSDT'yi 3,000'den short açtınız, 2,850'ye düştüğünde kapattınız.<br />
-            Kar = (3,000 - 2,850) / 3,000 = <span class="text-green">+%5.00</span>
-        </div>
-
-        <h3 class="guide-subtitle-h3">Spot Trading vs Futures</h3>
-        <p>
-            <strong>Spot Trading:</strong> Gerçek varlığı alıp satarsınız. Aldığınız Bitcoin cüzdanınıza geçer. Kaldıraç (leverage) yoktur.
-        </p>
-        <p>
-            <strong>Futures Trading:</strong> Gelecekteki fiyat üzerine sözleşme yaparsınız. Kaldıraç kullanabilirsiniz (örn. 10x kaldıraç ile 100$'lık pozisyon
-            1,000$ gibi davranır). Yüksek kar potansiyeli olduğu gibi, yüksek zarar riski de vardır. <strong>Traxon sistemi spot trading simülasyonu yapar.</strong>
-        </p>
-    </div>
-
-    <!-- Bölüm 3: Mum Grafik -->
+    <!-- ================================================================== -->
+    <!-- BOLUM 2: Mum Grafik -->
+    <!-- ================================================================== -->
     <div class="guide-card" style="border-left-color: var(--color-accent-gold);">
-        <h2 class="guide-title">3. Mum Grafik (Candlestick)</h2>
+        <h2 class="guide-title">2. Mum Grafik — Fiyatin Gorsel Dili</h2>
 
-        <h3 class="guide-subtitle-h3">Open, High, Low, Close (OHLC)</h3>
-        <p>Her mum (candle) belirli bir zaman dilimindeki fiyat hareketini gösterir:</p>
-        <ul class="guide-list">
-            <li><strong>Open (Açılış):</strong> Zaman diliminin başındaki fiyat</li>
-            <li><strong>High (En Yüksek):</strong> O zaman diliminde ulaşılan en yüksek fiyat</li>
-            <li><strong>Low (En Düşük):</strong> O zaman diliminde ulaşılan en düşük fiyat</li>
-            <li><strong>Close (Kapanış):</strong> Zaman diliminin sonundaki fiyat</li>
-        </ul>
-
-        <h3 class="guide-subtitle-h3">Yeşil Mum vs Kırmızı Mum</h3>
+        <h3 class="guide-subtitle-h3">Mum (Candlestick) Nedir? 4 Bilesen</h3>
         <p>
-            <span class="text-green"><strong>Yeşil Mum:</strong></span> Kapanış fiyatı açılış fiyatından <strong>yüksek</strong>. Yani fiyat o dönemde arttı (boğa/bullish).<br />
-            <span class="text-red"><strong>Kırmızı Mum:</strong></span> Kapanış fiyatı açılış fiyatından <strong>düşük</strong>. Yani fiyat o dönemde düştü (ayı/bearish).
+            Mum grafik (candlestick chart), fiyat hareketlerini gorsellestirmenin en yaygin ve en bilgilendirici yoludur.
+            18. yuzyilda Japon pirinc tuccarları tarafindan gelistirilmistir ve o gunkuleri bugune kadar kullanilmaya
+            devam etmektedir. Her bir <strong>mum (candle)</strong>, belirli bir zaman dilimindeki fiyat hareketini dort
+            temel bilgiyle ozetler:
+        </p>
+        <ul class="guide-list">
+            <li><strong>Open (Acilis):</strong> Zaman diliminin basindaki fiyat. Mumun basladigi noktadir.</li>
+            <li><strong>High (En Yuksek):</strong> O zaman diliminde ulasilmis en yuksek fiyat. Alicilarin ne kadar yukari ittiğini gosterir.</li>
+            <li><strong>Low (En Dusuk):</strong> O zaman diliminde ulasilmis en dusuk fiyat. Saticilarin ne kadar asagi cektigini gosterir.</li>
+            <li><strong>Close (Kapanis):</strong> Zaman diliminin sonundaki fiyat. Mumun son halini ve o doneme kimin (alici/satici) hakim oldugunu gosterir.</li>
+        </ul>
+        <p>
+            Bu dort deger birlikte, piyasanin o zaman dilimindeki <strong>tum hikayesini</strong> anlatir. Open ve Close
+            arasindaki alan mumun <strong>govdesi (body)</strong>, High ve Low ile govde arasindaki cizgiler ise
+            <strong>fitil (wick/shadow)</strong> olarak adlandirilir.
         </p>
 
-        <h3 class="guide-subtitle-h3">Zaman Dilimleri</h3>
-        <p>Her mum belirli bir süreyi temsil eder:</p>
+        <h3 class="guide-subtitle-h3">Yesil Mum: Alicilar Kazandi</h3>
+        <p>
+            <span class="text-green"><strong>Yesil mum (bullish candle)</strong></span>, kapanis fiyatinin acilis fiyatindan
+            <strong>yuksek</strong> oldugu durumu gosterir (Close > Open). Bu, o zaman diliminde alicilarin saticilara baskin
+            geldigini, fiyatin arttigini ifade eder. Govdenin <strong>alt kismi Open</strong>, <strong>ust kismi Close</strong>'tur.
+            Govde ne kadar buyukse, alim baskisi o kadar gucluydu demektir. Kucuk govdeli yesil mum ise karar verilemezligi
+            (indecision) gosterebilir.
+        </p>
+
+        <h3 class="guide-subtitle-h3">Kirmizi Mum: Saticilar Kazandi</h3>
+        <p>
+            <span class="text-red"><strong>Kirmizi mum (bearish candle)</strong></span>, kapanis fiyatinin acilis fiyatindan
+            <strong>dusuk</strong> oldugu durumu gosterir (Close &lt; Open). Bu, saticilarin hakim oldugunu ve fiyatin dustugunu
+            ifade eder. Govdenin <strong>ust kismi Open</strong>, <strong>alt kismi Close</strong>'tur. Buyuk govdeli kirmizi
+            mumlar guclu satis baskisini, kucuk govdeliler ise zayif dususu gosterir.
+        </p>
+
+        <h3 class="guide-subtitle-h3">Fitil (Wick/Shadow) Ne Anlatir?</h3>
+        <p>
+            Fitiller, fiyatin govdenin disina cikmis ama tutunamamis olduğu seviyeleri gosterir. <strong>Uzun ust fitil</strong>,
+            alicilarin fiyati yukari ittirdigini ama saticilarin geri pusturdugunu gosterir — bu <strong>reddedilme (rejection)</strong>
+            isaretir ve dusus sinyali olabilir. <strong>Uzun alt fitil</strong> ise saticilarin fiyati dusurdugunu ama alicilarin
+            geri toplardigini gosterir — bu <strong>destek (support)</strong> isaretir ve yukselis sinyali olabilir.
+            Fitillerin uzunlugu, o seviyedeki alis-satis savasinin siddetini yansitirir.
+        </p>
+
+        <h3 class="guide-subtitle-h3">Zaman Dilimleri: Ne Zaman Hangisi Kullanilir?</h3>
+        <p>Her mum belirli bir sureyi temsil eder ve farkli zaman dilimleri farkli amaclarla kullanilir:</p>
         <ul class="guide-list">
-            <li><strong>1m:</strong> 1 dakikalık mumlar — çok kısa vadeli, yüksek gürültü</li>
-            <li><strong>5m:</strong> 5 dakikalık mumlar — scalping için ideal (Traxon bunu kullanır)</li>
-            <li><strong>15m:</strong> 15 dakikalık mumlar — intraday trading</li>
-            <li><strong>1h:</strong> 1 saatlik mumlar — trend teyidi için (Traxon bunu teyit olarak kullanır)</li>
+            <li><strong>1m (1 dakika):</strong> Cok kisa vadeli, yuksek gurultu. Scalping icin kullanilir ama sahte sinyaller cok fazladir.</li>
+            <li><strong>5m (5 dakika):</strong> Scalping ve kisa vadeli trading icin ideal. Traxon sistemi ana islem kararlarini 5m mumlara dayandirır.</li>
+            <li><strong>15m (15 dakika):</strong> Intraday (gun ici) trading icin uygundur. 5m'e gore daha az gurultu, daha net sinyaller.</li>
+            <li><strong>1h (1 saat):</strong> Trend teyidi icin kullanilir. Traxon sistemi 1h mumlari trend yonu dogrulama (counter-trend filtre) icin kullanir.</li>
+        </ul>
+        <p>
+            Genel kural: <strong>kisa zaman dilimi = daha fazla sinyal ama daha cok gurultu</strong>. Uzun zaman dilimi = daha az
+            sinyal ama daha guvenilir. Profesyonel traderlar genellikle birden fazla zaman dilimini birlikte kullanir (multi-timeframe analysis).
+            Traxon sistemi tam da bunu yapar: 5m'de islem acar, 1h'da trend yonu dogrular.
+        </p>
+
+        <h3 class="guide-subtitle-h3">Temel Mum Formasyonlari</h3>
+        <p>
+            Bazi ozel mum sekilleri, piyasanin yonu hakkinda guclu ipuclari verir:
+        </p>
+        <ul class="guide-list">
+            <li><strong>Doji:</strong> Acilis ve kapanis neredeyse ayni fiyatta — govde cok kucuk. Kararsizlik ifade eder. Bir trendin sonunda gorulurse donus sinyali olabilir.</li>
+            <li><strong>Hammer (Cekic):</strong> Kucuk govde + uzun alt fitil. Dusus trendinin dibinde gorulurse yukselis sinyalidir — saticilar asagi itti ama alicilar geri topladi.</li>
+            <li><strong>Engulfing (Yutucu):</strong> Yeni mum, onceki mumu tamamen "yutar" (govdesi daha buyuktur). Bullish engulfing dusus sonrasinda yukselis, bearish engulfing yukselis sonrasinda dusus isaret eder.</li>
+            <li><strong>Shooting Star (Kayan Yildiz):</strong> Kucuk govde + uzun ust fitil. Yukselis trendinin tepesinde gorulurse dusus sinyalidir.</li>
         </ul>
 
-        <h3 class="guide-subtitle-h3">Mum Grafik Yapısı</h3>
+        <div class="guide-example">
+            <strong>Ornek Senaryo:</strong> BTC 5 dakikalik grafikte ust uste 3 yesil mum goruyorsunuz (yukselis trendi). 4. mumda uzun
+            ust fitilli kucuk govdeli bir kirmizi mum olusuyor (shooting star). Bu, alicilarin fiyati daha yukari itemedigini ve
+            saticilarin geri cektigini gosterir — kisa vadeli dusus gelebilir. Eger RSI da 70 uzerindeyse (asiri alim), bu dusus
+            sinyali daha da guclu hale gelir.
+        </div>
+
+        <h3 class="guide-subtitle-h3">Mum Grafik Yapisi (ASCII)</h3>
         <pre class="guide-code">
-   Yeşil Mum (Yükseliş)          Kırmızı Mum (Düşüş)
+   Yesil Mum (Yukselis)          Kirmizi Mum (Dusus)
 
-        │                              │
-        │  ← High                      │  ← High
-        │                              │
-   ┌────┴────┐                    ┌────┴────┐
-   │         │                    │         │
-   │  Close  │ ← Gövde           │  Open   │ ← Gövde
-   │         │   (Yeşil)          │         │   (Kırmızı)
-   │  Open   │                    │  Close  │
-   │         │                    │         │
-   └────┬────┘                    └────┬────┘
-        │                              │
-        │  ← Low                       │  ← Low
-        │                              │
+        |                              |
+        |  &lt;- High                     |  &lt;- High
+        |                              |
+   +----+----+                    +----+----+
+   |         |                    |         |
+   |  Close  | &lt;- Govde           |  Open   | &lt;- Govde
+   |         |   (Yesil)          |         |   (Kirmizi)
+   |  Open   |                    |  Close  |
+   |         |                    |         |
+   +----+----+                    +----+----+
+        |                              |
+        |  &lt;- Low                      |  &lt;- Low
+        |                              |
 
-   Close > Open → YEŞİL          Close &lt; Open → KIRMIZI
-   Fiyat ARTTI                    Fiyat DÜŞTÜ
+   Close > Open = YESIL            Close &lt; Open = KIRMIZI
+   Fiyat ARTTI                     Fiyat DUSTU
+   Alicilar hakim                  Saticilar hakim
         </pre>
     </div>
 
-    <!-- Bölüm 4: Teknik İndikatörler -->
+    <!-- ================================================================== -->
+    <!-- BOLUM 3: Teknik Indikatorler -->
+    <!-- ================================================================== -->
     <div class="guide-card" style="border-left-color: var(--color-accent-purple);">
-        <h2 class="guide-title">4. Teknik İndikatörler</h2>
+        <h2 class="guide-title">3. Teknik Indikatorler — Piyasanin Nabzini Tutmak</h2>
         <p>
-            Teknik indikatörler, geçmiş fiyat verilerini matematiksel formüllerle işleyerek gelecekteki fiyat hareketleri hakkında ipuçları veren araçlardır.
-            Hiçbir indikatör tek başına %100 doğru değildir — bu yüzden Traxon sistemi <strong>birden fazla indikatörü</strong> birlikte kullanır.
+            Teknik indikatorler, gecmis fiyat verilerini matematiksel formullerle isleyerek gelecekteki fiyat hareketleri hakkinda
+            ipuclari veren araclardir. Hicbir indikator tek basina %100 dogru degildir — bu yuzden Traxon sistemi
+            <strong>birden fazla indikatoru</strong> birlikte kullanir ve agirlikli bir skor hesaplar. Tek bir indikatore
+            guvenip islem acmak, yogun trafik akisinda sadece bir aynaya bakarak serit degistirmeye benzer. Coklu indikator
+            kullanmak ise tum aynalari kontrol etmek gibidir.
         </p>
 
         <div class="guide-indicator">
-            <h3 class="guide-subtitle-h3">RSI (Göreceli Güç Endeksi — Relative Strength Index)</h3>
+            <h3 class="guide-subtitle-h3">RSI (Goreceli Guc Endeksi — Relative Strength Index)</h3>
             <p>
-                RSI, fiyatın ne kadar hızlı ve güçlü hareket ettiğini ölçer. <strong>0-100</strong> arasında bir değer üretir.
+                RSI, fiyatin ne kadar hizli ve guclu hareket ettigini olcen bir <strong>momentum osilatorudur</strong>. 0 ile 100
+                arasinda bir deger uretir. J. Welles Wilder tarafindan 1978'de gelistirilmistir ve bugun en yaygin kullanilan
+                indikatorlerden biridir. RSI, belirli bir periyottaki ortalama kazancin ortalama kayba oranini hesaplar.
             </p>
-            <ul class="guide-list">
-                <li><strong>70 üstü:</strong> <span class="text-red">Aşırı alım (overbought)</span> — fiyat çok hızlı yükselmiş, düşüş gelebilir</li>
-                <li><strong>30 altı:</strong> <span class="text-green">Aşırı satım (oversold)</span> — fiyat çok hızlı düşmüş, yükseliş gelebilir</li>
-                <li><strong>50 civarı:</strong> Nötr bölge</li>
-            </ul>
             <div class="guide-formula">
                 <code>RSI = 100 - (100 / (1 + RS))</code><br />
-                <code>RS = Ortalama Kazanç / Ortalama Kayıp</code>
+                <code>RS = Ortalama Kazanc / Ortalama Kayip</code><br />
+                <code>Ortalama Kazanc = Son N periyottaki yukselislerin ortalamasi</code><br />
+                <code>Ortalama Kayip  = Son N periyottaki dususlerin ortalamasi</code>
             </div>
-            <p>Traxon sistemi hem <strong>RSI(7)</strong> (kısa vadeli, hızlı tepki) hem <strong>RSI(14)</strong> (uzun vadeli, teyit) kullanır.</p>
-        </div>
-
-        <div class="guide-indicator">
-            <h3 class="guide-subtitle-h3">MACD (Hareketli Ortalama Yakınsama/Iraksama)</h3>
             <p>
-                MACD, iki farklı hareketli ortalamanın (EMA 12 ve EMA 26) farkını alarak trend değişimlerini yakalar.
+                <strong>Yorumlama:</strong> RSI <span class="text-red"><strong>70 ustu</strong></span> oldugunda fiyat <strong>asiri
+                alim (overbought)</strong> bolgasindadir — cok hizli yukselmistir ve dusus gelebilir. RSI
+                <span class="text-green"><strong>30 alti</strong></span> oldugunda ise <strong>asiri satim (oversold)</strong>
+                bolgasindadir — cok hizli dusmusterdir ve yukselis gelebilir. 50 civari notr bolgedir.
             </p>
-            <ul class="guide-list">
-                <li><strong>MACD Çizgisi:</strong> EMA(12) - EMA(26)</li>
-                <li><strong>Sinyal Çizgisi:</strong> MACD'nin 9 periyotluk EMA'sı</li>
-                <li><strong>Histogram:</strong> MACD - Sinyal Çizgisi</li>
-            </ul>
             <p>
-                <span class="text-green"><strong>AL sinyali:</strong></span> Histogram negatiften pozitife geçtiğinde (MACD sinyal çizgisini yukarı kesiyor).<br />
-                <span class="text-red"><strong>SAT sinyali:</strong></span> Histogram pozitiften negatife geçtiğinde (MACD sinyal çizgisini aşağı kesiyor).
+                <strong>RSI(7) vs RSI(14) farki:</strong> RSI(7) kisa vadeli momentum icin kullanilir, fiyat degisikliklerine
+                cok hizli tepki verir ama daha fazla sahte sinyal uretir. RSI(14) daha uzun vadeli trendi gosterir ve daha
+                guvenilirdir ama yavastir. Traxon sistemi her ikisini de kullanir: RSI(7) sinyal skorunda %25 agirlikla ana
+                momentum gostergesi olarak, RSI(14) ise %10 agirlikla uzun vadeli teyit olarak kullanilir.
             </p>
-        </div>
-
-        <div class="guide-indicator">
-            <h3 class="guide-subtitle-h3">Bollinger Bantları (Bollinger Bands)</h3>
             <p>
-                Fiyatın etrafında bir "kanal" oluşturur. Üç çizgiden oluşur:
-            </p>
-            <ul class="guide-list">
-                <li><strong>Üst Bant:</strong> SMA(20) + 2 × Standart Sapma</li>
-                <li><strong>Orta Bant:</strong> SMA(20) — 20 periyotluk basit hareketli ortalama</li>
-                <li><strong>Alt Bant:</strong> SMA(20) - 2 × Standart Sapma</li>
-            </ul>
-            <p>
-                Fiyat <strong>üst banda</strong> yaklaştığında → aşırı alım, düşüş beklentisi.<br />
-                Fiyat <strong>alt banda</strong> yaklaştığında → aşırı satım, yükseliş beklentisi.<br />
-                Bantlar <strong>daralıyorsa</strong> → düşük volatilite, büyük hareket beklentisi (squeeze).
+                <strong>Divergence (Sapma):</strong> Fiyat yeni zirve yaparken RSI yapamiyorsa <strong>bearish divergence</strong>
+                olusur — bu guclu bir dusus sinyalidir. Tam tersi, fiyat yeni dip yaparken RSI yapmiyorsa <strong>bullish
+                divergence</strong> olusur ve yukselis sinyalidir. Divergence, trend donuslerinin en guvenilir habercilerinden biridir.
             </p>
         </div>
 
         <div class="guide-indicator">
-            <h3 class="guide-subtitle-h3">ATR (Ortalama Gerçek Aralık — Average True Range)</h3>
+            <h3 class="guide-subtitle-h3">MACD (Hareketli Ortalama Yakinsamasi/Iraksamasi)</h3>
             <p>
-                ATR, fiyatın belirli bir dönemde ne kadar <strong>dalgalandığını</strong> (volatilite) ölçer. Yüksek ATR = yüksek volatilite, düşük ATR = sakin piyasa.
-                Yön bildirmez, sadece hareketin büyüklüğünü söyler.
+                MACD, iki farkli hareketli ortalamanin (EMA) farkini alarak <strong>trend degisimlerini ve momentumu</strong>
+                yakalayan bir indikatordir. 1979'da Gerald Appel tarafindan gelistirilmistir. Temel mantigi sudur: kisa vadeli
+                EMA, uzun vadeli EMA'nin ustune gectiginde momentum yukariya dogrudur ve tam tersi. MACD uc bilesenden olusur:
             </p>
             <div class="guide-formula">
-                <code>TR = max(High - Low, |High - PrevClose|, |Low - PrevClose|)</code><br />
-                <code>ATR = son 14 TR'nin Wilder ortalaması</code>
+                <code>MACD Cizgisi   = EMA(12) - EMA(26)</code><br />
+                <code>Sinyal Cizgisi = MACD Cizgisinin 9 periyotluk EMA'si</code><br />
+                <code>Histogram      = MACD Cizgisi - Sinyal Cizgisi</code>
             </div>
+            <p>
+                <strong>Histogram</strong> en onemli bilesendIr. Histogram pozitiften negatife gectIginde (MACD sinyal cizgisini
+                asagi kestIginde) bu <span class="text-red"><strong>sat sinyali</strong></span>, negatiften pozitife gectIginde
+                (MACD sinyal cizgisini yukari kestIginde) bu <span class="text-green"><strong>al sinyali</strong></span>dir.
+                Histogramin boyutu ise momentumun gucunu gosterir: buyuk histogram = guclu momentum.
+            </p>
+            <p>
+                Traxon sistemi MACD'yi binary olarak kullanir: histogram > 0 ise bullish (skor = 1.0), degilse bearish (skor = 0.0).
+                Bu basitlik, sinyal skorunda %20 agirlikla net bir trend yonu katkisi saglar. MACD'nin en guclu oldugu durumlar
+                trend baslangiclardir; yatay piyasalarda yaniltici olabilir.
+            </p>
         </div>
 
         <div class="guide-indicator">
-            <h3 class="guide-subtitle-h3">VWAP (Hacim Ağırlıklı Ortalama Fiyat)</h3>
+            <h3 class="guide-subtitle-h3">Bollinger Bantlari (Bollinger Bands)</h3>
             <p>
-                VWAP, her fiyat seviyesinde ne kadar hacim işlem gördüğünü hesaba katarak "gerçek ortalama fiyatı" bulur.
-                Kurumsal yatırımcılar bu seviyeyi referans olarak kullanır.
+                Bollinger Bantlari, fiyatin etrafinda bir "volatilite kanali" olusturan ve 1980'lerde John Bollinger tarafindan
+                gelistirilen bir indikatordir. Uc cizgiden olusur ve fiyatin istatistiksel olarak normal araligi gosterir:
             </p>
-            <ul class="guide-list">
-                <li>Fiyat VWAP'ın <strong>üstündeyse</strong> → alıcılar güçlü (bullish)</li>
-                <li>Fiyat VWAP'ın <strong>altındaysa</strong> → satıcılar güçlü (bearish)</li>
-            </ul>
             <div class="guide-formula">
-                <code>VWAP = Σ(Tipik Fiyat × Hacim) / Σ(Hacim)</code><br />
+                <code>Ust Bant  = SMA(20) + 2 x Standart Sapma</code><br />
+                <code>Orta Bant = SMA(20) — 20 periyotluk basit hareketli ortalama</code><br />
+                <code>Alt Bant  = SMA(20) - 2 x Standart Sapma</code>
+            </div>
+            <p>
+                Standart sapmanin 2 kati kullanildigi icin fiyat, istatistiksel olarak <strong>zamanlarin %95'inde</strong> bantlarin
+                icinde kalir. Fiyat <strong>ust banda</strong> yaklastiginda veya disina ciktiginda asiri alim durumu, <strong>alt
+                banda</strong> yaklastiginda asiri satim durumu soz konusudur. Fiyat bantlarin disina ciktiginda "mean reversion"
+                (ortalamaya donus) beklentisi artar.
+            </p>
+            <p>
+                <strong>Squeeze (Sikisma):</strong> Bantlar daralmaya basladiginda bu, volatilitenin cok dustugunu ve buyuk bir
+                fiyat hareketinin yaklastigini gosterir. Squeeze sonrasi genellikle sert bir yukselis veya dusus gelir. Traxon
+                sistemi, fiyatin bantlar icindeki konumunu 0-1 arasinda normalize eder ve sinyal skoruna %20 agirlikla katar.
+            </p>
+        </div>
+
+        <div class="guide-indicator">
+            <h3 class="guide-subtitle-h3">ATR (Ortalama Gercek Aralik — Average True Range)</h3>
+            <p>
+                ATR, fiyatin belirli bir donemde ne kadar <strong>dalgandigini (volatilite)</strong> olcen bir indikatordir.
+                J. Welles Wilder tarafindan RSI ile birlikte gelistirilmistir. Onemli bir farki vardir: ATR <strong>yon
+                bildirmez</strong>, sadece hareketin buyuklugunu soyler. Yuksek ATR = yuksek volatilite (buyuk hareketler),
+                dusuk ATR = sakin piyasa (kucuk hareketler).
+            </p>
+            <div class="guide-formula">
+                <code>True Range = max(High-Low, |High-PrevClose|, |Low-PrevClose|)</code><br />
+                <code>ATR(14) = Son 14 TR'nin Wilder ortalamasi</code>
+            </div>
+            <p>
+                ATR'nin en onemli kullanim alani <strong>Stop Loss ve Take Profit seviyelerini belirlemektir</strong>. Yuksek
+                volatiliteli bir piyasada dar SL kullanirseniz, normal fiyat dalgalanmalari bile SL'nizi tetikler. ATR bazli SL,
+                piyasanin dogal hareket genisligine uyum saglar. Ornegin ATR = 50$ ise, SL'yi en az 1 ATR (50$) uzaga koymak
+                mantiklidir. Traxon sistemi ATR'yi rejim tespiti (yuksek/dusuk volatilite) icin kullanir.
+            </p>
+        </div>
+
+        <div class="guide-indicator">
+            <h3 class="guide-subtitle-h3">VWAP (Hacim Agirlikli Ortalama Fiyat)</h3>
+            <p>
+                VWAP, her fiyat seviyesinde ne kadar hacim islem gordugunu hesaba katarak <strong>"gercek ortalama fiyati"</strong>
+                bulan bir indikatordir. Kurumsal yatirimcilar (buyuk fonlar, bankalar) islemlerinin kalitesini degerlendirmek
+                icin VWAP'i referans olarak kullanir. VWAP'in uzerinden satin almak "pahaliya almak", altindan almak ise
+                "ucuza almak" olarak degerlendirilir.
+            </p>
+            <div class="guide-formula">
+                <code>VWAP = SUM(Tipik Fiyat x Hacim) / SUM(Hacim)</code><br />
                 <code>Tipik Fiyat = (High + Low + Close) / 3</code>
             </div>
+            <p>
+                Fiyat VWAP'in <strong>ustundeyse</strong> alicilar guclu (bullish), <strong>altindaysa</strong> saticilar guclu
+                (bearish) yorumu yapilir. VWAP, ozellikle gun ici (intraday) islemlerde guclu bir destek/direnç seviyesi
+                olarak calisir. Traxon sistemi 20 mumlik rolling VWAP hesaplar ve multi-confirmation filtrede kullanir.
+            </p>
         </div>
 
         <div class="guide-indicator">
             <h3 class="guide-subtitle-h3">SMA (Basit Hareketli Ortalama — Simple Moving Average)</h3>
             <p>
-                Son N mumun kapanış fiyatlarının aritmetik ortalamasıdır. Trendi belirlemek için kullanılır.
-            </p>
-            <ul class="guide-list">
-                <li><strong>Golden Cross:</strong> Kısa vadeli SMA, uzun vadeli SMA'yı <span class="text-green">yukarı</span> kesiyor → <strong>güçlü AL sinyali</strong></li>
-                <li><strong>Death Cross:</strong> Kısa vadeli SMA, uzun vadeli SMA'yı <span class="text-red">aşağı</span> kesiyor → <strong>güçlü SAT sinyali</strong></li>
-            </ul>
-            <p>Traxon sistemi SMA(10) ve SMA(30) kullanır. SMA(10) > SMA(30) ise trend yukarıdır.</p>
-        </div>
-
-        <div class="guide-indicator">
-            <h3 class="guide-subtitle-h3">EMA (Üstel Hareketli Ortalama — Exponential Moving Average)</h3>
-            <p>
-                SMA'ya benzer ama son fiyatlara <strong>daha fazla ağırlık</strong> verir. Bu sayede fiyat değişikliklerine daha hızlı tepki verir.
+                SMA, son N mumun kapanis fiyatlarinin aritmetik ortalamasidir. En basit ama en etkili trend gostergelerinden
+                biridir. SMA, fiyattaki kisa vadeli gurultuyu filtreleyerek <strong>genel trend yonunu</strong> gosterir.
+                Kisa periyotlu SMA hizli tepki verir, uzun periyotlu SMA ise ana trendi yansitir.
             </p>
             <div class="guide-formula">
-                <code>EMA = Fiyat × k + EMA(önceki) × (1 - k)</code><br />
-                <code>k = 2 / (periyot + 1)</code>
+                <code>SMA(N) = (Close_1 + Close_2 + ... + Close_N) / N</code>
             </div>
             <p>
-                Traxon <strong>EMA(9)</strong> kullanır. Fiyat EMA(9) üstündeyse ve EMA yükseliyorsa → bullish sinyal.
+                <strong>Golden Cross:</strong> Kisa vadeli SMA, uzun vadeli SMA'yi <span class="text-green">yukari</span> kestiginde
+                olusur. Bu, <strong>guclu bir alis sinyalidir</strong> ve yeni bir yukselis trendinin basladigini gosterir.
+                <strong>Death Cross:</strong> Kisa vadeli SMA, uzun vadeli SMA'yi <span class="text-red">asagi</span> kestiginde
+                olusur. Bu, <strong>guclu bir satis sinyalidir</strong>.
+            </p>
+            <p>
+                Traxon sistemi <strong>SMA(10)</strong> ve <strong>SMA(30)</strong> kullanir. SMA(10) > SMA(30) ise trend yukaridir
+                (bullish), SMA(10) &lt; SMA(30) ise trend asagidir (bearish). Bu bilgi multi-confirmation filtrede kullanilir.
             </p>
         </div>
 
         <div class="guide-indicator">
-            <h3 class="guide-subtitle-h3">Stochastic Osilatör</h3>
+            <h3 class="guide-subtitle-h3">EMA (Ustel Hareketli Ortalama — Exponential Moving Average)</h3>
             <p>
-                Kapanış fiyatının belirli bir dönemdeki fiyat aralığına göre konumunu ölçer. %K ve %D olmak üzere iki çizgiden oluşur.
+                EMA, SMA'ya benzer ama son fiyatlara <strong>daha fazla agirlik</strong> verir. Bu sayede fiyat degisikliklerine
+                SMA'dan daha hizli tepki verir. Trend degisimlerini daha erken yakalar ama buna karsilik biraz daha fazla
+                sahte sinyal uretebilir. Ozellikle hizli hareket eden piyasalarda (kripto gibi) EMA, SMA'ya tercih edilir.
             </p>
-            <ul class="guide-list">
-                <li><strong>%K > %D</strong> → <span class="text-green">Bullish (AL)</span></li>
-                <li><strong>%K &lt; %D</strong> → <span class="text-red">Bearish (SAT)</span></li>
-                <li><strong>80 üstü:</strong> Aşırı alım bölgesi</li>
-                <li><strong>20 altı:</strong> Aşırı satım bölgesi</li>
-            </ul>
             <div class="guide-formula">
-                <code>%K = 100 × (Close - Lowest Low) / (Highest High - Lowest Low)</code>
+                <code>EMA = Fiyat x k + EMA(onceki) x (1 - k)</code><br />
+                <code>k = 2 / (periyot + 1)</code><br />
+                <code>EMA(9) icin: k = 2/10 = 0.2 (son fiyata %20 agirlik)</code>
             </div>
+            <p>
+                Traxon sistemi <strong>EMA(9)</strong> kullanir. Sinyal skorunda iki bilgi degerlendirilir: (1) fiyat EMA'nin
+                ustunde mi? (ustundeyse +0.5 puan), (2) EMA yukseliyor mu? (yukseliyorsa +0.5 puan). Toplam EMA skoru 0-1
+                arasinda olur ve %15 agirlikla final skora eklenir. Hem fiyat pozisyonu hem de momentum (slope) birlikte
+                degerlendirilir.
+            </p>
         </div>
 
         <div class="guide-indicator">
-            <h3 class="guide-subtitle-h3">Hacim (Volume)</h3>
+            <h3 class="guide-subtitle-h3">Stochastic Osilator</h3>
             <p>
-                Belirli bir zaman diliminde işlem gören toplam varlık miktarıdır. Hacim, fiyat hareketinin <strong>arkasındaki gücü</strong> gösterir.
+                Stochastic osilator, kapanis fiyatinin belirli bir donemdeki fiyat araligina gore konumunu olcen bir momentum
+                indikatorudur. George Lane tarafindan 1950'lerde gelistirilmistir. Mantigi sudur: yukselis trendlerinde fiyat
+                aralik ustune yakin kapanir, dusus trendlerinde ise aralik altina yakin kapanir. %K ve %D olmak uzere iki
+                cizgiden olusur.
             </p>
-            <ul class="guide-list">
-                <li><strong>Yüksek hacimle yükseliş:</strong> Güçlü alım baskısı, trend devam edebilir</li>
-                <li><strong>Düşük hacimle yükseliş:</strong> Zayıf hareket, geri dönüş olabilir</li>
-                <li><strong>Hacim ortalamanın 2 katı:</strong> Çok güçlü hareket, dikkat!</li>
-            </ul>
-            <p>Traxon sistemi son 20 mumun hacim ortalamasını referans alır. Mevcut hacim / ortalama hacim oranı ölçülür.</p>
+            <div class="guide-formula">
+                <code>%K = 100 x (Close - Lowest Low) / (Highest High - Lowest Low)</code><br />
+                <code>%D = %K'nin 3 periyotluk hareketli ortalamasi</code>
+            </div>
+            <p>
+                <strong>80 ustu:</strong> Asiri alim bolgesi — fiyat cok yukseldi, dusus gelebilir. <strong>20 alti:</strong>
+                Asiri satim bolgesi — fiyat cok dustu, yukselis gelebilir. <strong>%K > %D</strong> oldugunda
+                <span class="text-green">bullish (alis)</span>, <strong>%K &lt; %D</strong> oldugunda
+                <span class="text-red">bearish (satis)</span> sinyali verir. Traxon sistemi Stochastic'i multi-confirmation
+                filtrede 5 indikatorun birisi olarak kullanir.
+            </p>
+        </div>
+
+        <div class="guide-indicator">
+            <h3 class="guide-subtitle-h3">Volume (Hacim) — Hareketin Arkasindaki Guc</h3>
+            <p>
+                Hacim, belirli bir zaman diliminde islem goren toplam varlik miktaridir. Hacim, fiyat hareketinin
+                <strong>arkasindaki gucu</strong> gosterir ve bir nevi fiyat hareketinin "inandiriciligini" olcer.
+                Yuksek hacimle gelen bir yukselis, dusuk hacimle gelen bir yuselisten cok daha guvenilirdir.
+            </p>
+            <p>
+                <strong>Hacim teyidi neden kritik?</strong> Fiyat yukselirken hacim de artiyorsa, bu hareketin arkasinda gercek
+                alim baskisi var demektir ve trend devam edebilir. Ancak fiyat yukselirken hacim dusuyorsa, bu hareket zayiftir
+                ve geri donus olabilir. Ayni sey dusus icin de gecerlidir. Bu yuzden "hacim olmadan fiyat hareketi suspecttir"
+                denir.
+            </p>
+            <p>
+                Traxon sistemi son <strong>20 mumun hacim ortalamasini</strong> referans alir. Mevcut mumun hacmi / ortalama hacim
+                orani hesaplanir (Volume Ratio). Ratio = 2.0 ise hacim ortalamanin 2 kati demektir ve bu cok guclu bir
+                hareket gostergesidir. Sinyal skorunda hacim %10 agirlikla kullanilir: <code>clamp(Ratio / 2, 0, 1)</code>.
+                Ayrica V2 sinyal motorunda hacim orani en az <strong>0.8</strong> olmali (hacim dogrulama filtresi).
+            </p>
         </div>
     </div>
 
-    <!-- Bölüm 5: Risk Yönetimi -->
+    <!-- ================================================================== -->
+    <!-- BOLUM 4: Risk Yonetimi -->
+    <!-- ================================================================== -->
     <div class="guide-card" style="border-left-color: var(--color-accent-red);">
-        <h2 class="guide-title">5. Risk Yönetimi</h2>
+        <h2 class="guide-title">4. Risk Yonetimi — Paranizi Korumak</h2>
         <p>
-            Risk yönetimi, trading'de en önemli konudur. İyi bir strateji bile kötü risk yönetimiyle iflas edebilir.
+            Risk yonetimi, trading'de <strong>en onemli konudur</strong>. Iyi bir strateji bile kotu risk yonetimiyle iflas edebilir.
+            Tum profesyonel traderlarin ortak noktasi sudur: oncelikle sermayenizi korumaya odaklanin, kar kendiliğinden gelir.
+            "Kaybetmemeyi ogren, kazanmak otomatik olur" felsefi, basarili trading'in temelidir. Bu bolumde sermayenizi nasil
+            koruyacaginizi detaylica anlatacagiz.
         </p>
 
-        <h3 class="guide-subtitle-h3">Stop Loss (Zarar Durdur)</h3>
+        <h3 class="guide-subtitle-h3">Stop Loss — Neden HAYAT Kurtarir?</h3>
         <p>
-            <strong>Stop Loss (SL)</strong>, bir pozisyondaki maksimum zararınızı sınırlayan otomatik emirdir. Fiyat belirlediğiniz seviyeye geldiğinde
-            pozisyon otomatik kapatılır. <span class="text-red"><strong>Stop Loss kullanmamak, hesabınızı sıfırlayabilir!</strong></span>
-        </p>
-        <div class="guide-example">
-            <strong>Örnek:</strong> 100$'dan aldınız, SL = 98$. Fiyat 98$'a düşerse pozisyon kapanır → Zarar = %2
-        </div>
-
-        <h3 class="guide-subtitle-h3">Take Profit (Kar Al)</h3>
-        <p>
-            <strong>Take Profit (TP)</strong>, hedef karınıza ulaştığınızda pozisyonu otomatik kapatan emirdir. Açgözlülükten korunmanızı sağlar.
+            <strong>Stop Loss (SL)</strong>, bir pozisyondaki maksimum zararinizi sinirlandiran otomatik emirdir. Fiyat
+            belirlediginiz seviyeye geldiginde pozisyon otomatik kapatilir. Stop Loss kullanmamak, en yaygin ve en yikici
+            hatadir. "Daha duserse tekrar yukselir" diye dusunmek, bircoklarinin hesabini sifirlamistir.
         </p>
         <div class="guide-example">
-            <strong>Örnek:</strong> 100$'dan aldınız, TP = 104$. Fiyat 104$'a çıkarsa pozisyon kapanır → Kar = %4
+            <strong>Senaryo — SL Olmadan:</strong> 100$'dan BTC aldiniz. Fiyat 90$'a dustu, "tekrar yukselir" dediniz.
+            80$'a dustu, "bu kadar dustuyse artik yukselir" dediniz. 60$'a dustu... Simdi %40 zararda ve cikmak icin
+            fiyatin %67 yuksmesi gerekiyor. Bu psikolojik tuzaga <strong>"kaybi kabullenmeme (loss aversion)"</strong> denir.<br /><br />
+            <strong>Senaryo — SL ile:</strong> 100$'dan aldiniz, SL = 98$. Fiyat 98$'a dustugunde otomatik kapatildi.
+            Zarar sadece %2. Yeni bir firsatta tekrar girebilirsiniz. Sermayeniz korundu.
         </div>
-
-        <h3 class="guide-subtitle-h3">Risk/Ödül Oranı (Risk/Reward Ratio)</h3>
         <p>
-            Her işlemde ne kadar riske karşı ne kadar potansiyel ödül aldığınızı gösterir.
+            Traxon PaperBinance motoru <strong>%0.5 SL</strong> kullanir. Bu cok siki bir stop loss'tur cunku scalping
+            (cok kisa vadeli islem) stratejisi izler. Daha uzun vadeli stratejilerde SL %2-5 arasi olabilir.
+        </p>
+
+        <h3 class="guide-subtitle-h3">Take Profit — Acgozluluk Tuzagi</h3>
+        <p>
+            <strong>Take Profit (TP)</strong>, hedef kariniza ulastiginizda pozisyonu otomatik kapatan emirdir.
+            Acgozlulukten (greed) korunmanizi saglar. "Biraz daha yukselebilir" diye TP koymamak, karinizi zarara
+            cevirebilir. Piyasada soyle bir soz vardir: <strong>"Karin cogu, son %10'u beklerken kaybedilir."</strong>
+        </p>
+        <div class="guide-example">
+            <strong>Ornek:</strong> 100$'dan aldiniz, TP = 104$. Fiyat 103.80$'a cikti, "biraz daha bekleyim" dediniz.
+            Fiyat ani bir haberle 97$'a dustu — %4'luk potansiyel kariniz %3'luk zarara donustu. TP koysaydiniz %4
+            karla cikmistiniz.
+        </div>
+        <p>
+            Traxon PaperBinance motoru <strong>%1.0 TP</strong> kullanir. SL %0.5 oldugundan, bu 1:2 risk/odul orani saglar.
+        </p>
+
+        <h3 class="guide-subtitle-h3">Risk/Odul Orani (Risk/Reward Ratio)</h3>
+        <p>
+            Her islemde ne kadar riske karsi ne kadar potansiyel odul aldiginizi gosterir. Bu oran, uzun vadeli karlilik
+            icin <strong>en kritik metriktir</strong>.
         </p>
         <div class="guide-formula">
-            <code>Risk/Ödül = |TP - Giriş| / |SL - Giriş|</code>
+            <code>Risk/Odul = |TP - Giris| / |SL - Giris|</code>
         </div>
         <p>
-            <strong>1:2 oranı</strong> demek: 1 birim riske karşı 2 birim potansiyel kar. Yani %50 kazanma oranıyla bile karlı olursunuz!
-            Traxon PaperBinance motoru %0.5 SL, %1.0 TP kullanarak <strong>1:2 Risk/Ödül</strong> oranı sağlar.
+            <strong>1:2 orani</strong> demek: 1 birim risk icin 2 birim potansiyel kar. Bu oranla, <strong>islemlerinizin
+            sadece %34'unu kazanmaniz bile</strong> uzun vadede basabas olmaniz icin yeterlidir!
         </p>
 
-        <h3 class="guide-subtitle-h3">Pozisyon Büyüklüğü</h3>
+        <table class="guide-rr-table">
+            <thead>
+                <tr>
+                    <th>R:R Orani</th>
+                    <th>Basabas WR</th>
+                    <th>Anlami</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td><strong>1:1</strong></td><td>%50.0</td><td>Yari yarisini kazanmalisin</td></tr>
+                <tr><td><strong>1:2</strong></td><td>%33.3</td><td>3'te 1'ini kazanmak yeterli</td></tr>
+                <tr><td><strong>1:3</strong></td><td>%25.0</td><td>4'te 1'ini kazanmak yeterli</td></tr>
+                <tr><td><strong>1:5</strong></td><td>%16.7</td><td>6'da 1'ini kazanmak yeterli</td></tr>
+            </tbody>
+        </table>
+
+        <h3 class="guide-subtitle-h3">Pozisyon Buyuklugu: Neden Bakiyenin %2'sinden Fazlasini Riske Atmayin</h3>
         <p>
-            Tek bir işleme tüm sermayenizi koymak <span class="text-red"><strong>en büyük hatadır</strong></span>. Birkaç kötü işlem hesabınızı tamamen sıfırlayabilir.
-            Profesyonel trader'lar her işlemde bakiyelerinin sadece <strong>%1-5</strong>'ini riske atar.
+            Tek bir isleme tum sermayenizi koymak <span class="text-red"><strong>en buyuk hatadir</strong></span>.
+            Profesyonel traderlar her islemde bakiyelerinin sadece <strong>%1-2</strong>'sini riske atar. Bu kurala
+            <strong>"%2 kurali"</strong> denir ve sebebi basit matematikle aciklanir:
         </p>
         <div class="guide-example">
-            <strong>Kural:</strong> Traxon sistemi her işlemde bakiyenin maksimum <strong>%2</strong>'sini kullanır.
-            50$'lık bakiye ile her pozisyon en fazla 1$'dır.
+            <strong>%2 ile 10 ust uste kayip senaryosu:</strong><br />
+            Baslangic: $1,000<br />
+            1. kayip: $1,000 x 0.98 = $980<br />
+            2. kayip: $980 x 0.98 = $960.4<br />
+            3. kayip: $960.4 x 0.98 = $941.2<br />
+            ...<br />
+            10. kayip: $1,000 x 0.98^10 = <strong>$817.07</strong><br /><br />
+            10 ust uste kayiptan sonra bile bakiyenizin <strong>%81.7'si</strong> korunmus!<br /><br />
+            <strong>%20 ile 10 ust uste kayip senaryosu:</strong><br />
+            10. kayip: $1,000 x 0.80^10 = <strong>$107.37</strong><br />
+            Bakiyenizin %90'ini kaybettiniz! Geri donmek neredeyse imkansiz.
         </div>
 
-        <h3 class="guide-subtitle-h3">Kelly Kriteri</h3>
+        <h3 class="guide-subtitle-h3">Kelly Kriteri: Matematiksel Optimal Pozisyon</h3>
         <p>
-            Kelly Kriteri, matematiksel olarak <strong>optimal pozisyon büyüklüğünü</strong> hesaplayan bir formüldür. Kazanma olasılığınız ve kazanç/kayıp
-            oranınız bilindiğinde, uzun vadede bakiyenizi en hızlı büyütecek miktarı söyler.
+            Kelly Kriteri, 1956'da John Kelly tarafindan Bell Labs'ta gelistirilen, matematiksel olarak <strong>optimal
+            pozisyon buyuklugunu</strong> hesaplayan bir formuledur. Kazanma olasiginiz ve kazanc/kayip oraniniz
+            bilindIginde, uzun vadede bakiyenizi en hizli buyutecek miktari soyler. Kumar teorisinden turetilmistir
+            ama finans dunyasinda da yaygin kullanilir.
         </p>
         <div class="guide-formula">
-            <code>f* = (p × b - q) / b</code><br />
-            <code>p = kazanma olasılığı, q = kaybetme olasılığı (1-p)</code><br />
-            <code>b = kazanç/kayıp oranı</code>
+            <code>f* = (p x b - q) / b</code><br />
+            <code>p = kazanma olasiligi</code><br />
+            <code>q = kaybetme olasiligi (1 - p)</code><br />
+            <code>b = kazanc/kayip orani (avg win / avg loss)</code>
         </div>
-        <p>
-            Pratikte tam Kelly çok agresiftir. Traxon sistemi <strong>%15 Kelly</strong> (çok konservatif) kullanır — yani hesaplanan optimalin
-            sadece %15'i kadar pozisyon açar. Bu, uzun vadeli büyüme için en güvenli yoldur.
-        </p>
-    </div>
+        <div class="guide-example">
+            <strong>Ornek Hesaplama:</strong><br />
+            Kazanma olasiligi: %55 (p = 0.55, q = 0.45)<br />
+            Ortalama kazanc/kayip: 2.0 (kazandiginizda kaybettiginizin 2 kati)<br /><br />
+            f* = (0.55 x 2.0 - 0.45) / 2.0 = (1.10 - 0.45) / 2.0 = 0.65 / 2.0 = <strong>0.325</strong><br /><br />
+            Kelly, bakiyenizin %32.5'ini riske atmanizi onerir. Ama bu pratikte <strong>cok agresiftir</strong> cunku
+            modelin tahminleri her zaman dogru degildir. Bu yuzden Traxon sistemi <strong>%15 Kelly</strong> kullanir:
+            0.325 x 0.15 = <strong>%4.87</strong>. Ve buna ek olarak max %2 siniri vardir.
+        </div>
 
-    <!-- Bölüm 6: Komisyon ve Slippage -->
-    <div class="guide-card" style="border-left-color: var(--color-text-muted);">
-        <h2 class="guide-title">6. Komisyon ve Slippage</h2>
-
-        <h3 class="guide-subtitle-h3">Trading Fee (İşlem Komisyonu)</h3>
+        <h3 class="guide-subtitle-h3">Drawdown: Maksimum Dusus</h3>
         <p>
-            Her alım ve satım işleminde borsa bir <strong>komisyon</strong> alır. Bu oran küçük görünse de, sık işlem yapıldığında önemli bir maliyet oluşturur.
+            <strong>Drawdown</strong>, bakiyenizin zirveden en dusuk noktaya kadar ne kadar dustugunu gosteren
+            bir metriktir. Ornegin bakiyeniz 1,000$'dan 1,500$'a cikip sonra 1,200$'a dustuyse, drawdown
+            = (1,500 - 1,200) / 1,500 = %20'dir. Drawdown ne kadar buyukse, geri donmek o kadar zordur:
         </p>
         <ul class="guide-list">
-            <li><strong>Binance Taker Fee:</strong> %0.075 (BNB ile ödeyince indirimli)</li>
-            <li><strong>Polymarket Fee:</strong> %1.8</li>
-            <li>Hem giriş hem çıkışta komisyon ödenir → toplam maliyet 2 katıdır</li>
+            <li>%10 drawdown → geri donmek icin %11.1 kar gerekir</li>
+            <li>%20 drawdown → geri donmek icin %25.0 kar gerekir</li>
+            <li>%50 drawdown → geri donmek icin <strong>%100</strong> kar gerekir!</li>
+            <li>%90 drawdown → geri donmek icin <strong>%900</strong> kar gerekir (neredeyse imkansiz)</li>
         </ul>
+        <p>
+            Bu yuzden sermaye koruma her zaman birinci onceliktir. Kucuk kayiplar normal ve kabul edilebilirdir,
+            ama buyuk drawdown'lar kariyer bitiricidir.
+        </p>
+
+        <h3 class="guide-subtitle-h3">Win Rate Yanilgisi</h3>
+        <p>
+            Bircoklari "kazanma orani ne kadar yuksekse o kadar iyi" diye dusunur. Bu <strong>yanlistir</strong>.
+            Onemli olan kazanma orani degil, <strong>Risk/Odul orani ile birlikte degerlendirilmesidir</strong>.
+            %30 kazanma oraniyla bile karli olabilirsiniz — eger kazandiginizda kaybettiginizin 3 katini aliyorsaniz:
+        </p>
+        <div class="guide-example">
+            <strong>Senaryo:</strong> 100 islem, %30 win rate, 1:3 R:R (kayiplar $10, kazanclar $30)<br />
+            Toplam kazanc: 30 x $30 = $900<br />
+            Toplam kayip: 70 x $10 = $700<br />
+            <strong>Net kar: $200</strong> — %30 win rate ile bile karli!
+        </div>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- BOLUM 5: Komisyon ve Maliyetler -->
+    <!-- ================================================================== -->
+    <div class="guide-card" style="border-left-color: var(--color-text-muted);">
+        <h2 class="guide-title">5. Komisyon ve Maliyetler</h2>
+
+        <h3 class="guide-subtitle-h3">Trading Fee: Maker vs Taker</h3>
+        <p>
+            Her alim ve satim isleminde borsa bir <strong>komisyon (fee)</strong> alir. Iki tur komisyon vardir:
+            <strong>Maker fee</strong>, limit emirle emir defterine likidite eklediginde odenenir (genellikle daha dusuk).
+            <strong>Taker fee</strong>, market emirle emir defterinden likidite aldiginizda odenir (genellikle daha yuksek).
+            Algoritmik sistemler genellikle taker fee oder cunku hizli islem yapmak ister.
+        </p>
+
+        <h3 class="guide-subtitle-h3">Binance Fee Yapisi</h3>
+        <p>
+            Binance standart taker fee'si <strong>%0.10</strong>'dur. Ancak BNB (Binance'in kendi tokeni) ile odeme
+            yapildiginda <strong>%0.075</strong>'e duser. Traxon sistemi %0.075 komisyon orani kullanir
+            (<code>CommissionRate = 0.00075</code>). Hem giris hem cikista komisyon odendiginden, bir islmin toplam
+            komisyon maliyeti <strong>%0.15</strong> civarindadir (round-trip).
+        </p>
+
+        <h3 class="guide-subtitle-h3">Polymarket Fee Yapisi</h3>
+        <p>
+            Traxon PaperPoly motoru <strong>%1.8 taker fee</strong> simule eder (<code>TakerFeeRate = 0.018</code>).
+            Bu fee sadece kazanilan islemlerden kesilir. Kaybedilen islemlerde zaten pozisyon tamamen sifirlanir
+            (exitPrice = 0.00), bu yuzden ek fee kesilmez.
+        </p>
 
         <h3 class="guide-subtitle-h3">Slippage (Kayma)</h3>
         <p>
-            <strong>Slippage</strong>, emirinizin beklediğiniz fiyattan farklı bir fiyatta gerçekleşmesidir. Özellikle düşük likidite veya hızlı fiyat
-            hareketlerinde oluşur. Traxon sistemi %0.05 slippage hesaba katar.
+            <strong>Slippage</strong>, emirinizin beklediginiz fiyattan farkli bir fiyatta gerceklesmesidir. Sebepleri:
+            dusuk likidite, hizli fiyat hareketi veya buyuk emir buyuklugu. Ornegin 100$'dan almak isterken 100.05$'dan
+            alinabilir. Traxon PaperBinance %0.05 (<code>SlippageRate = 0.0005</code>), PaperPoly ise $0.01 sabit
+            slippage simule eder.
         </p>
 
-        <h3 class="guide-subtitle-h3">Paper Trading (Kağıt Üzerinde İşlem)</h3>
-        <p>
-            <strong>Paper trading</strong>, gerçek para kullanmadan sanal bakiye ile işlem yapmaktır. Stratejinizi test etmek için idealdir.
-            Traxon sistemi tamamen paper trading yapar — gerçek para riski yoktur, ama gerçek piyasa verilerini kullanır.
-        </p>
+        <h3 class="guide-subtitle-h3">Round-Trip Maliyet Hesabi</h3>
+        <div class="guide-example">
+            <strong>PaperBinance round-trip maliyet:</strong><br />
+            Giris: lastCandle.Close x (1 + 0.0005 + 0.00075) = +%0.125 kayip<br />
+            Cikis: exitPrice x (1 - 0.00075) = +%0.075 kayip<br />
+            <strong>Toplam maliyet: ~%0.20 per trade</strong><br /><br />
+            Bu, TP'nin %1.0 oldugu bir sistemde maliyetin toplam karin %20'sine karsilik gelir.
+            Bu yuzden her sinyalin kaliteli olmasi ve gereksiz islem (overtrading) yapilmamasi kritiktir.
+        </div>
     </div>
 
-    <!-- Bölüm 7: Polymarket -->
+    <!-- ================================================================== -->
+    <!-- BOLUM 6: Polymarket Detayli -->
+    <!-- ================================================================== -->
     <div class="guide-card" style="border-left-color: var(--color-accent-gold);">
-        <h2 class="guide-title">7. Polymarket (Tahmin Piyasası)</h2>
+        <h2 class="guide-title">6. Polymarket — Tahmin Piyasasi Detayli</h2>
 
-        <h3 class="guide-subtitle-h3">Tahmin Piyasası Nedir?</h3>
+        <h3 class="guide-subtitle-h3">Tahmin Piyasasi Mantigi</h3>
         <p>
-            Tahmin piyasası, gerçek dünya olaylarının sonuçları üzerine hisse alıp satabileceğiniz bir platformdur. Örneğin:
-            "Bitcoin yarın 70,000$'ı geçer mi?" sorusuna EVET veya HAYIR hisseleri alırsınız.
+            Tahmin piyasasi (prediction market), gercek dunya olaylarinin sonuclari uzerine hisse alip satabilecegniz
+            bir platformdur. Her soru icin EVET ve HAYIR hisseleri vardir. Hisse fiyatlari 0.00$ ile 1.00$ arasindadir
+            ve piyasanin o olaya verdigi <strong>olasilik tahmini</strong> olarak yorumlanir: 0.70$ fiyat = piyasa
+            %70 olasilik veriyor demektir.
+        </p>
+        <p>
+            Olay <strong>resolve</strong> olduğunda (sonuclandiginda) dogru taraftaki hisseler <strong>1.00$</strong>'a,
+            yanlis taraftaki hisseler <strong>0.00$</strong>'a doner. Bu binary (ikili) sonuc mantigi, kazanc ve kayip
+            hesaplamasini cok basit kilar.
         </p>
 
-        <h3 class="guide-subtitle-h3">Hisse Mantığı</h3>
-        <p>
-            Her hissenin fiyatı <strong>0.00 ile 1.00</strong> arasındadır. Olay gerçekleşirse hisse <strong>1.00</strong>'a, gerçekleşmezse
-            <strong>0.00</strong>'a resolve olur (sonuçlanır).
-        </p>
+        <h3 class="guide-subtitle-h3">Hisse Sistemi: Adim Adim Hesaplama</h3>
         <div class="guide-example">
-            <strong>Örnek:</strong> 0.41$'dan EVET hissesi aldınız.<br />
-            Olay gerçekleşirse: 1.00$ - 0.41$ = <span class="text-green">+0.59$ kar (kazanç oranı: +%143.9)</span><br />
-            Olay gerçekleşmezse: 0.00$ - 0.41$ = <span class="text-red">-0.41$ zarar (kayıp oranı: -%100)</span>
+            <strong>Ornek — $100 ile 0.41$'dan alis:</strong><br />
+            Yatirim: $100<br />
+            Hisse fiyati: $0.41<br />
+            Alinan hisse sayisi: $100 / $0.41 = <strong>243.9 hisse</strong><br /><br />
+
+            <strong>Olay gerceklesirse (WIN):</strong><br />
+            Her hisse $1.00'a resolve olur<br />
+            Toplam deger: 243.9 x $1.00 = $243.90<br />
+            Brut kar: $243.90 - $100 = <strong class="text-green">+$143.90</strong><br />
+            Fee (%1.8): $100 x 0.018 = $1.80<br />
+            Net kar: $143.90 - $1.80 = <strong class="text-green">+$142.10</strong><br />
+            Getiri: +%142.1<br /><br />
+
+            <strong>Olay gerceklesmezse (LOSS):</strong><br />
+            Her hisse $0.00'a resolve olur<br />
+            Toplam deger: 243.9 x $0.00 = $0.00<br />
+            Kayip: $0.00 - $100 = <strong class="text-red">-$100.00</strong><br />
+            Getiri: -%100
         </div>
 
-        <h3 class="guide-subtitle-h3">Neden %41 Başabaş?</h3>
+        <h3 class="guide-subtitle-h3">Neden %41 Basabas? — Matematik Ispati</h3>
         <p>
-            0.41$ giriş fiyatı ile başabaş (breakeven) için gereken kazanma oranını hesaplayalım:
+            0.41$ giris fiyati ile basabas (breakeven) icin gereken kazanma oranini hesaplayalim. Basabas noktasi,
+            uzun vadede beklenen degerin sifir oldugu noktadir:
         </p>
         <div class="guide-formula">
-            <code>Kazanç per win  = (1.00 - 0.41) / 0.41 = +%143.9</code><br />
-            <code>Kayıp per loss  = -%100</code><br />
-            <code>Başabaş WR = Kayıp / (Kazanç + Kayıp)</code><br />
-            <code>Başabaş WR = 100 / (143.9 + 100) = %41.0</code>
+            <code>Beklenen Deger = WR x Kazanc - (1-WR) x Kayip = 0</code><br />
+            <code>WR x 1.439 = (1-WR) x 1.00</code><br />
+            <code>WR x 1.439 + WR x 1.00 = 1.00</code><br />
+            <code>WR x 2.439 = 1.00</code><br />
+            <code>WR = 1.00 / 2.439 = <strong>0.410 = %41.0</strong></code>
         </div>
         <p>
-            Yani <strong>%41'den fazla</strong> kazanma oranı sağlarsanız, uzun vadede karlı olursunuz. Traxon sistemi sabit 0.41$ giriş fiyatı kullanır
-            (0.40$ + 0.01$ slippage). Bu sayede kazanç/kayıp asimetrisi sizin lehinize çalışır.
+            Bu demek ki <strong>%41'den fazla</strong> kazanma orani saglarsaniz uzun vadede karli olursunuz.
+            Ornegin %50 WR ile beklenen getiri: 0.50 x 1.439 - 0.50 x 1.00 = <strong>+%22 per trade</strong>.
+            Bu cok guclu bir asimetridir cunku kazandiginizda kaybettiginizin 1.44 katini alirsiniz.
         </p>
 
-        <h3 class="guide-subtitle-h3">Gerçek Polymarket Nasıl Çalışır?</h3>
+        <h3 class="guide-subtitle-h3">Traxon PaperPoly Nasil Calisir?</h3>
         <p>
-            <strong>Polymarket</strong>, Polygon blockchain üzerinde çalışan bir tahmin piyasasıdır. Kullanıcılar USDC ile hisse alıp satar.
-            Traxon sistemi Polymarket'ı simüle eder — gerçek Polymarket'a bağlanmaz, ama aynı binary resolution mantığını kullanır.
-            Kripto fiyat hareketlerini tahmin ederek: mum yeşil kapanırsa UP kazanır, kırmızı kapanırsa DOWN kazanır.
+            Traxon sistemi <strong>gercek Polymarket'a baglanmaz</strong>. Bunun yerine kripto fiyat hareketlerini
+            tahmin ederek Polymarket mantigi ile simule eder. Sabit 0.40$ giris fiyati + 0.01$ slippage = <strong>0.41$ entry</strong>.
+            Her pozisyon bakiyenin %2'si buyuklugundedir (minimum $1). Pozisyon 1 mum suresi (5 dakika) sonra
+            resolve olur: mum yesil kapandiysa UP kazanir, kirmizi kapandiysa DOWN kazanir.
+        </p>
+        <p>
+            <strong>Gercek Polymarket vs Traxon simulasyonu farklari:</strong> Gercek Polymarket'ta hisse fiyatlari
+            arz-talebe gore belirlenir ve degiskendir; Traxon'da sabit 0.41$'dir. Gercek Polymarket'ta resolution
+            gercek dunya olaylarina baglidir; Traxon'da mum yonune baglidir. Gercek Polymarket'ta likidite riski
+            vardir; Traxon'da sonsuz likidite varsayilir.
+        </p>
+
+        <h3 class="guide-subtitle-h3">Compound Growth (Bilesik Buyume) Analizi</h3>
+        <div class="guide-example">
+            <strong>%50 WR ile 100 islem senaryosu (bakiye: $50):</strong><br />
+            Her islem: bakiye x %2 = $1<br />
+            50 kazanc x ($1 x 1.439 - $0.018 fee) = 50 x $1.421 = +$71.05<br />
+            50 kayip x (-$1) = -$50.00<br />
+            Net kar: +$21.05<br />
+            Yeni bakiye: $50 + $21.05 = <strong>$71.05</strong> (%42 buyume)
+        </div>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- BOLUM 7: Ilk Adimlar -->
+    <!-- ================================================================== -->
+    <div class="guide-card" style="border-left-color: var(--color-accent-green);">
+        <h2 class="guide-title">7. Ilk Adimlar — Nereden Baslamali?</h2>
+
+        <h3 class="guide-subtitle-h3">Paper Trading ile Baslayin</h3>
+        <p>
+            Gercek para riske atmadan once <strong>mutlaka paper trading</strong> yapin. Traxon sistemi zaten paper
+            trading yapmaktadir. Stratejinizin en az 100 islem boyunca karli oldugunu gorene kadar gercek paraya gecmeyin.
+            Paper trading ile ogrenecekleriniz: indikatorlerin nasil calistigini, sinyal kalitesinin neden onemli oldugunu,
+            psikolojik tuzaklari (acgozluluk, korku, FOMO) ve risk yonetiminin hayati onemini.
+        </p>
+
+        <h3 class="guide-subtitle-h3">Kucuk Baslayin</h3>
+        <p>
+            Gercek parayla basladiginizda <strong>kucuk baslayin — $50 yeterlidir</strong>. Amac zengin olmak degil,
+            sistemi gercek piyasa kosullarinda test etmektir. Kucuk baslamak, hata yaptiginizda kaybinizi minimuumda
+            tutar ve ogrenim surecini ucuzlatirir. Bakiyenizi kaybetseniz bile, $50 bir egitim yatirimi olarak gorun.
+        </p>
+
+        <h3 class="guide-subtitle-h3">Duygularinizi Kontrol Edin</h3>
+        <p>
+            Trading'de en buyuk dusman karsi taraf degil, <strong>kendi duygularinizdir</strong>. Ust uste kayiplar
+            ozguven kirar ve "geri kazanmak icin buyuk risk alma" durtusune yol acar (revenge trading). Ust uste
+            kazanclar ise asiri ozguven yaratir ve "yanilmaz hissi" verir. Her iki durum da tehlikelidir.
+            Stratejinize bagli kalin, duygusal kararlar vermeyin.
+        </p>
+
+        <h3 class="guide-subtitle-h3">Gunluk Tutmanin Onemi</h3>
+        <p>
+            Her isleminizi kayit altina alin: neden girdiniz, hangi indikatorleri gordunuz, sonuc ne oldu, ne
+            ogrendiniz. Traxon sistemi bunu otomatik yapar (SQL Server'da her trade kayitlidir), ama siz de
+            kendi notlarinizi ekleyin. Duzenli gunluk tutmak, hatalarinizi gormenizi ve ayni hatalari tekrarlamamanizi saglar.
+            En basarili traderlar, islemeye degil <strong>analiz etmeye</strong> en fazla zamanlarini harcarlar.
         </p>
     </div>
 </div>
@@ -520,6 +875,28 @@
         border-bottom: none;
         padding-bottom: 0;
         margin-bottom: 0;
+    }
+
+    .guide-rr-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 12px 0;
+        font-size: 0.9rem;
+    }
+
+    .guide-rr-table th {
+        text-align: left;
+        padding: 8px 12px;
+        background-color: var(--color-bg-elevated);
+        color: var(--color-text-secondary);
+        font-weight: 600;
+        border-bottom: 1px solid var(--color-border-default);
+    }
+
+    .guide-rr-table td {
+        padding: 8px 12px;
+        color: var(--color-text-primary);
+        border-bottom: 1px solid var(--color-border-subtle);
     }
 
     .text-green {
