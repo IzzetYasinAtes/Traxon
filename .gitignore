@@ -429,4 +429,19 @@ workspace/commands/processed/*
 workspace/artifacts/*
 !workspace/artifacts/.gitkeep
 workspace/state.json
+
+# Workspace runtime dosyaları
+workspace/*.png
+workspace/*.html
+workspace/logs/
+workspace/analyst/*.md
+workspace/analyst/*.json
+workspace/analyst/analysis-reports/
+
+# Playwright MCP snapshots
+.playwright-mcp/
+
+# Claude lock files
+.claude/scheduled_tasks.lock
+
 tailwindcss.exe
