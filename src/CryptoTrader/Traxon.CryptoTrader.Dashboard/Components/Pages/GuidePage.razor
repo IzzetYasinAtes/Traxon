@@ -760,6 +760,51 @@
             En basarili traderlar, islemeye degil <strong>analiz etmeye</strong> en fazla zamanlarini harcarlar.
         </p>
     </div>
+
+    <!-- ================================================================== -->
+    <!-- BOLUM 8: Sinyal Uretimi ve Red Sebepleri -->
+    <!-- ================================================================== -->
+    <div class="guide-card" style="border-left-color: var(--color-accent-gold);">
+        <h2 class="guide-title">8. Sinyal Uretimi ve Red Sebepleri</h2>
+
+        <h3 style="color: var(--color-text-primary); margin: 16px 0 8px;">Sinyal Nedir?</h3>
+        <p>
+            Sistem, her mum kapanisinda teknik gostergeleri analiz ederek <strong>sinyal</strong> uretir. Sinyal,
+            bir varligin fiyatinin yukselecegi (Up) veya dusecegi (Down) yonunde bir tahmindir. Her sinyal su bilgileri tasir:
+        </p>
+        <ul>
+            <li><strong>Adil Deger (FairValue):</strong> Sistemin hesapladigi gercek deger olasiligi</li>
+            <li><strong>Edge:</strong> Adil deger ile piyasa fiyati arasindaki fark — ne kadar buyukse firsat o kadar iyi</li>
+            <li><strong>Kelly Orani:</strong> Matematik formule gore ne kadar yatirim yapilmasi gerektigi</li>
+            <li><strong>Sinyal Skoru:</strong> RSI, MACD, Bollinger gibi gostergelerin agirlikli puani (0-1 arasi)</li>
+        </ul>
+
+        <h3 style="color: var(--color-text-primary); margin: 16px 0 8px;">Engine Neden Reddedebilir?</h3>
+        <p>
+            Sinyal uretildikten sonra her trading engine sinyali degerlendirir. Bir engine su nedenlerle sinyali <strong>reddedebilir</strong>:
+        </p>
+        <ul>
+            <li><strong>Acik Pozisyon:</strong> Ayni varlik icin zaten acik bir trade varsa yeni pozisyon acilmaz</li>
+            <li><strong>Bakiye Yetersiz:</strong> Portfoyde yeni pozisyon acmak icin yeterli bakiye yoksa reddedilir</li>
+            <li><strong>Yetersiz Onay:</strong> Teknik gostergelerden en az 3/5 onay gelmemisse sinyal zayif kabul edilir</li>
+            <li><strong>Engine Hazir Degil:</strong> Engine henuz baslatilmamis veya ilk veri yuklenmemisse bekler</li>
+            <li><strong>Engine Devre Disi:</strong> Konfigurasyonda engine kapatilmissa sinyal islenmez</li>
+            <li><strong>Ters Trend:</strong> Sinyal yonu, 1 saatlik trend ile celisiyorsa guvenlik icin reddedilir</li>
+            <li><strong>Fair Value Aralik Disi:</strong> Adil deger, islem yapilabilir aralik disindaysa reddedilir</li>
+        </ul>
+
+        <h3 style="color: var(--color-text-primary); margin: 16px 0 8px;">Tum Kararlar Kayit Altinda</h3>
+        <p>
+            Her uretilen sinyal ve her engine'in kabul/red karari <strong>veritabanina kaydedilir</strong>.
+            <code>SignalRecords</code> tablosu sinyal detaylarini, <code>SignalEngineResults</code> tablosu ise
+            her engine'in kararini (kabul, red sebebi, acilan trade ID) saklar. Bu sayede:
+        </p>
+        <ul>
+            <li>Hangi sinyallerin neden reddedildigi analiz edilebilir</li>
+            <li>Engine bazli kabul/red oranlari takip edilebilir</li>
+            <li>Sinyal kalitesi zaman icinde olculebilir</li>
+        </ul>
+    </div>
     </div>
 </div>
 

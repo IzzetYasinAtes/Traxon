@@ -1,0 +1,141 @@
+@page "/signals"
+@rendermode InteractiveServer
+@inject AdminDataService DataService
+
+<div class="flex flex-col gap-4">
+    <div class="flex items-center justify-between">
+        <h1 class="text-lg font-bold">Sinyal Gecmisi</h1>
+        <span class="text-xs" style="color: var(--color-text-muted);">@_totalCount toplam sinyal</span>
+    </div>
+    <div style="font-size: 0.7rem; color: var(--color-text-muted); margin-bottom: 8px;">
+        Uretilen tum sinyallerin gecmisi. Sembol ve yon bazli filtreleme yapabilirsiniz. Her sinyalin motor degerlendirme sonuclari goruntulenebilir.
+    </div>
+
+    <!-- Filtreler -->
+    <div class="flex gap-3 flex-wrap items-end">
+        <div>
+            <p class="text-xs mb-1" style="color: var(--color-text-muted);">Sembol</p>
+            <input type="text" placeholder="BTCUSDT" @bind="_filterSymbol"
+                   style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default); color: var(--color-text-primary); border-radius: 6px; padding: 4px 8px; font-size: 12px; width: 100px;" />
+        </div>
+        <div>
+            <p class="text-xs mb-1" style="color: var(--color-text-muted);">Yon</p>
+            <select @bind="_filterDirection"
+                    style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default); color: var(--color-text-primary); border-radius: 6px; padding: 4px 8px; font-size: 12px;">
+                <option value="">Tumu</option>
+                <option value="Up">Up</option>
+                <option value="Down">Down</option>
+            </select>
+        </div>
+        <button @onclick="ApplyFilterAsync"
+                style="background-color: rgba(168,85,247,0.15); border: 1px solid rgba(168,85,247,0.3); color: var(--color-accent-purple); border-radius: 6px; padding: 5px 12px; font-size: 12px; cursor: pointer;">
+            Filtrele
+        </button>
+    </div>
+
+    <!-- Tablo -->
+    <div class="rounded-[10px] overflow-hidden"
+         style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default);">
+        <table class="w-full text-xs">
+            <thead>
+                <tr style="color: var(--color-text-muted); border-bottom: 1px solid var(--color-border-default);">
+                    <th class="py-2 px-3 text-left">Sembol</th>
+                    <th class="py-2 px-3 text-left">Zaman Dilimi</th>
+                    <th class="py-2 px-3 text-left">Yon</th>
+                    <th class="py-2 px-3 text-right">Adil Deger</th>
+                    <th class="py-2 px-3 text-right">Kenar</th>
+                    <th class="py-2 px-3 text-right">Kelly</th>
+                    <th class="py-2 px-3 text-right">Skor</th>
+                    <th class="py-2 px-3 text-left">Rejim</th>
+                    <th class="py-2 px-3 text-left">Motorlar</th>
+                    <th class="py-2 px-3 text-left">Zaman</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var s in _signals)
+                {
+                    <tr style="border-top: 1px solid var(--color-border-default);">
+                        <td class="py-1.5 px-3 font-mono">@s.Symbol</td>
+                        <td class="py-1.5 px-3 font-mono" style="color: var(--color-text-muted);">@s.TimeFrame</td>
+                        <td class="py-1.5 px-3 font-mono"
+                            style="color: @(s.Direction == "Up" ? "var(--color-accent-green)" : "var(--color-accent-red)")">
+                            @s.Direction
+                        </td>
+                        <td class="py-1.5 px-3 text-right font-mono">@($"{s.FairValue:P1}")</td>
+                        <td class="py-1.5 px-3 text-right font-mono" style="color: var(--color-accent-gold);">@($"{s.Edge:P1}")</td>
+                        <td class="py-1.5 px-3 text-right font-mono">@($"{s.KellyFraction:P2}")</td>
+                        <td class="py-1.5 px-3 text-right font-mono" style="color: var(--color-accent-purple);">
+                            @(s.SignalScore.HasValue ? $"{s.SignalScore:F2}" : "—")
+                        </td>
+                        <td class="py-1.5 px-3 font-mono" style="color: var(--color-text-muted);">@s.Regime</td>
+                        <td class="py-1.5 px-3">
+                            @foreach (var er in s.EngineResults)
+                            {
+                                <div class="text-xs" style="color: @(er.Accepted ? "var(--color-accent-green)" : "var(--color-accent-red)")">
+                                    @er.EngineName @(er.Accepted ? "\u2713" : "\u2717")
+                                    @if (!er.Accepted && er.RejectionReason != null)
+                                    {
+                                        <span style="color: var(--color-text-muted); font-size: 0.6rem;"> @er.RejectionReason</span>
+                                    }
+                                </div>
+                            }
+                        </td>
+                        <td class="py-1.5 px-3 font-mono" style="color: var(--color-text-muted);">
+                            @s.GeneratedAt.ToString("MM/dd HH:mm")
+                        </td>
+                    </tr>
+                }
+                @if (_signals.Count == 0)
+                {
+                    <tr><td colspan="10" class="py-8 text-center" style="color: var(--color-text-muted);">Veri bulunamadi</td></tr>
+                }
+            </tbody>
+        </table>
+
+        <!-- Sayfalama -->
+        <div class="px-4 py-2 flex items-center gap-4 text-xs"
+             style="color: var(--color-text-muted); border-top: 1px solid var(--color-border-default);">
+            <button @onclick="PrevPageAsync" disabled="@(_page == 0)"
+                    style="color: @(_page == 0 ? "var(--color-text-muted)" : "var(--color-accent-purple)"); cursor: pointer;">Onceki</button>
+            <span>Sayfa @(_page + 1) / @Math.Max(1, _totalPages)</span>
+            <button @onclick="NextPageAsync" disabled="@(_page >= _totalPages - 1)"
+                    style="color: @(_page >= _totalPages - 1 ? "var(--color-text-muted)" : "var(--color-accent-purple)"); cursor: pointer;">Sonraki</button>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<AdminSignalRow> _signals = [];
+    private string _filterSymbol = "";
+    private string _filterDirection = "";
+    private int _page = 0;
+    private int _totalPages = 1;
+    private int _totalCount = 0;
+    private const int PageSize = 50;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task ApplyFilterAsync()
+    {
+        _page = 0;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        var filter = new AdminSignalFilter
+        {
+            Symbol = string.IsNullOrEmpty(_filterSymbol) ? null : _filterSymbol,
+            Direction = string.IsNullOrEmpty(_filterDirection) ? null : _filterDirection,
+            Page = _page,
+            PageSize = PageSize
+        };
+
+        _signals = await DataService.GetSignalHistoryAsync(filter);
+        _totalCount = await DataService.GetSignalCountAsync(filter);
+        _totalPages = Math.Max(1, (int)Math.Ceiling(_totalCount / (double)PageSize));
+    }
+
+    private async Task PrevPageAsync() { if (_page > 0) { _page--; await LoadAsync(); } }
+    private async Task NextPageAsync() { if (_page < _totalPages - 1) { _page++; await LoadAsync(); } }
+}

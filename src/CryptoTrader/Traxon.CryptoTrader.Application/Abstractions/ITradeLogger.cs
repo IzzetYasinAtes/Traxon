@@ -27,4 +27,12 @@ public interface ITradeLogger
     /// Belirtilen engine icin son portfolio snapshot'i doner. Yoksa null.
     /// </summary>
     Task<PortfolioSnapshotDto?> GetLatestSnapshotAsync(string engineName, CancellationToken ct = default);
+
+    /// <summary>
+    /// Sinyal ve tum engine sonuclarini (accept/reject) birlikte DB'ye yazar.
+    /// </summary>
+    Task LogSignalWithResultsAsync(
+        Signal signal,
+        IReadOnlyList<(string engineName, bool accepted, string? rejectionCode, Guid? tradeId)> engineResults,
+        CancellationToken ct = default);
 }

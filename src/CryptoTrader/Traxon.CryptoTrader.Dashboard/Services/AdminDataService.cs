@@ -196,6 +196,43 @@ public sealed class AdminDataService(IDbContextFactory<AppDbContext> dbFactory)
             .ToList();
     }
 
+    // ---- SIGNAL HISTORY ----
+
+    public async Task<List<AdminSignalRow>> GetSignalHistoryAsync(AdminSignalFilter filter)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync();
+        var query = db.SignalRecords.Include(s => s.EngineResults).AsQueryable();
+
+        if (!string.IsNullOrEmpty(filter.Symbol))
+            query = query.Where(s => s.Symbol.Contains(filter.Symbol));
+        if (!string.IsNullOrEmpty(filter.Direction))
+            query = query.Where(s => s.Direction == filter.Direction);
+
+        var signals = await query
+            .OrderByDescending(s => s.GeneratedAt)
+            .Skip(filter.Page * filter.PageSize)
+            .Take(filter.PageSize)
+            .ToListAsync();
+
+        return signals.Select(s => new AdminSignalRow(
+            s.Id, s.Symbol, s.TimeFrame, s.Direction,
+            s.FairValue, s.Edge, s.KellyFraction, s.Regime, s.SignalScore, s.GeneratedAt,
+            s.EngineResults.Select(e => new AdminSignalEngineRow(
+                e.EngineName, e.Accepted, e.RejectionReason, e.TradeId)).ToList()
+        )).ToList();
+    }
+
+    public async Task<int> GetSignalCountAsync(AdminSignalFilter filter)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync();
+        var query = db.SignalRecords.AsQueryable();
+        if (!string.IsNullOrEmpty(filter.Symbol))
+            query = query.Where(s => s.Symbol.Contains(filter.Symbol));
+        if (!string.IsNullOrEmpty(filter.Direction))
+            query = query.Where(s => s.Direction == filter.Direction);
+        return await query.CountAsync();
+    }
+
     // ---- SYSTEM LOGS ----
 
     public async Task<List<AdminLogEntry>> GetRecentLogsAsync(int count = 200)
@@ -293,3 +330,30 @@ public record AdminTradeFilter
 }
 
 public record AdminLogEntry(DateTime Timestamp, string Level, string Message);
+
+public record AdminSignalRow(
+    Guid Id,
+    string Symbol,
+    string TimeFrame,
+    string Direction,
+    decimal FairValue,
+    decimal Edge,
+    decimal KellyFraction,
+    string Regime,
+    decimal? SignalScore,
+    DateTime GeneratedAt,
+    List<AdminSignalEngineRow> EngineResults);
+
+public record AdminSignalEngineRow(
+    string EngineName,
+    bool Accepted,
+    string? RejectionReason,
+    Guid? TradeId);
+
+public record AdminSignalFilter
+{
+    public string? Symbol { get; init; }
+    public string? Direction { get; init; }
+    public int Page { get; init; } = 0;
+    public int PageSize { get; init; } = 50;
+}

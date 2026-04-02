@@ -119,6 +119,57 @@ public sealed class SqlTradeLogger : ITradeLogger
         }
     }
 
+    public async Task LogSignalWithResultsAsync(
+        Signal signal,
+        IReadOnlyList<(string engineName, bool accepted, string? rejectionCode, Guid? tradeId)> engineResults,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var record = new SignalRecord(
+                signal.Asset.Symbol,
+                signal.TimeFrame.Value,
+                signal.Direction.ToString(),
+                signal.FairValue,
+                signal.MarketPrice,
+                signal.Edge,
+                signal.KellyFraction,
+                signal.MuEstimate,
+                signal.SigmaEstimate,
+                signal.Regime.ToString(),
+                signal.Score?.FinalScore,
+                signal.Indicators.Rsi.Value,
+                signal.Indicators.Macd.Histogram,
+                signal.Indicators.BullishCount(),
+                signal.GeneratedAt);
+
+            foreach (var (engineName, accepted, rejectionCode, tradeId) in engineResults)
+            {
+                record.EngineResults.Add(new SignalEngineResult(
+                    record.Id,
+                    engineName,
+                    accepted,
+                    rejectionCode,
+                    tradeId,
+                    DateTime.UtcNow));
+            }
+
+            await using var db = await _dbFactory.CreateDbContextAsync(ct);
+            db.SignalRecords.Add(record);
+            await db.SaveChangesAsync(ct);
+
+            _logger.LogDebug(
+                "Signal+results persisted: {Symbol}/{TF} {Direction} engines:{Count}",
+                signal.Asset.Symbol, signal.TimeFrame.Value, signal.Direction, engineResults.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Failed to persist signal with results: {Symbol}/{TF}",
+                signal.Asset.Symbol, signal.TimeFrame.Value);
+        }
+    }
+
     public async Task LogPortfolioSnapshotAsync(Portfolio portfolio, CancellationToken ct = default)
     {
         try

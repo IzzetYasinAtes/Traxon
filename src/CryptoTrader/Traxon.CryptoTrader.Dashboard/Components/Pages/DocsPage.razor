@@ -941,6 +941,72 @@ Balance += positionSize + PnL
             <li><strong>WinRate korunmasi:</strong> Win/Loss sayaclari snapshot'tan restore edilir</li>
         </ul>
     </div>
+
+    <!-- ================================================================== -->
+    <!-- BOLUM 8: Sinyal Kayit Sistemi -->
+    <!-- ================================================================== -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-gold);">
+        <h2 class="docs-title">8. Sinyal Kayit Sistemi</h2>
+
+        <h3 class="docs-subtitle-h3">SignalRecords Tablosu</h3>
+        <p>
+            Her uretilen sinyal, tum parametreleri ile birlikte <code>SignalRecords</code> tablosuna kaydedilir.
+            Bu sayede sinyal gecmisi, red oranlari ve engine bazli performans analizi yapilabilir.
+        </p>
+        <table class="docs-table">
+            <thead><tr><th>Kolon</th><th>Tip</th><th>Aciklama</th></tr></thead>
+            <tbody>
+                <tr><td>Id</td><td>uniqueidentifier</td><td>Primary key (GUID)</td></tr>
+                <tr><td>Symbol</td><td>nvarchar(20)</td><td>Islem cifti (BTCUSDT, ETHUSDT vb.)</td></tr>
+                <tr><td>TimeFrame</td><td>nvarchar(5)</td><td>Zaman dilimi (1m, 5m, 15m, 1h)</td></tr>
+                <tr><td>Direction</td><td>nvarchar(10)</td><td>Sinyal yonu (Up/Down)</td></tr>
+                <tr><td>FairValue</td><td>decimal(18,8)</td><td>Adil deger P(Up)</td></tr>
+                <tr><td>MarketPrice</td><td>decimal(18,8)</td><td>Piyasa fiyati</td></tr>
+                <tr><td>Edge</td><td>decimal(18,8)</td><td>|FairValue - MarketPrice|</td></tr>
+                <tr><td>KellyFraction</td><td>decimal(18,8)</td><td>Half Kelly orani</td></tr>
+                <tr><td>MuEstimate</td><td>decimal(18,12)</td><td>Momentum tahmini</td></tr>
+                <tr><td>SigmaEstimate</td><td>decimal(18,12)</td><td>Volatilite tahmini</td></tr>
+                <tr><td>Regime</td><td>nvarchar(20)</td><td>Piyasa rejimi (LowVolatility/HighVolatility)</td></tr>
+                <tr><td>SignalScore</td><td>decimal(18,8)?</td><td>V2 sinyal skoru (null ise V1)</td></tr>
+                <tr><td>Rsi</td><td>decimal(18,8)</td><td>RSI(14) degeri</td></tr>
+                <tr><td>MacdHistogram</td><td>decimal(18,8)</td><td>MACD histogram degeri</td></tr>
+                <tr><td>BullishCount</td><td>int</td><td>Bullish onay sayisi</td></tr>
+                <tr><td>GeneratedAt</td><td>datetime2</td><td>Sinyal uretim zamani (UTC)</td></tr>
+            </tbody>
+        </table>
+
+        <h3 class="docs-subtitle-h3">SignalEngineResults Tablosu</h3>
+        <p>
+            Her sinyal icin tum engine'lerin degerlendirme sonucu <code>SignalEngineResults</code> tablosuna kaydedilir.
+            SignalRecordId ile parent sinyale bagli cascade iliskidedir.
+        </p>
+        <table class="docs-table">
+            <thead><tr><th>Kolon</th><th>Tip</th><th>Aciklama</th></tr></thead>
+            <tbody>
+                <tr><td>Id</td><td>uniqueidentifier</td><td>Primary key (GUID)</td></tr>
+                <tr><td>SignalRecordId</td><td>uniqueidentifier</td><td>FK → SignalRecords.Id</td></tr>
+                <tr><td>EngineName</td><td>nvarchar(20)</td><td>Engine adi (PaperBinance, PaperPoly)</td></tr>
+                <tr><td>Accepted</td><td>bit</td><td>Kabul edildi mi?</td></tr>
+                <tr><td>RejectionReason</td><td>nvarchar(100)?</td><td>Red sebebi kodu (null ise kabul)</td></tr>
+                <tr><td>TradeId</td><td>uniqueidentifier?</td><td>Acilan trade ID (null ise reddedildi)</td></tr>
+                <tr><td>EvaluatedAt</td><td>datetime2</td><td>Degerlendirme zamani (UTC)</td></tr>
+            </tbody>
+        </table>
+
+        <h3 class="docs-subtitle-h3">Rejection Reason Kodlari</h3>
+        <table class="docs-table">
+            <thead><tr><th>Kod</th><th>Aciklama</th></tr></thead>
+            <tbody>
+                <tr><td><code>Domain.DuplicatePosition</code></td><td>Ayni asset icin zaten acik pozisyon var</td></tr>
+                <tr><td><code>Domain.PortfolioInsufficient</code></td><td>Bakiye yetersiz, pozisyon acilamaz</td></tr>
+                <tr><td><code>Domain.InsufficientConfirmation</code></td><td>Yeterli teknik onay yok (min 3/5 gerekli)</td></tr>
+                <tr><td><code>Domain.EngineNotReady</code></td><td>Engine henuz hazir degil</td></tr>
+                <tr><td><code>Engine.Disabled</code></td><td>Engine konfigurasyonda devre disi</td></tr>
+                <tr><td><code>Domain.CounterTrend</code></td><td>Sinyal yonu 1h trend ile celisiyor</td></tr>
+                <tr><td><code>Domain.FairValueOutOfRange</code></td><td>Fair value islem yapilabilir aralik disinda</td></tr>
+            </tbody>
+        </table>
+    </div>
     </div>
 </div>
 

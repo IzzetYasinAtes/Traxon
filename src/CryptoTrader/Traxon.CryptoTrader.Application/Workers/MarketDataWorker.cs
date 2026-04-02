@@ -17,6 +17,7 @@ public sealed class MarketDataWorker : BackgroundService
     private readonly IEnumerable<ITradingEngine> _tradingEngines;
     private readonly ICandleWriter               _candleWriter;
     private readonly IMarketEventPublisher       _publisher;
+    private readonly ITradeLogger                _tradeLogger;
     private readonly ILogger<MarketDataWorker>   _logger;
 
     public MarketDataWorker(
@@ -27,6 +28,7 @@ public sealed class MarketDataWorker : BackgroundService
         IEnumerable<ITradingEngine> tradingEngines,
         ICandleWriter candleWriter,
         IMarketEventPublisher publisher,
+        ITradeLogger tradeLogger,
         ILogger<MarketDataWorker> logger)
     {
         _marketDataProvider  = marketDataProvider;
@@ -36,6 +38,7 @@ public sealed class MarketDataWorker : BackgroundService
         _tradingEngines      = tradingEngines;
         _candleWriter        = candleWriter;
         _publisher           = publisher;
+        _tradeLogger         = tradeLogger;
         _logger              = logger;
     }
 
@@ -192,11 +195,14 @@ public sealed class MarketDataWorker : BackgroundService
 
                 _publisher.PublishSignalGenerated(sig.ToDto());
 
+                var engineResults = new List<(string engineName, bool accepted, string? rejectionCode, Guid? tradeId)>();
+
                 foreach (var engine in _tradingEngines)
                 {
                     var openResult = await engine.OpenPositionAsync(sig);
                     if (openResult.IsFailure)
                     {
+                        engineResults.Add((engine.EngineName, false, openResult.Error!.Code, null));
                         _logger.LogDebug(
                             "[{Engine}] OpenPosition skipped: {Reason}",
                             engine.EngineName, openResult.Error!.Code);
@@ -204,12 +210,20 @@ public sealed class MarketDataWorker : BackgroundService
                     else if (openResult.Value is not null)
                     {
                         var trade = openResult.Value;
+                        engineResults.Add((engine.EngineName, true, null, trade.Id));
                         _logger.LogInformation(
                             "Trade opened: {Engine} {Symbol} {Direction} size:{Size:F2}",
                             engine.EngineName, sig.Asset.Symbol, sig.Direction, trade.PositionSize);
                         _publisher.PublishTradeOpened(trade.ToDto());
                     }
+                    else
+                    {
+                        engineResults.Add((engine.EngineName, false, null, null));
+                    }
                 }
+
+                // Fire-and-forget: sinyal + engine sonuclarini DB'ye kaydet
+                _ = _tradeLogger.LogSignalWithResultsAsync(sig, engineResults);
             }
             else
             {

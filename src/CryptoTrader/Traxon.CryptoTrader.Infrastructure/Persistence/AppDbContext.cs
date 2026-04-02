@@ -8,9 +8,11 @@ namespace Traxon.CryptoTrader.Infrastructure.Persistence;
 
 public sealed class AppDbContext : DbContext
 {
-    public DbSet<Trade>             Trades             { get; set; } = null!;
-    public DbSet<Candle>            Candles            { get; set; } = null!;
-    public DbSet<PortfolioSnapshot> PortfolioSnapshots { get; set; } = null!;
+    public DbSet<Trade>              Trades              { get; set; } = null!;
+    public DbSet<Candle>             Candles             { get; set; } = null!;
+    public DbSet<PortfolioSnapshot>  PortfolioSnapshots  { get; set; } = null!;
+    public DbSet<SignalRecord>       SignalRecords       { get; set; } = null!;
+    public DbSet<SignalEngineResult> SignalEngineResults  { get; set; } = null!;
 
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
@@ -19,5 +21,7 @@ public sealed class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new TradeEntityConfiguration());
         modelBuilder.ApplyConfiguration(new CandleEntityConfiguration());
         modelBuilder.ApplyConfiguration(new PortfolioSnapshotEntityConfiguration());
+        modelBuilder.ApplyConfiguration(new SignalRecordEntityConfiguration());
+        modelBuilder.ApplyConfiguration(new SignalEngineResultEntityConfiguration());
     }
 }
