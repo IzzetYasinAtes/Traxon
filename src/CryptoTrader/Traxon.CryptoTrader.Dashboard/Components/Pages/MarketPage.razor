@@ -16,7 +16,7 @@
                 <div class="mb-3">
                     <p class="text-xs mb-2" style="color: var(--color-text-muted);">@engine</p>
                     <div class="grid grid-cols-6 gap-3">
-                        <StatCard Title="Başlangıç Bakiyesi" Value="$10,000.00" />
+                        <StatCard Title="Başlangıç Bakiyesi" Value="$50.00" />
                         <StatCard Title="Mevcut Bakiye" Value="@($"${portfolio.Balance:N2}")" />
                         <StatCard Title="Toplam Kar/Zarar"
                                   Value="@($"{(portfolio.TotalPnL >= 0 ? "+$" : "-$")}{Math.Abs(portfolio.TotalPnL):N2}")"
