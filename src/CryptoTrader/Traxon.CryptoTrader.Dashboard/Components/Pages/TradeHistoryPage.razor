@@ -55,9 +55,11 @@
                     <th class="py-2 px-3 text-left">Yön</th>
                     <th class="py-2 px-3 text-right">Giriş</th>
                     <th class="py-2 px-3 text-right">Çıkış</th>
+                    <th class="py-2 px-3 text-right">Yatırım</th>
+                    <th class="py-2 px-3 text-right">Getiri</th>
+                    <th class="py-2 px-3 text-right">Kar/Zarar</th>
                     <th class="py-2 px-3 text-right">Adil Değer</th>
                     <th class="py-2 px-3 text-right">Kenar</th>
-                    <th class="py-2 px-3 text-right">Getiri</th>
                     <th class="py-2 px-3 text-left">Sonuç</th>
                     <th class="py-2 px-3 text-left">Rejim</th>
                     <th class="py-2 px-3 text-left">Zaman</th>
@@ -78,12 +80,17 @@
                         <td class="py-1.5 px-3 text-right font-mono" style="color: var(--color-text-muted);">
                             @(t.ExitPrice.HasValue ? $"${t.ExitPrice:F4}" : "—")
                         </td>
-                        <td class="py-1.5 px-3 text-right font-mono">@($"{t.FairValue:P1}")</td>
-                        <td class="py-1.5 px-3 text-right font-mono" style="color: var(--color-accent-gold);">@($"{t.Edge:P1}")</td>
+                        <td class="py-1.5 px-3 text-right font-mono">@($"${t.PositionSize:N2}")</td>
                         <td class="py-1.5 px-3 text-right font-mono"
                             style="color: @(t.PnL >= 0 ? "var(--color-accent-green)" : "var(--color-accent-red)")">
                             @(t.PnL.HasValue ? $"${(t.PositionSize + t.PnL!.Value):N2}" : "—")
                         </td>
+                        <td class="py-1.5 px-3 text-right font-mono"
+                            style="color: @(t.PnL >= 0 ? "var(--color-accent-green)" : "var(--color-accent-red)")">
+                            @(t.PnL.HasValue ? $"{(t.PnL >= 0 ? "+$" : "-$")}{Math.Abs(t.PnL!.Value):N2}" : "—")
+                        </td>
+                        <td class="py-1.5 px-3 text-right font-mono">@($"{t.FairValue:P1}")</td>
+                        <td class="py-1.5 px-3 text-right font-mono" style="color: var(--color-accent-gold);">@($"{t.Edge:P1}")</td>
                         <td class="py-1.5 px-3 font-mono"
                             style="color: @(t.Outcome == "Win" ? "var(--color-accent-green)" : t.Outcome == "Loss" ? "var(--color-accent-red)" : "var(--color-text-muted)")">
                             @(t.Outcome ?? "AÇIK")
@@ -96,7 +103,7 @@
                 }
                 @if (_trades.Count == 0)
                 {
-                    <tr><td colspan="12" class="py-8 text-center" style="color: var(--color-text-muted);">Veri bulunamadı</td></tr>
+                    <tr><td colspan="14" class="py-8 text-center" style="color: var(--color-text-muted);">Veri bulunamadı</td></tr>
                 }
             </tbody>
         </table>
