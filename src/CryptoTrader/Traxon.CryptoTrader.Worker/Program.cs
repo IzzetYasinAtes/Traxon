@@ -6,6 +6,7 @@ using Traxon.CryptoTrader.Application.Workers;
 using Traxon.CryptoTrader.Binance;
 using Traxon.CryptoTrader.Infrastructure;
 using Traxon.CryptoTrader.Infrastructure.Persistence;
+using Traxon.CryptoTrader.Infrastructure.Services;
 using Traxon.CryptoTrader.Polymarket;
 using Traxon.CryptoTrader.Worker.Publishers;
 
@@ -25,6 +26,7 @@ try
             services.AddBinanceServices(context.Configuration);
             services.AddPolymarketServices(context.Configuration);
             services.AddSingleton<IMarketEventPublisher, NullMarketEventPublisher>();
+            services.AddHostedService<PythonSignerHostedService>();
             services.AddHostedService<MarketDataWorker>();
         })
         .Build();

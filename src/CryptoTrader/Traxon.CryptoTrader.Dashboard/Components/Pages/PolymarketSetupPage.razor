@@ -1,0 +1,751 @@
+@page "/polymarket-setup"
+
+<div class="docs-container">
+    <div class="docs-header-row">
+        <div>
+            <h1 class="docs-main-title">Polymarket Live Entegrasyon Rehberi</h1>
+            <p class="docs-subtitle">Polymarket canli trade sistemi kurulum adimlari — Python signing service, credential yonetimi ve sorun giderme</p>
+        </div>
+    </div>
+
+    <div class="docs-content">
+    <!-- ================================================================== -->
+    <!-- BOLUM 1: Mevcut Durum -->
+    <!-- ================================================================== -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-green);">
+        <h2 class="docs-title">1. Mevcut Durum</h2>
+        <table class="docs-table">
+            <thead>
+                <tr>
+                    <th>Bilesen</th>
+                    <th>Durum</th>
+                    <th>Aciklama</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>PolymarketEngine (LivePoly)</strong></td>
+                    <td>✅ Tamamlandi</td>
+                    <td>Signing client entegrasyonu</td>
+                </tr>
+                <tr>
+                    <td><strong>PaperPolymarketEngine</strong></td>
+                    <td>✅ Calisiyor</td>
+                    <td>Paper trade motoru</td>
+                </tr>
+                <tr>
+                    <td><strong>PolymarketAuthHandler</strong></td>
+                    <td>✅ Calisiyor</td>
+                    <td>HMAC-SHA256 L2 auth</td>
+                </tr>
+                <tr>
+                    <td><strong>PolymarketClient (REST)</strong></td>
+                    <td>✅ Calisiyor</td>
+                    <td>Midpoint, orderbook, heartbeat</td>
+                </tr>
+                <tr>
+                    <td><strong>PolymarketSigningClient</strong></td>
+                    <td>✅ Tamamlandi</td>
+                    <td>Python service ile HTTP iletisimi</td>
+                </tr>
+                <tr>
+                    <td><strong>Python Signing Service</strong></td>
+                    <td>✅ Tamamlandi</td>
+                    <td>EIP-712 imzalama (py-clob-client)</td>
+                </tr>
+                <tr>
+                    <td><strong>PythonSignerHostedService</strong></td>
+                    <td>✅ Tamamlandi</td>
+                    <td>Worker baslarken Python'u otomatik baslatir</td>
+                </tr>
+                <tr>
+                    <td><strong>SecureSetting (DB sifreli kayit)</strong></td>
+                    <td>✅ Calisiyor</td>
+                    <td>AES-256 sifreleme</td>
+                </tr>
+                <tr>
+                    <td><strong>Credential Pipeline</strong></td>
+                    <td>✅ Tamamlandi</td>
+                    <td>DB → Engine, auto-enable</td>
+                </tr>
+                <tr>
+                    <td><strong>Position Resolution</strong></td>
+                    <td>✅ Tamamlandi</td>
+                    <td>Fiyat ≥0.95 WIN, ≤0.05 LOSS</td>
+                </tr>
+                <tr>
+                    <td><strong>Canli Bakiye</strong></td>
+                    <td>✅ Tamamlandi</td>
+                    <td>Python service + UI karti</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- BOLUM 2: Adim 1 — Python Bagimliliklari -->
+    <!-- ================================================================== -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-blue);">
+        <h2 class="docs-title">2. Adim 1 — Python Bagimliliklari</h2>
+        <p>
+            <code>scripts/polymarket-signer/</code> klasorunde <code>requirements.txt</code> dosyasi bulunur.
+            Asagidaki adimlari sirasi ile takip edin:
+        </p>
+
+        <div class="docs-step">
+            <div class="docs-step-number">1</div>
+            <div class="docs-step-content">
+                <strong>Python 3.9+ kurulu olmali</strong>
+                <p>Terminalde kontrol edin:</p>
+                <pre class="docs-code">python --version</pre>
+                <p>Kurulu degilse:</p>
+                <pre class="docs-code">winget install Python.Python.3.12</pre>
+            </div>
+        </div>
+        <div class="docs-step">
+            <div class="docs-step-number">2</div>
+            <div class="docs-step-content">
+                <strong>Terminali kapat-ac</strong>
+                <p>PATH degiskeninin guncellenmesi icin terminali kapatip yeniden acin.</p>
+            </div>
+        </div>
+        <div class="docs-step">
+            <div class="docs-step-number">3</div>
+            <div class="docs-step-content">
+                <strong>Bagimliliklari kurun</strong>
+                <pre class="docs-code">pip install -r D:\repos\Traxon\scripts\polymarket-signer\requirements.txt</pre>
+                <p>veya:</p>
+                <pre class="docs-code">python -m pip install -r D:\repos\Traxon\scripts\polymarket-signer\requirements.txt</pre>
+            </div>
+        </div>
+
+        <h3 class="docs-subtitle-h3">Kutuphane Aciklamalari</h3>
+        <table class="docs-table">
+            <thead>
+                <tr>
+                    <th>Kutuphane</th>
+                    <th>Ne Ise Yarar</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>py-clob-client</code></td>
+                    <td>Polymarket resmi Python SDK — order olusturma, EIP-712 imzalama</td>
+                </tr>
+                <tr>
+                    <td><code>flask</code></td>
+                    <td>HTTP sunucusu — .NET tarafi bu sunucuya order imzalatir</td>
+                </tr>
+                <tr>
+                    <td><code>python-dotenv</code></td>
+                    <td>Ortam degiskenlerini yukler (opsiyonel)</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- BOLUM 3: Adim 2 — Polymarket Hesabi -->
+    <!-- ================================================================== -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-purple);">
+        <h2 class="docs-title">3. Adim 2 — Polymarket Hesabi</h2>
+
+        <div class="docs-step">
+            <div class="docs-step-number">1</div>
+            <div class="docs-step-content">
+                <strong>https://polymarket.com adresine gidin</strong>
+            </div>
+        </div>
+        <div class="docs-step">
+            <div class="docs-step-number">2</div>
+            <div class="docs-step-content">
+                <strong>MetaMask cuzdan baglayin</strong>
+            </div>
+        </div>
+        <div class="docs-step">
+            <div class="docs-step-number">3</div>
+            <div class="docs-step-content">
+                <strong>Deposit butonuna tiklayin</strong>
+                <p>Kredi karti ile TRY yatirin. Fun.xyz altyapisi TRY→USDC donusumu yapar.</p>
+            </div>
+        </div>
+        <div class="docs-step">
+            <div class="docs-step-number">4</div>
+            <div class="docs-step-content">
+                <strong>Test icin $5-10 yeterlidir</strong>
+            </div>
+        </div>
+
+        <div class="docs-example">
+            <strong>Bilgi:</strong> Polymarket, Polygon agi uzerinde calisir. USDC stable coin'dir — 1 USDC = 1 USD.
+        </div>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- BOLUM 4: Adim 3 — API Credential'lari -->
+    <!-- ================================================================== -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-gold);">
+        <h2 class="docs-title">4. Adim 3 — API Credential'lari</h2>
+
+        <div class="docs-info">
+            <strong>Onemli Not:</strong> Polymarket web arayuzundeki "Relayer API Keys" bolumu farkli bir seydir.
+            Bizim sistemin ihtiyaci olan CLOB API credential'larini Python SDK ile almalisiniz.
+        </div>
+
+        <h3 class="docs-subtitle-h3">Private Key Alma (MetaMask'tan)</h3>
+
+        <div class="docs-step">
+            <div class="docs-step-number">1</div>
+            <div class="docs-step-content">
+                <strong>MetaMask uzantisini acin</strong>
+            </div>
+        </div>
+        <div class="docs-step">
+            <div class="docs-step-number">2</div>
+            <div class="docs-step-content">
+                <strong>Ustte hesap adina tiklayin</strong>
+                <p>Hesap listesi acilir.</p>
+            </div>
+        </div>
+        <div class="docs-step">
+            <div class="docs-step-number">3</div>
+            <div class="docs-step-content">
+                <strong>Hesabin yanindaki 3 noktaya (⋮) tiklayin</strong>
+            </div>
+        </div>
+        <div class="docs-step">
+            <div class="docs-step-number">4</div>
+            <div class="docs-step-content">
+                <strong>"Hesap ayrintilari" veya "Account Details" secin</strong>
+            </div>
+        </div>
+        <div class="docs-step">
+            <div class="docs-step-number">5</div>
+            <div class="docs-step-content">
+                <strong>"Ozel anahtari goster" (Show Private Key) butonuna tiklayin</strong>
+            </div>
+        </div>
+        <div class="docs-step">
+            <div class="docs-step-number">6</div>
+            <div class="docs-step-content">
+                <strong>MetaMask sifrenizi girin</strong>
+            </div>
+        </div>
+        <div class="docs-step">
+            <div class="docs-step-number">7</div>
+            <div class="docs-step-content">
+                <strong>0x ile baslayan 66 karakterlik string'i kopyalayin</strong>
+            </div>
+        </div>
+
+        <div class="docs-warning">
+            <strong>DIKKAT:</strong> Private key'inizi kimseyle paylasmayın. Bu anahtar cuzdaninizdaki tum varliklara erisim saglar.
+        </div>
+
+        <h3 class="docs-subtitle-h3">API Key + Secret + Passphrase Alma</h3>
+        <p>Terminalde asagidaki komutu calistirin:</p>
+        <pre class="docs-code">python -c "from py_clob_client.client import ClobClient; client = ClobClient(host='https://clob.polymarket.com', key='0xSENIN_PRIVATE_KEYIN', chain_id=137); creds = client.create_or_derive_api_creds(); print(f'API Key: {creds.api_key}'); print(f'API Secret: {creds.api_secret}'); print(f'Passphrase: {creds.api_passphrase}')"</pre>
+        <p><strong>Not:</strong> <code>0xSENIN_PRIVATE_KEYIN</code> yerine MetaMask'tan aldiginiz private key'i yapistirin.</p>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- BOLUM 5: Adim 4 — Dashboard Credential Girisi -->
+    <!-- ================================================================== -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-green);">
+        <h2 class="docs-title">5. Adim 4 — Dashboard Credential Girisi</h2>
+
+        <div class="docs-step">
+            <div class="docs-step-number">1</div>
+            <div class="docs-step-content">
+                <strong>Dashboard'u baslatin</strong>
+                <pre class="docs-code">dotnet run --project src/CryptoTrader/Traxon.CryptoTrader.Dashboard</pre>
+            </div>
+        </div>
+        <div class="docs-step">
+            <div class="docs-step-number">2</div>
+            <div class="docs-step-content">
+                <strong>Tarayicida <code>/config</code> sayfasina gidin</strong>
+            </div>
+        </div>
+        <div class="docs-step">
+            <div class="docs-step-number">3</div>
+            <div class="docs-step-content">
+                <strong>"Polymarket Credentials" bolumunde 6 alani doldurun</strong>
+                <table class="docs-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Alan</th>
+                            <th>Format</th>
+                            <th>Nereden Alinir</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>1</td>
+                            <td><strong>API Key</strong></td>
+                            <td>UUID formati</td>
+                            <td>Python komutu ciktisi</td>
+                        </tr>
+                        <tr>
+                            <td>2</td>
+                            <td><strong>API Secret</strong></td>
+                            <td>Base64 string</td>
+                            <td>Python komutu ciktisi</td>
+                        </tr>
+                        <tr>
+                            <td>3</td>
+                            <td><strong>Passphrase</strong></td>
+                            <td>String</td>
+                            <td>Python komutu ciktisi</td>
+                        </tr>
+                        <tr>
+                            <td>4</td>
+                            <td><strong>Wallet Address</strong></td>
+                            <td>0x... (42 karakter)</td>
+                            <td>MetaMask ana ekran</td>
+                        </tr>
+                        <tr>
+                            <td>5</td>
+                            <td><strong>Private Key</strong></td>
+                            <td>0x... (66 karakter)</td>
+                            <td>MetaMask > Ozel anahtarlar</td>
+                        </tr>
+                        <tr>
+                            <td>6</td>
+                            <td><strong>Signature Type</strong></td>
+                            <td>0</td>
+                            <td>Sabit (MetaMask/EOA = 0)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="docs-step">
+            <div class="docs-step-number">4</div>
+            <div class="docs-step-content">
+                <strong>"Kaydet" butonuna tiklayin</strong>
+            </div>
+        </div>
+        <div class="docs-step">
+            <div class="docs-step-number">5</div>
+            <div class="docs-step-content">
+                <strong>Tum alanlarin yaninda yesil "Dolu" yazdigini kontrol edin</strong>
+            </div>
+        </div>
+
+        <div class="docs-example">
+            <strong>Guvenlik:</strong> Credential'lar DB'de AES-256 ile sifrelenir. Ekranda asla gosterilmez — sadece "Dolu" veya "Bos" yazar.
+        </div>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- BOLUM 6: Adim 5 — Worker'i Baslat -->
+    <!-- ================================================================== -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-blue);">
+        <h2 class="docs-title">6. Adim 5 — Worker'i Baslat</h2>
+        <p>Komutu calistirin:</p>
+        <pre class="docs-code">dotnet run --project src/CryptoTrader/Traxon.CryptoTrader.Worker</pre>
+
+        <h3 class="docs-subtitle-h3">Baslatma Sirasi</h3>
+        <pre class="docs-code">
+1. Worker baslar
+2. PythonSignerHostedService → DB'den credential'lari okur → Python process baslatir
+3. Health check: http://127.0.0.1:5099/health
+4. Log: "Polymarket signing service started successfully"
+5. BufferWarmupService → DB'den mumlari yukler
+6. MarketDataWorker → Sinyal uretimi baslar
+7. LivePoly engine → Sinyal geldiginde order acar</pre>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- BOLUM 7: Teknik Akis — Order Acma -->
+    <!-- ================================================================== -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-purple);">
+        <h2 class="docs-title">7. Teknik Akis — Order Acma</h2>
+        <pre class="docs-code">
+Sinyal uretilir (MarketDataWorker)
+    ↓
+LivePoly engine sinyal alir
+    ├─ GammaAPI'den matching market bul
+    ├─ Midpoint fiyat al
+    ├─ Limit price hesapla
+    ├─ Position size hesapla (Kelly * bakiye, max $10)
+    ↓
+.NET → HTTP POST http://127.0.0.1:5099/create-and-post
+    ↓
+Python Signing Service:
+    ├─ OrderArgs olustur
+    ├─ EIP-712 ile imzala
+    ├─ HMAC headers ile CLOB API'ye gonder
+    └─ orderId dondur
+    ↓
+.NET trade'i DB'ye kaydeder, UI'da gosterir</pre>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- BOLUM 8: Onemli Parametreler -->
+    <!-- ================================================================== -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-gold);">
+        <h2 class="docs-title">8. Onemli Parametreler</h2>
+        <table class="docs-table">
+            <thead>
+                <tr>
+                    <th>Parametre</th>
+                    <th>Deger</th>
+                    <th>Konum</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Max pozisyon</td>
+                    <td><strong>$10 USDC</strong></td>
+                    <td><code>PolymarketOptions.MaxPositionSizeUsdc</code></td>
+                </tr>
+                <tr>
+                    <td>Min market suresi</td>
+                    <td><strong>10 dakika</strong></td>
+                    <td><code>PolymarketOptions.MarketMinutesMinRemaining</code></td>
+                </tr>
+                <tr>
+                    <td>Heartbeat</td>
+                    <td><strong>5 saniye</strong></td>
+                    <td><code>PolymarketOptions.HeartbeatIntervalSeconds</code></td>
+                </tr>
+                <tr>
+                    <td>Taker fee</td>
+                    <td><strong>%1.8</strong></td>
+                    <td><code>PolymarketEngine.TakerFeeRate</code></td>
+                </tr>
+                <tr>
+                    <td>Win esigi</td>
+                    <td><strong>≥ 0.95</strong></td>
+                    <td><code>PolymarketEngine.CheckPositionsAsync</code></td>
+                </tr>
+                <tr>
+                    <td>Loss esigi</td>
+                    <td><strong>≤ 0.05</strong></td>
+                    <td><code>PolymarketEngine.CheckPositionsAsync</code></td>
+                </tr>
+                <tr>
+                    <td>Python port</td>
+                    <td><strong>5099</strong></td>
+                    <td><code>signing_service.py</code></td>
+                </tr>
+                <tr>
+                    <td>Order tipi</td>
+                    <td><strong>GTC</strong></td>
+                    <td>Limit order</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- BOLUM 9: Sorun Giderme -->
+    <!-- ================================================================== -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-red);">
+        <h2 class="docs-title">9. Sorun Giderme</h2>
+
+        <h3 class="docs-subtitle-h3">"Signing service failed to start"</h3>
+        <ul class="docs-list">
+            <li>Python kurulu mu? <code>python --version</code></li>
+            <li>Paketler kurulu mu? <code>pip install -r scripts/polymarket-signer/requirements.txt</code></li>
+            <li>Port 5099 mesgul mu? <code>netstat -an | findstr 5099</code></li>
+        </ul>
+
+        <h3 class="docs-subtitle-h3">"Client not initialized - check credentials"</h3>
+        <ul class="docs-list">
+            <li><code>/config</code> sayfasinda tum alanlar "Dolu" mu?</li>
+            <li>Private key 0x ile basliyor ve 66 karakter mi?</li>
+            <li>Wallet address 0x ile basliyor ve 42 karakter mi?</li>
+        </ul>
+
+        <h3 class="docs-subtitle-h3">"Invalid signature"</h3>
+        <ul class="docs-list">
+            <li>Signature Type dogru mu? MetaMask = 0</li>
+            <li>Private key ve wallet address ayni hesaba mi ait?</li>
+            <li>py-clob-client guncel mi? <code>pip install --upgrade py-clob-client</code></li>
+        </ul>
+
+        <h3 class="docs-subtitle-h3">"Insufficient balance"</h3>
+        <ul class="docs-list">
+            <li>Polymarket hesabinda yeterli USDC var mi?</li>
+            <li>Polygon aginda mi?</li>
+        </ul>
+
+        <h3 class="docs-subtitle-h3">Worker basliyor ama LivePoly trade acmiyor</h3>
+        <ul class="docs-list">
+            <li><code>appsettings.json</code>'da EnabledEngines icinde "LivePoly" var mi?</li>
+            <li>Polymarket'te matching market var mi?</li>
+        </ul>
+
+        <h3 class="docs-subtitle-h3">Python service cokerse ne olur?</h3>
+        <ul class="docs-list">
+            <li>PaperPoly normal calismaya devam eder</li>
+            <li>LivePoly order acamaz ama sistem cokmez</li>
+            <li>Worker yeniden baslatilirsa Python service de yeniden baslar</li>
+        </ul>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- BOLUM 10: Dosya Haritasi -->
+    <!-- ================================================================== -->
+    <div class="docs-card" style="border-left-color: var(--color-text-muted);">
+        <h2 class="docs-title">10. Dosya Haritasi</h2>
+        <pre class="docs-code">
+D:\repos\Traxon\
+├── scripts/polymarket-signer/
+│   ├── signing_service.py          ← Python signing service (Flask, port 5099)
+│   └── requirements.txt            ← Python bagimliliklari
+├── src/CryptoTrader/
+│   ├── Application/Abstractions/
+│   │   ├── IPolymarketSigningClient.cs
+│   │   └── ISecureSettingService.cs
+│   ├── Polymarket/
+│   │   ├── Engines/PolymarketEngine.cs        ← LivePoly engine
+│   │   ├── Http/PolymarketClient.cs           ← REST client
+│   │   ├── Http/PolymarketSigningClient.cs    ← Python service client
+│   │   ├── Authentication/PolymarketAuthHandler.cs
+│   │   └── Options/PolymarketOptions.cs
+│   ├── Infrastructure/
+│   │   ├── Configuration/PolymarketCredentialConfigurer.cs
+│   │   ├── Services/PythonSignerHostedService.cs
+│   │   └── Persistence/SecureSettingService.cs
+│   ├── Worker/
+│   │   ├── Program.cs
+│   │   └── appsettings.json
+│   └── Dashboard/Components/Pages/
+│       └── ConfigPage.razor        ← Credential giris formu</pre>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- BOLUM 11: Guvenlik Checklist -->
+    <!-- ================================================================== -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-green);">
+        <h2 class="docs-title">11. Guvenlik Checklist</h2>
+        <ul class="docs-list">
+            <li>Python 3.9+ kurulu ve pip install tamamlandi</li>
+            <li>Polymarket hesabinda USDC var (Polygon agi)</li>
+            <li>Private key MetaMask'tan export edildi</li>
+            <li>API credential'lari Python SDK ile olusturuldu</li>
+            <li>Dashboard /config sayfasindan 6 credential girildi</li>
+            <li>Tum alanlar "Dolu" gosteriyor</li>
+            <li>appsettings.json'da gercek key yok (placeholder'lar duruyor)</li>
+            <li>Git history'de key sizintisi yok</li>
+            <li>Worker baslatildiginda log'larda "signing service started" gorunuyor</li>
+        </ul>
+    </div>
+    </div>
+</div>
+
+<style>
+    .docs-container {
+        max-width: 950px;
+        margin: 0 auto;
+        padding: 0 16px 40px 16px;
+        overflow-y: auto;
+    }
+
+    .docs-header-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 8px;
+    }
+
+    .docs-main-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--color-accent-green);
+        margin-bottom: 4px;
+    }
+
+    .docs-subtitle {
+        font-size: 0.85rem;
+        color: var(--color-text-muted);
+        margin-bottom: 24px;
+    }
+
+    .docs-card {
+        background-color: var(--color-bg-surface);
+        border: 1px solid var(--color-border-default);
+        border-left: 4px solid var(--color-accent-green);
+        border-radius: 10px;
+        padding: 20px 24px;
+        margin-bottom: 20px;
+    }
+
+    .docs-title {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: var(--color-text-primary);
+        margin-bottom: 12px;
+    }
+
+    .docs-subtitle-h3 {
+        font-size: 1.0rem;
+        font-weight: 600;
+        color: var(--color-text-secondary);
+        margin-top: 16px;
+        margin-bottom: 8px;
+    }
+
+    .docs-card p {
+        font-size: 0.95rem;
+        line-height: 1.65;
+        color: var(--color-text-primary);
+        margin-bottom: 8px;
+    }
+
+    .docs-source {
+        font-size: 0.8rem !important;
+        color: var(--color-text-muted) !important;
+        font-style: italic;
+    }
+
+    .docs-code {
+        background-color: var(--color-bg-primary);
+        border: 1px solid var(--color-border-default);
+        border-radius: 6px;
+        padding: 14px 16px;
+        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        font-size: 0.85rem;
+        line-height: 1.5;
+        color: var(--color-accent-gold);
+        overflow-x: auto;
+        white-space: pre;
+        margin: 8px 0;
+    }
+
+    .docs-example {
+        background-color: var(--color-bg-elevated);
+        border: 1px solid var(--color-border-default);
+        border-radius: 6px;
+        padding: 12px 16px;
+        margin: 8px 0;
+        font-size: 0.9rem;
+        line-height: 1.6;
+        color: var(--color-text-primary);
+    }
+
+    .docs-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 12px 0;
+        font-size: 0.9rem;
+    }
+
+    .docs-table th {
+        text-align: left;
+        padding: 8px 12px;
+        background-color: var(--color-bg-elevated);
+        color: var(--color-text-secondary);
+        font-weight: 600;
+        border-bottom: 1px solid var(--color-border-default);
+    }
+
+    .docs-table td {
+        padding: 8px 12px;
+        color: var(--color-text-primary);
+        border-bottom: 1px solid var(--color-border-subtle);
+    }
+
+    .docs-table code {
+        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        font-size: 0.85rem;
+        color: var(--color-accent-gold);
+        background-color: var(--color-bg-primary);
+        padding: 1px 5px;
+        border-radius: 3px;
+    }
+
+    .docs-list {
+        list-style: none;
+        padding-left: 0;
+        margin-bottom: 8px;
+    }
+
+    .docs-list li {
+        font-size: 0.95rem;
+        line-height: 1.65;
+        color: var(--color-text-primary);
+        padding-left: 16px;
+        position: relative;
+        margin-bottom: 4px;
+    }
+
+    .docs-list li::before {
+        content: "▸";
+        position: absolute;
+        left: 0;
+        color: var(--color-text-muted);
+    }
+
+    .docs-step {
+        display: flex;
+        gap: 14px;
+        align-items: flex-start;
+        margin-bottom: 16px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--color-border-subtle);
+    }
+
+    .docs-step:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+        margin-bottom: 0;
+    }
+
+    .docs-step-number {
+        flex-shrink: 0;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background-color: var(--color-accent-green);
+        color: var(--color-bg-primary);
+        font-weight: 700;
+        font-size: 0.85rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-top: 2px;
+    }
+
+    .docs-step-content {
+        flex: 1;
+    }
+
+    .docs-step-content strong {
+        font-size: 0.95rem;
+        color: var(--color-text-primary);
+    }
+
+    .docs-step-content p {
+        margin-top: 4px;
+    }
+
+    .docs-warning {
+        background-color: rgba(255, 71, 87, 0.08);
+        border: 1px solid rgba(255, 71, 87, 0.3);
+        border-left: 4px solid var(--color-accent-red);
+        border-radius: 6px;
+        padding: 12px 16px;
+        margin: 8px 0;
+        font-size: 0.9rem;
+        line-height: 1.6;
+        color: var(--color-text-primary);
+    }
+
+    .docs-info {
+        background-color: rgba(59, 130, 246, 0.08);
+        border: 1px solid rgba(59, 130, 246, 0.3);
+        border-left: 4px solid var(--color-accent-blue);
+        border-radius: 6px;
+        padding: 12px 16px;
+        margin: 8px 0;
+        font-size: 0.9rem;
+        line-height: 1.6;
+        color: var(--color-text-primary);
+    }
+</style>

@@ -4,6 +4,7 @@ using Traxon.CryptoTrader.Domain.Trading;
 using Traxon.CryptoTrader.Infrastructure.Persistence.Configurations;
 using Traxon.CryptoTrader.Infrastructure.Persistence.Models;
 
+
 namespace Traxon.CryptoTrader.Infrastructure.Persistence;
 
 public sealed class AppDbContext : DbContext
@@ -13,6 +14,7 @@ public sealed class AppDbContext : DbContext
     public DbSet<PortfolioSnapshot>  PortfolioSnapshots  { get; set; } = null!;
     public DbSet<SignalRecord>       SignalRecords       { get; set; } = null!;
     public DbSet<SignalEngineResult> SignalEngineResults  { get; set; } = null!;
+    public DbSet<SecureSetting>      SecureSettings       { get; set; } = null!;
 
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
@@ -23,5 +25,6 @@ public sealed class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new PortfolioSnapshotEntityConfiguration());
         modelBuilder.ApplyConfiguration(new SignalRecordEntityConfiguration());
         modelBuilder.ApplyConfiguration(new SignalEngineResultEntityConfiguration());
+        modelBuilder.ApplyConfiguration(new SecureSettingEntityConfiguration());
     }
 }

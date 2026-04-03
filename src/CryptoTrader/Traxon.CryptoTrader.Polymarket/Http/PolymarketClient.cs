@@ -298,6 +298,58 @@ public sealed class PolymarketClient : IPolymarketClient
         }
     }
 
+    public async Task<Result<decimal>> GetBalanceAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _restPipeline.ExecuteAsync(
+                async token => await _httpClient.GetAsync("/balance", token),
+                ct);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogError("Polymarket GetBalance failed: {Status}", response.StatusCode);
+                return Result<decimal>.Failure(
+                    new Error("Polymarket.HttpError", $"HTTP {(int)response.StatusCode}"));
+            }
+
+            var json = await response.Content.ReadAsStringAsync(ct);
+            using var doc = JsonDocument.Parse(json);
+
+            // CLOB API returns balance as a string number
+            var balanceStr = doc.RootElement.TryGetProperty("balance", out var balProp)
+                ? balProp.GetString()
+                : doc.RootElement.GetRawText().Trim('"');
+
+            if (!decimal.TryParse(balanceStr, System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out var balance))
+            {
+                return Result<decimal>.Failure(
+                    new Error("Polymarket.ParseError", "Could not parse balance value."));
+            }
+
+            return Result<decimal>.Success(balance);
+        }
+        catch (BrokenCircuitException ex)
+        {
+            _logger.LogError(ex, "Polymarket circuit open — GetBalance rejected");
+            return Result<decimal>.Failure(
+                new Error("Polymarket.CircuitOpen", "Circuit breaker is open."));
+        }
+        catch (TimeoutRejectedException ex)
+        {
+            _logger.LogError(ex, "Polymarket timeout — GetBalance");
+            return Result<decimal>.Failure(
+                new Error("Polymarket.Timeout", "Request timed out."));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Polymarket GetBalance unexpected error");
+            return Result<decimal>.Failure(
+                new Error("Polymarket.UnexpectedError", ex.Message));
+        }
+    }
+
     private static IReadOnlyList<PolymarketLevel> ParseLevels(JsonElement root, string property)
     {
         if (!root.TryGetProperty(property, out var arr))

@@ -32,7 +32,7 @@
             @Trade.Status
         </span>
     </td>
-    <td class="py-2 px-3 text-xs" style="color: var(--color-text-muted);">@Trade.OpenedAt.ToLocalTime().ToString("HH:mm")</td>
+    <td class="py-2 px-3 text-xs" style="color: var(--color-text-muted);">@Trade.OpenedAt.AddHours(3).ToString("HH:mm")</td>
 </tr>
 
 @code {

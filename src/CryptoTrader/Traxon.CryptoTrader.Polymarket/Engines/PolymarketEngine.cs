@@ -3,7 +3,6 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Traxon.CryptoTrader.Application.Abstractions;
-using Traxon.CryptoTrader.Application.Polymarket.Models;
 using Traxon.CryptoTrader.Domain.Common;
 using Traxon.CryptoTrader.Domain.Market;
 using Traxon.CryptoTrader.Domain.Trading;
@@ -14,6 +13,7 @@ namespace Traxon.CryptoTrader.Polymarket.Engines;
 public sealed class PolymarketEngine : ITradingEngine, IAsyncDisposable
 {
     private readonly IPolymarketClient          _client;
+    private readonly IPolymarketSigningClient   _signingClient;
     private readonly IMarketDiscoveryService    _discovery;
     private readonly PolymarketOptions          _options;
     private readonly ITradeLogger               _tradeLogger;
@@ -28,6 +28,7 @@ public sealed class PolymarketEngine : ITradingEngine, IAsyncDisposable
     private Task?                    _heartbeatTask;
 
     private const decimal InitialBalance = 10_000m;
+    private const decimal TakerFeeRate  = 0.018m; // %1.8 taker fee
 
     private readonly Portfolio _portfolio;
 
@@ -35,17 +36,19 @@ public sealed class PolymarketEngine : ITradingEngine, IAsyncDisposable
 
     public PolymarketEngine(
         IPolymarketClient client,
+        IPolymarketSigningClient signingClient,
         IMarketDiscoveryService discovery,
         IOptions<PolymarketOptions> options,
         ITradeLogger tradeLogger,
         ILogger<PolymarketEngine> logger)
     {
-        _client      = client;
-        _discovery   = discovery;
-        _options     = options.Value;
-        _tradeLogger = tradeLogger;
-        _logger      = logger;
-        _portfolio   = new Portfolio(EngineName, InitialBalance);
+        _client        = client;
+        _signingClient = signingClient;
+        _discovery     = discovery;
+        _options       = options.Value;
+        _tradeLogger   = tradeLogger;
+        _logger        = logger;
+        _portfolio     = new Portfolio(EngineName, InitialBalance);
     }
 
     public Task<Result<bool>> IsReadyAsync(CancellationToken ct = default)
@@ -98,16 +101,9 @@ public sealed class PolymarketEngine : ITradingEngine, IAsyncDisposable
 
             // Place maker limit order slightly below midpoint
             var limitPrice = Math.Max(0.01m, marketPrice - 0.01m);
-            var order = new PolymarketOrderRequest
-            {
-                TokenId   = market.RelevantTokenId,
-                Price     = limitPrice,
-                Size      = positionSize,
-                Side      = "BUY",
-                OrderType = "GTC"
-            };
 
-            var placeResult = await _client.PlaceOrderAsync(order, ct);
+            var placeResult = await _signingClient.CreateAndPostOrderAsync(
+                market.RelevantTokenId, limitPrice, positionSize, "BUY", "GTC", ct);
             if (placeResult.IsFailure)
                 return Result<Trade>.Failure(placeResult.Error!);
 
@@ -170,7 +166,7 @@ public sealed class PolymarketEngine : ITradingEngine, IAsyncDisposable
 
             if (!string.IsNullOrEmpty(orderId))
             {
-                var cancelResult = await _client.CancelOrderAsync(orderId, ct);
+                var cancelResult = await _signingClient.CancelOrderAsync(orderId, ct);
                 if (cancelResult.IsFailure)
                     _logger.LogWarning("Failed to cancel order {OrderId}: {Error}",
                         orderId, cancelResult.Error?.Message);
@@ -200,11 +196,76 @@ public sealed class PolymarketEngine : ITradingEngine, IAsyncDisposable
         => Task.FromResult(Result<Portfolio>.Success(_portfolio));
 
     /// <summary>
-    /// Polymarket'te resolution otomatik olur; bu method şimdilik no-op.
-    /// WebSocket event'leri üzerinden otomatik çözüm gelecek versiyonda eklenecek.
+    /// Açık pozisyonları kontrol eder. Polymarket market'i resolve olduysa
+    /// (fiyat >= 0.95 veya <= 0.05) trade'i kapatır.
     /// </summary>
-    public Task CheckPositionsAsync(Candle candle, CancellationToken ct = default)
-        => Task.CompletedTask;
+    public async Task CheckPositionsAsync(Candle candle, CancellationToken ct = default)
+    {
+        if (_openTrades.IsEmpty) return;
+
+        var tradesToClose = new List<(Guid tradeId, decimal exitPrice, TradeOutcome outcome, decimal pnl)>();
+
+        foreach (var (tradeId, trade) in _openTrades)
+        {
+            try
+            {
+                var discoverResult = await _discovery.DiscoverMarketsAsync(ct);
+                if (discoverResult.IsFailure) continue;
+
+                var targetDirection = trade.Direction == SignalDirection.Up ? "Up" : "Down";
+                var market = discoverResult.Value!
+                    .FirstOrDefault(m => m.UnderlyingAsset.Equals(
+                        trade.Asset.Symbol.Replace("USDT", ""),
+                        StringComparison.OrdinalIgnoreCase)
+                        && m.Direction == targetDirection);
+
+                if (market is null) continue;
+
+                var midpointResult = await _client.GetMidpointAsync(market.RelevantTokenId, ct);
+                if (midpointResult.IsFailure) continue;
+
+                var currentPrice = midpointResult.Value;
+
+                if (currentPrice >= 0.95m)
+                {
+                    // YES kazandi — tam resolve
+                    var exitPrice = 1.0m;
+                    var fee = trade.PositionSize * TakerFeeRate;
+                    var pnl = (exitPrice - trade.EntryPrice) / trade.EntryPrice * trade.PositionSize - fee;
+                    tradesToClose.Add((tradeId, exitPrice, TradeOutcome.Win, pnl));
+                }
+                else if (currentPrice <= 0.05m)
+                {
+                    // NO kazandi — tam kayip
+                    var exitPrice = 0.0m;
+                    var pnl = -trade.PositionSize;
+                    tradesToClose.Add((tradeId, exitPrice, TradeOutcome.Loss, pnl));
+                }
+                // Henuz resolve olmadiysa bekle
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[LivePoly] CheckPositions error for trade {TradeId}", tradeId);
+            }
+        }
+
+        foreach (var (tradeId, exitPrice, outcome, pnl) in tradesToClose)
+        {
+            if (_openTrades.TryRemove(tradeId, out var trade))
+            {
+                _tradeToOrderId.TryRemove(tradeId, out _);
+
+                trade.Close(exitPrice, outcome, pnl);
+
+                await _tradeLogger.LogTradeClosedAsync(trade, ct);
+                await _tradeLogger.LogPortfolioSnapshotAsync(_portfolio, ct);
+
+                _logger.LogInformation(
+                    "[LivePoly] Trade RESOLVED: {Symbol} {Direction} Exit:{Exit:F2} PnL:{PnL:F4} Outcome:{Outcome}",
+                    trade.Asset.Symbol, trade.Direction, exitPrice, pnl, outcome);
+            }
+        }
+    }
 
     private void EnsureHeartbeatStarted()
     {
@@ -228,6 +289,11 @@ public sealed class PolymarketEngine : ITradingEngine, IAsyncDisposable
                     _logger.LogWarning("Polymarket heartbeat failed: {Error}", result.Error?.Message);
                 else
                     _logger.LogDebug("Polymarket heartbeat sent");
+
+                // Canli bakiye senkronizasyonu (signing client uzerinden)
+                var balanceResult = await _signingClient.GetBalanceAsync(ct);
+                if (balanceResult.IsSuccess)
+                    _logger.LogDebug("[LivePoly] Polymarket balance: ${Balance:F2}", balanceResult.Value);
             }
         }
         catch (OperationCanceledException)

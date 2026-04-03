@@ -11,7 +11,7 @@
             <div style="font-size: 0.7rem; color: var(--color-text-muted); margin-bottom: 8px;">
                 Çalışan motorların anlık özet bilgileri. Bakiye, toplam kar/zarar, kazanma oranı ve açık pozisyon sayısı burada görünür.
             </div>
-            @foreach (var (engine, portfolio) in Feed.Portfolios)
+            @foreach (var (engine, portfolio) in Feed.Portfolios.Where(p => !p.Key.Contains("Binance", StringComparison.OrdinalIgnoreCase)))
             {
                 <div class="mb-3">
                     <p class="text-xs mb-2" style="color: var(--color-text-muted);">@engine</p>
@@ -72,7 +72,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var trade in Feed.RecentTrades.TakeLast(10).Reverse())
+                    @foreach (var trade in Feed.RecentTrades.Where(t => !t.Engine.Contains("Binance", StringComparison.OrdinalIgnoreCase)).TakeLast(10).Reverse())
                     {
                         <TradeRow Trade="trade" />
                     }

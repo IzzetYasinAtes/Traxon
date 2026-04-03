@@ -57,6 +57,7 @@
         snapshots.Reverse();
 
         _series = snapshots
+            .Where(p => !p.Engine.Contains("Binance", StringComparison.OrdinalIgnoreCase))
             .GroupBy(p => p.Engine)
             .ToDictionary(
                 g => g.Key,

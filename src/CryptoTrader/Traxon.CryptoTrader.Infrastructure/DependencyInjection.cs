@@ -1,15 +1,20 @@
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using Traxon.CryptoTrader.Application.Abstractions;
 using Traxon.CryptoTrader.Infrastructure.Buffers;
 using Traxon.CryptoTrader.Infrastructure.Calculators;
+using Traxon.CryptoTrader.Infrastructure.Configuration;
 using Traxon.CryptoTrader.Infrastructure.Engines;
 using Traxon.CryptoTrader.Infrastructure.Patterns;
 using Traxon.CryptoTrader.Infrastructure.Persistence;
 using Traxon.CryptoTrader.Application.Options;
 using Traxon.CryptoTrader.Infrastructure.Signals;
+using Traxon.CryptoTrader.Polymarket.Engines;
+using Traxon.CryptoTrader.Polymarket.Options;
 
 namespace Traxon.CryptoTrader.Infrastructure;
 
@@ -33,6 +38,14 @@ public static class DependencyInjection
         services.AddSingleton<IFairValueCalculator, FairValueCalculator>();
         services.AddSingleton<IPositionSizer, PositionSizer>();
         services.AddSingleton<ISignalGenerator, SignalGenerator>();
+
+        // DataProtection + Secure Settings
+        services.AddDataProtection()
+            .SetApplicationName("Traxon");
+        services.AddSingleton<ISecureSettingService, SecureSettingService>();
+
+        // DB'deki şifreli credential'ları PolymarketOptions'a override eder
+        services.AddSingleton<IPostConfigureOptions<PolymarketOptions>, PolymarketCredentialConfigurer>();
 
         // EF Core — IDbContextFactory pattern
         var connectionString = configuration.GetConnectionString("DefaultConnection");
@@ -72,6 +85,11 @@ public static class DependencyInjection
         {
             services.AddSingleton<PaperBinanceEngine>();
             services.AddSingleton<ITradingEngine>(sp => sp.GetRequiredService<PaperBinanceEngine>());
+        }
+
+        if (enabled.Contains("LivePoly"))
+        {
+            services.AddSingleton<ITradingEngine>(sp => sp.GetRequiredService<PolymarketEngine>());
         }
 
         return services;

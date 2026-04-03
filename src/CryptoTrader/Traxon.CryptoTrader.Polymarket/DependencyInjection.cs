@@ -34,11 +34,16 @@ public static class DependencyInjection
 
         services.AddSingleton<IMarketDiscoveryService, MarketDiscoveryService>();
 
+        services.AddHttpClient<IPolymarketSigningClient, PolymarketSigningClient>(client =>
+        {
+            client.BaseAddress = new Uri("http://127.0.0.1:5099");
+            client.Timeout = TimeSpan.FromSeconds(15);
+        });
+
         services.AddSingleton<PolymarketWebSocketClient>();
 
         services.AddSingleton<PolymarketEngine>();
-        services.AddSingleton<ITradingEngine>(
-            sp => sp.GetRequiredService<PolymarketEngine>());
+        // ITradingEngine kaydı Infrastructure DI'da yapılır (EnabledEngines kontrolü ile)
 
         return services;
     }

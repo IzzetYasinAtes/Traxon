@@ -17,4 +17,6 @@ public sealed class PolymarketOptions
     public int     WsPingIntervalSeconds     { get; set; } = 10;
     public decimal MaxPositionSizeUsdc       { get; set; } = 10m;
     public int     MarketMinutesMinRemaining { get; set; } = 10;
+    public string  PrivateKey                { get; set; } = string.Empty;
+    public int     SignatureType             { get; set; } = 0; // 0=EOA, 1=Magic, 2=Proxy
 }

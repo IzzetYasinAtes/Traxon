@@ -70,7 +70,7 @@
             diyagram, veri akisinin tum adimlarini gosterir. Her adim oncekinin ciktisini girdi olarak alir:
         </p>
         <pre class="docs-code">
-  Binance WebSocket API (kline stream)
+  WebSocket API (kline stream)
         |
         v
   [MarketDataWorker]        &lt;- BackgroundService, canli mum verisi alir (1m+5m+15m+1h)
@@ -88,8 +88,8 @@
         |                       6 bilesenden agirlikli skor, 1h trend teyidi,
         |                       hacim dogrulama, rejim tespiti, Kelly pozisyon hesabi
         v
-  [TradingEngine]           &lt;- PaperBinance: SL/TP bazli spot sim
-        |                       PaperPoly:    binary resolution sim
+  [TradingEngine]           &lt;- PaperPoly:    binary resolution sim
+        |                       LivePoly:     gercek Polymarket trading
         v
   [TradeLogger]             &lt;- SQL Server'a trade + portfolio snapshot kaydeder
         |
@@ -99,7 +99,7 @@
 
         <h3 class="docs-subtitle-h3">WebSocket Veri Akisi Detayli</h3>
         <p>
-            Binance WebSocket API'den <code>kline</code> stream uzerinden canli mum verileri alinir. Sistem tum
+            WebSocket API'den <code>kline</code> stream uzerinden canli mum verileri alinir. Sistem tum
             <code>Asset.Tradeable</code> varliklar (BTCUSDT, ETHUSDT, SOLUSDT, XRPUSDT, DOGEUSDT, BNBUSDT, DOTUSDT, MATICUSDT)
             ve tum <code>TimeFrame.All</code> zaman dilimleri (1m, 5m, 15m, 1h) icin stream dinler. Her mum kapandiginda
             (candle close event) indicator hesaplama ve sinyal uretim sureci tetiklenir. 1h mumlar sadece trend dogrulama
@@ -550,6 +550,7 @@ positionSize  = max(0, positionSize)
         </div>
     </div>
 
+    @* BOLUM 5: PaperBinance Motoru — UI'dan gizlendi, kod korunuyor
     <!-- ================================================================== -->
     <!-- BOLUM 5: PaperBinance Motoru -->
     <!-- ================================================================== -->
@@ -694,6 +695,7 @@ PnL = (101.050 - 100.125) / 100.125 x $1.00 = +$0.0092
             Basabas WR: 0.575 / (0.575 + 0.80) = <strong>%41.8</strong> (komisyon oncesi %33.3'ten yuksek).
         </p>
     </div>
+    BOLUM 5 SONU *@
 
     <!-- ================================================================== -->
     <!-- BOLUM 6: PaperPoly Motoru -->
@@ -840,7 +842,7 @@ E[PnL] = 0.50 x $1.421 - 0.50 x $1.00 = $0.711 - $0.500 = +$0.211
         <p class="docs-source">Kaynak: <code>Portfolio.cs:1-74</code></p>
 
         <p>
-            Her engine (<strong>PaperBinance</strong> ve <strong>PaperPoly</strong>) bagimsiz bir Portfolio nesnesi yonetir.
+            Her engine (<strong>PaperPoly</strong> ve <strong>LivePoly</strong>) bagimsiz bir Portfolio nesnesi yonetir.
             Portfolio sinifi, <code>AggregateRoot&lt;Guid&gt;</code>'den turetilmistir ve pozisyon acma/kapama, bakiye takibi
             ve risk limitleri saglar. Tum bakiye islemleri thread-safe ConcurrentDictionary ve SemaphoreSlim
             ile korunur.
@@ -937,7 +939,7 @@ Balance += positionSize + PnL
         <ul class="docs-list">
             <li><strong>Bakiye tutarliligi:</strong> Restart sonrasi bakiye dogru degerden devam eder</li>
             <li><strong>Duplicate onleme:</strong> Ayni asset icin birden fazla trade acilmaz</li>
-            <li><strong>SL/TP takibi:</strong> PaperBinance'da SL/TP degerleri trade'in <code>IndicatorSnapshot</code> JSON'ından parse edilir</li>
+            <li><strong>SL/TP takibi:</strong> SL/TP degerleri trade'in <code>IndicatorSnapshot</code> JSON'ından parse edilir</li>
             <li><strong>WinRate korunmasi:</strong> Win/Loss sayaclari snapshot'tan restore edilir</li>
         </ul>
     </div>
@@ -985,7 +987,7 @@ Balance += positionSize + PnL
             <tbody>
                 <tr><td>Id</td><td>uniqueidentifier</td><td>Primary key (GUID)</td></tr>
                 <tr><td>SignalRecordId</td><td>uniqueidentifier</td><td>FK → SignalRecords.Id</td></tr>
-                <tr><td>EngineName</td><td>nvarchar(20)</td><td>Engine adi (PaperBinance, PaperPoly)</td></tr>
+                <tr><td>EngineName</td><td>nvarchar(20)</td><td>Engine adi (PaperPoly, LivePoly)</td></tr>
                 <tr><td>Accepted</td><td>bit</td><td>Kabul edildi mi?</td></tr>
                 <tr><td>RejectionReason</td><td>nvarchar(100)?</td><td>Red sebebi kodu (null ise kabul)</td></tr>
                 <tr><td>TradeId</td><td>uniqueidentifier?</td><td>Acilan trade ID (null ise reddedildi)</td></tr>

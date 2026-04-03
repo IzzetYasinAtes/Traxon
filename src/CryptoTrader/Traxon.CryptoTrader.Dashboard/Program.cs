@@ -5,6 +5,7 @@ using Traxon.CryptoTrader.Application;
 using Traxon.CryptoTrader.Application.Abstractions;
 using Traxon.CryptoTrader.Application.Workers;
 using Traxon.CryptoTrader.Binance;
+using Traxon.CryptoTrader.Polymarket;
 using Traxon.CryptoTrader.Dashboard.Components;
 using Traxon.CryptoTrader.Dashboard.Hubs;
 using Traxon.CryptoTrader.Dashboard.Services;
@@ -25,6 +26,7 @@ try
     builder.Services.AddApplication();
     builder.Services.AddInfrastructure(builder.Configuration);
     builder.Services.AddBinanceServices(builder.Configuration);
+    builder.Services.AddPolymarketServices(builder.Configuration);
 
     // Dashboard only shows live feed — Worker handles DB persistence.
     // Override SQL writers with no-ops to prevent duplicate candle writes.
