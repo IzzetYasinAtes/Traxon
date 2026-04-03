@@ -19,7 +19,7 @@ public sealed class Portfolio : AggregateRoot<Guid>
 
     public decimal TotalExposure => _openPositions.Sum(p => p.PositionSize);
     public decimal MaxExposure => Balance * 0.30m;
-    public decimal MaxPositionSize => Balance * 0.02m;
+    public decimal MaxPositionSize => Math.Max(Balance * 0.02m, 1.0m);
 
     private Portfolio() { Engine = null!; }
 

@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Traxon.CryptoTrader.Application.Abstractions;
 using Traxon.CryptoTrader.Infrastructure.Buffers;
 using Traxon.CryptoTrader.Infrastructure.Calculators;
@@ -49,6 +50,9 @@ public static class DependencyInjection
         // Persistence
         services.AddSingleton<ITradeLogger, SqlTradeLogger>();
         services.AddSingleton<ICandleWriter, SqlCandleWriter>();
+
+        // Buffer warmup — DB'deki mumları startup'ta buffer'a yükler (MarketDataWorker'dan önce çalışır)
+        services.AddSingleton<IHostedService, BufferWarmupService>();
 
         // Trading Engines — only register engines listed in EnabledEngines config
         var enabled = configuration
