@@ -14,9 +14,9 @@ public static class CandleAggregator
         var closeMinute = oneMinuteCandle.CloseTime.Minute;
         return targetTimeFrame.TotalSeconds switch
         {
-            300  => (closeMinute + 1) % 5 == 0,   // minutes 4, 9, 14, 19, 24, 29...
-            900  => (closeMinute + 1) % 15 == 0,  // minutes 14, 29, 44, 59
-            3600 => closeMinute == 59,             // minute 59
+            300  => closeMinute % 5 == 0,          // minutes 0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55
+            900  => closeMinute % 15 == 0,         // minutes 0, 15, 30, 45
+            3600 => closeMinute == 0,              // exactly on the hour
             _    => false
         };
     }
