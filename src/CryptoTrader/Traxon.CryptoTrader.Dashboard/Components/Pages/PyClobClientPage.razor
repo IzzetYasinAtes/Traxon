@@ -1,0 +1,673 @@
+@page "/py-clob-client"
+
+<div class="docs-container">
+    <div class="docs-header-row">
+        <div>
+            <h1 class="docs-main-title">py-clob-client SDK Referans</h1>
+            <p class="docs-subtitle">Polymarket resmi Python SDK — order olusturma, EIP-712 imzalama ve CLOB API iletisimi</p>
+        </div>
+    </div>
+
+    <div class="docs-content">
+    <!-- ================================================================== -->
+    <!-- BOLUM 1: Genel Bakis -->
+    <!-- ================================================================== -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-green);">
+        <h2 class="docs-title">1. Genel Bakis</h2>
+        <ul class="docs-list">
+            <li>py-clob-client = Polymarket'in resmi Python SDK'si</li>
+            <li>Kurulum: <code>pip install py-clob-client</code> (Python 3.9+)</li>
+            <li>Ne ise yarar: Order olusturma, EIP-712 imzalama, CLOB API ile iletisim</li>
+            <li>Traxon'da kullanimi: Python signing service (Flask, port 5099) bu SDK'yi kullanir</li>
+        </ul>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- BOLUM 2: Kimlik Dogrulama -->
+    <!-- ================================================================== -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-blue);">
+        <h2 class="docs-title">2. Kimlik Dogrulama</h2>
+        <p>3 seviye erisim:</p>
+
+        <h3 class="docs-subtitle-h3">1. Read-Only (API key gerektirmez)</h3>
+        <pre class="docs-code">client = ClobClient("https://clob.polymarket.com")</pre>
+
+        <h3 class="docs-subtitle-h3">2. Trading (Standard EOA — MetaMask)</h3>
+        <pre class="docs-code">client = ClobClient(
+    "https://clob.polymarket.com",
+    key="0xPRIVATE_KEY",
+    chain_id=137,
+    signature_type=0,
+    funder="0xWALLET_ADDRESS"
+)
+creds = client.create_or_derive_api_creds()
+client.set_api_creds(creds)</pre>
+
+        <h3 class="docs-subtitle-h3">Signature Types</h3>
+        <table class="docs-table">
+            <thead>
+                <tr>
+                    <th>Deger</th>
+                    <th>Tur</th>
+                    <th>Aciklama</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>0</td>
+                    <td>EOA</td>
+                    <td>MetaMask, hardware wallet</td>
+                </tr>
+                <tr>
+                    <td>1</td>
+                    <td>Magic</td>
+                    <td>Email/Magic wallet</td>
+                </tr>
+                <tr>
+                    <td>2</td>
+                    <td>Proxy</td>
+                    <td>Browser wallet proxy</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- BOLUM 3: Market Veri Metodlari -->
+    <!-- ================================================================== -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-gold);">
+        <h2 class="docs-title">3. Market Veri Metodlari</h2>
+        <table class="docs-table">
+            <thead>
+                <tr>
+                    <th>Metod</th>
+                    <th>Parametre</th>
+                    <th>Donus</th>
+                    <th>Aciklama</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>get_ok()</code></td>
+                    <td>-</td>
+                    <td>bool</td>
+                    <td>Sunucu saglik kontrolu</td>
+                </tr>
+                <tr>
+                    <td><code>get_server_time()</code></td>
+                    <td>-</td>
+                    <td>timestamp</td>
+                    <td>Sunucu saati</td>
+                </tr>
+                <tr>
+                    <td><code>get_simplified_markets()</code></td>
+                    <td>-</td>
+                    <td>list</td>
+                    <td>Tum marketlerin listesi</td>
+                </tr>
+                <tr>
+                    <td><code>get_midpoint(token_id)</code></td>
+                    <td>token_id: str</td>
+                    <td>str (fiyat)</td>
+                    <td>Bid/ask ortalamasi (0.00-1.00)</td>
+                </tr>
+                <tr>
+                    <td><code>get_price(token_id, side)</code></td>
+                    <td>token_id, "BUY"/"SELL"</td>
+                    <td>str</td>
+                    <td>Best bid veya ask fiyati</td>
+                </tr>
+                <tr>
+                    <td><code>get_order_book(token_id)</code></td>
+                    <td>token_id: str</td>
+                    <td>dict</td>
+                    <td>Tam order book (bids + asks)</td>
+                </tr>
+                <tr>
+                    <td><code>get_order_books([BookParams])</code></td>
+                    <td>list</td>
+                    <td>list</td>
+                    <td>Birden fazla order book (batch)</td>
+                </tr>
+                <tr>
+                    <td><code>get_last_trade_price(token_id)</code></td>
+                    <td>token_id: str</td>
+                    <td>str</td>
+                    <td>Son islem fiyati</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- BOLUM 4: Bakiye ve Pozisyon Metodlari -->
+    <!-- ================================================================== -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-purple);">
+        <h2 class="docs-title">4. Bakiye ve Pozisyon Metodlari</h2>
+        <table class="docs-table">
+            <thead>
+                <tr>
+                    <th>Metod</th>
+                    <th>Parametre</th>
+                    <th>Donus</th>
+                    <th>Aciklama</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>get_balance()</code></td>
+                    <td>-</td>
+                    <td>str (wei)</td>
+                    <td>USDC bakiye (÷1e6 = dolar)</td>
+                </tr>
+                <tr>
+                    <td><code>get_balance_allowance()</code></td>
+                    <td>BalanceAllowanceParams (opsiyonel)</td>
+                    <td>dict</td>
+                    <td>Bakiye + token izni</td>
+                </tr>
+                <tr>
+                    <td><code>get_positions()</code></td>
+                    <td>-</td>
+                    <td>list</td>
+                    <td>Acik pozisyonlar (token_id, size, avgPrice)</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- BOLUM 5: Order Olusturma -->
+    <!-- ================================================================== -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-green);">
+        <h2 class="docs-title">5. Order Olusturma</h2>
+
+        <h3 class="docs-subtitle-h3">Limit Order (GTC/GTD — Maker)</h3>
+        <pre class="docs-code">from py_clob_client.clob_types import OrderArgs, OrderType
+from py_clob_client.order_builder.constants import BUY
+
+order = client.create_and_post_order(
+    OrderArgs(
+        token_id="TOKEN_ID",
+        price=0.50,      # 0.00-1.00 arasi fiyat
+        size=10.0,        # Share sayisi
+        side=BUY
+    ),
+    order_type=OrderType.GTC
+)</pre>
+
+        <h3 class="docs-subtitle-h3">Market Order (FOK/FAK — Taker)</h3>
+        <pre class="docs-code">from py_clob_client.clob_types import MarketOrderArgs, OrderType
+
+order = client.create_and_post_market_order(
+    MarketOrderArgs(
+        token_id="TOKEN_ID",
+        amount=5.0,       # USDC dolar miktari (share degil!)
+        side=BUY
+    ),
+    order_type=OrderType.FAK
+)</pre>
+
+        <div class="docs-warning">
+            <strong>DIKKAT:</strong> Limit order 'size' (share sayisi) alir. Market order 'amount' (USDC dolar) alir. Karistirmayin!
+        </div>
+
+        <h3 class="docs-subtitle-h3">Farklar</h3>
+        <table class="docs-table">
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>Limit Order</th>
+                    <th>Market Order</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Class</td>
+                    <td>OrderArgs</td>
+                    <td>MarketOrderArgs</td>
+                </tr>
+                <tr>
+                    <td>Miktar</td>
+                    <td>size (share)</td>
+                    <td>amount (USDC)</td>
+                </tr>
+                <tr>
+                    <td>Fiyat</td>
+                    <td>price (zorunlu)</td>
+                    <td>price yok (piyasa fiyati)</td>
+                </tr>
+                <tr>
+                    <td>Fee</td>
+                    <td>0 (maker)</td>
+                    <td>Var (taker)</td>
+                </tr>
+                <tr>
+                    <td>Emir tipleri</td>
+                    <td>GTC, GTD</td>
+                    <td>FOK, FAK</td>
+                </tr>
+                <tr>
+                    <td>Metod</td>
+                    <td><code>create_and_post_order()</code></td>
+                    <td><code>create_and_post_market_order()</code></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- BOLUM 6: Order Yonetimi -->
+    <!-- ================================================================== -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-blue);">
+        <h2 class="docs-title">6. Order Yonetimi</h2>
+        <table class="docs-table">
+            <thead>
+                <tr>
+                    <th>Metod</th>
+                    <th>Parametre</th>
+                    <th>Aciklama</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>get_order(order_id)</code></td>
+                    <td>order_id: str</td>
+                    <td>Tek order durumu sorgula</td>
+                </tr>
+                <tr>
+                    <td><code>get_orders()</code></td>
+                    <td>OpenOrderParams (opsiyonel)</td>
+                    <td>Tum acik orderlari listele</td>
+                </tr>
+                <tr>
+                    <td><code>cancel(order_id)</code></td>
+                    <td>order_id: str</td>
+                    <td>Tek order iptal et</td>
+                </tr>
+                <tr>
+                    <td><code>cancel_all()</code></td>
+                    <td>-</td>
+                    <td>Tum orderlari iptal et</td>
+                </tr>
+                <tr>
+                    <td><code>get_trades()</code></td>
+                    <td>-</td>
+                    <td>Kullanicinin trade gecmisi</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- BOLUM 7: Emir Tipleri Detay -->
+    <!-- ================================================================== -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-gold);">
+        <h2 class="docs-title">7. Emir Tipleri Detay</h2>
+
+        <h3 class="docs-subtitle-h3">OrderType.GTC (Good Till Cancelled)</h3>
+        <ul class="docs-list">
+            <li>Limit order — kitaba koyulur, dolana veya iptal edilene kadar kalir</li>
+            <li>Maker → 0 fee</li>
+            <li><code>create_and_post_order(args, OrderType.GTC)</code></li>
+        </ul>
+
+        <h3 class="docs-subtitle-h3">OrderType.GTD (Good Till Date)</h3>
+        <ul class="docs-list">
+            <li>GTC gibi ama tarih limiti var</li>
+            <li>Maker → 0 fee</li>
+            <li>Ekstra parametre: <code>expiration</code> (unix timestamp)</li>
+        </ul>
+
+        <h3 class="docs-subtitle-h3">OrderType.FOK (Fill or Kill)</h3>
+        <ul class="docs-list">
+            <li>Market order — tamami aninda dolsun yoksa iptal</li>
+            <li>Taker → fee odenir</li>
+            <li><code>create_and_post_market_order(args, OrderType.FOK)</code></li>
+        </ul>
+
+        <h3 class="docs-subtitle-h3">OrderType.FAK (Fill and Kill)</h3>
+        <ul class="docs-list">
+            <li>Market order — ne kadar dolarsa o kadar, kalan iptal</li>
+            <li>Taker → fee odenir</li>
+            <li><code>create_and_post_market_order(args, OrderType.FAK)</code></li>
+            <li>Polymarket'in IOC (Immediate or Cancel) karsiligi</li>
+        </ul>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- BOLUM 8: Fee Yapisi -->
+    <!-- ================================================================== -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-red);">
+        <h2 class="docs-title">8. Fee Yapisi</h2>
+
+        <h3 class="docs-subtitle-h3">Formul</h3>
+        <pre class="docs-code">fee = shares × feeRate × price × (1 - price)</pre>
+
+        <h3 class="docs-subtitle-h3">Fee Rate'ler</h3>
+        <table class="docs-table">
+            <thead>
+                <tr>
+                    <th>Kategori</th>
+                    <th>feeRate</th>
+                    <th>Max fee (p=0.50)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Crypto</td>
+                    <td>0.072</td>
+                    <td>%3.6</td>
+                </tr>
+                <tr>
+                    <td>Sports</td>
+                    <td>0.030</td>
+                    <td>%1.5</td>
+                </tr>
+                <tr>
+                    <td>Finance/Politics</td>
+                    <td>0.040</td>
+                    <td>%2.0</td>
+                </tr>
+                <tr>
+                    <td>Geopolitics</td>
+                    <td>0</td>
+                    <td>Bedava</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="docs-info">
+            <strong>Bilgi:</strong> Fee sadece taker orderlardan alinir. Maker orderlar (GTC/GTD) bedavadir. Fee, fiyat 0.50'ye yakinken en yuksek, uclara (0 veya 1) yakinken duser.
+        </div>
+
+        <h3 class="docs-subtitle-h3">Ornek: 100 share, 0.50 fiyat, crypto</h3>
+        <pre class="docs-code">fee = 100 × 0.072 × 0.50 × 0.50 = $1.80</pre>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- BOLUM 9: Token Allowance (Ilk Kullanim) -->
+    <!-- ================================================================== -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-purple);">
+        <h2 class="docs-title">9. Token Allowance (Ilk Kullanim)</h2>
+
+        <div class="docs-warning">
+            <strong>DIKKAT:</strong> MetaMask/EOA kullanicilari ilk trade'den once token approval yapmalidir.
+        </div>
+
+        <p>USDC ve Conditional Token approve edilecek kontratlar:</p>
+        <ul class="docs-list">
+            <li><code>0x4bFb41d5B3570DeFd03C39a9A4D8dE6Bd8B8982E</code></li>
+            <li><code>0xC5d563A36AE78145C45a50134d48A1215220f80a</code></li>
+            <li><code>0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296</code></li>
+        </ul>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- BOLUM 10: Traxon'da Kullanim -->
+    <!-- ================================================================== -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-green);">
+        <h2 class="docs-title">10. Traxon'da Kullanim</h2>
+        <p>Traxon Python signing service (<code>scripts/polymarket-signer/signing_service.py</code>) bu SDK'yi soyle kullaniyor:</p>
+
+        <h3 class="docs-subtitle-h3">Flask HTTP Sunucusu (port 5099)</h3>
+        <table class="docs-table">
+            <thead>
+                <tr>
+                    <th>Endpoint</th>
+                    <th>Metod</th>
+                    <th>SDK Karsiligi</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>/health</code></td>
+                    <td>GET</td>
+                    <td><code>get_ok()</code></td>
+                </tr>
+                <tr>
+                    <td><code>/create-and-post</code></td>
+                    <td>POST</td>
+                    <td><code>create_and_post_order()</code> veya <code>create_and_post_market_order()</code></td>
+                </tr>
+                <tr>
+                    <td><code>/cancel</code></td>
+                    <td>POST</td>
+                    <td><code>cancel()</code></td>
+                </tr>
+                <tr>
+                    <td><code>/balance</code></td>
+                    <td>GET</td>
+                    <td><code>get_balance_allowance()</code></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3 class="docs-subtitle-h3">Order Akisi</h3>
+        <pre class="docs-code">.NET Worker sinyali uretir
+    ↓
+PolymarketEngine.OpenPositionAsync()
+    ↓
+HTTP POST http://127.0.0.1:5099/create-and-post
+    { token_id, amount, side: "BUY", order_type: "FAK" }
+    ↓
+Python signing_service.py:
+    ├─ MarketOrderArgs olustur
+    ├─ client.create_and_post_market_order() → EIP-712 imzala + gonder
+    └─ orderId dondur
+    ↓
+.NET trade'i DB'ye kaydeder</pre>
+    </div>
+    </div>
+</div>
+
+<style>
+    .docs-container {
+        max-width: 950px;
+        margin: 0 auto;
+        padding: 0 16px 40px 16px;
+        overflow-y: auto;
+    }
+
+    .docs-header-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 8px;
+    }
+
+    .docs-main-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--color-accent-green);
+        margin-bottom: 4px;
+    }
+
+    .docs-subtitle {
+        font-size: 0.85rem;
+        color: var(--color-text-muted);
+        margin-bottom: 24px;
+    }
+
+    .docs-card {
+        background-color: var(--color-bg-surface);
+        border: 1px solid var(--color-border-default);
+        border-left: 4px solid var(--color-accent-green);
+        border-radius: 10px;
+        padding: 20px 24px;
+        margin-bottom: 20px;
+    }
+
+    .docs-title {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: var(--color-text-primary);
+        margin-bottom: 12px;
+    }
+
+    .docs-subtitle-h3 {
+        font-size: 1.0rem;
+        font-weight: 600;
+        color: var(--color-text-secondary);
+        margin-top: 16px;
+        margin-bottom: 8px;
+    }
+
+    .docs-card p {
+        font-size: 0.95rem;
+        line-height: 1.65;
+        color: var(--color-text-primary);
+        margin-bottom: 8px;
+    }
+
+    .docs-source {
+        font-size: 0.8rem !important;
+        color: var(--color-text-muted) !important;
+        font-style: italic;
+    }
+
+    .docs-code {
+        background-color: var(--color-bg-primary);
+        border: 1px solid var(--color-border-default);
+        border-radius: 6px;
+        padding: 14px 16px;
+        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        font-size: 0.85rem;
+        line-height: 1.5;
+        color: var(--color-accent-gold);
+        overflow-x: auto;
+        white-space: pre;
+        margin: 8px 0;
+    }
+
+    .docs-example {
+        background-color: var(--color-bg-elevated);
+        border: 1px solid var(--color-border-default);
+        border-radius: 6px;
+        padding: 12px 16px;
+        margin: 8px 0;
+        font-size: 0.9rem;
+        line-height: 1.6;
+        color: var(--color-text-primary);
+    }
+
+    .docs-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 12px 0;
+        font-size: 0.9rem;
+    }
+
+    .docs-table th {
+        text-align: left;
+        padding: 8px 12px;
+        background-color: var(--color-bg-elevated);
+        color: var(--color-text-secondary);
+        font-weight: 600;
+        border-bottom: 1px solid var(--color-border-default);
+    }
+
+    .docs-table td {
+        padding: 8px 12px;
+        color: var(--color-text-primary);
+        border-bottom: 1px solid var(--color-border-subtle);
+    }
+
+    .docs-table code {
+        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        font-size: 0.85rem;
+        color: var(--color-accent-gold);
+        background-color: var(--color-bg-primary);
+        padding: 1px 5px;
+        border-radius: 3px;
+    }
+
+    .docs-list {
+        list-style: none;
+        padding-left: 0;
+        margin-bottom: 8px;
+    }
+
+    .docs-list li {
+        font-size: 0.95rem;
+        line-height: 1.65;
+        color: var(--color-text-primary);
+        padding-left: 16px;
+        position: relative;
+        margin-bottom: 4px;
+    }
+
+    .docs-list li::before {
+        content: "▸";
+        position: absolute;
+        left: 0;
+        color: var(--color-text-muted);
+    }
+
+    .docs-step {
+        display: flex;
+        gap: 14px;
+        align-items: flex-start;
+        margin-bottom: 16px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--color-border-subtle);
+    }
+
+    .docs-step:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+        margin-bottom: 0;
+    }
+
+    .docs-step-number {
+        flex-shrink: 0;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background-color: var(--color-accent-green);
+        color: var(--color-bg-primary);
+        font-weight: 700;
+        font-size: 0.85rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-top: 2px;
+    }
+
+    .docs-step-content {
+        flex: 1;
+    }
+
+    .docs-step-content strong {
+        font-size: 0.95rem;
+        color: var(--color-text-primary);
+    }
+
+    .docs-step-content p {
+        margin-top: 4px;
+    }
+
+    .docs-warning {
+        background-color: rgba(255, 71, 87, 0.08);
+        border: 1px solid rgba(255, 71, 87, 0.3);
+        border-left: 4px solid var(--color-accent-red);
+        border-radius: 6px;
+        padding: 12px 16px;
+        margin: 8px 0;
+        font-size: 0.9rem;
+        line-height: 1.6;
+        color: var(--color-text-primary);
+    }
+
+    .docs-info {
+        background-color: rgba(59, 130, 246, 0.08);
+        border: 1px solid rgba(59, 130, 246, 0.3);
+        border-left: 4px solid var(--color-accent-blue);
+        border-radius: 6px;
+        padding: 12px 16px;
+        margin: 8px 0;
+        font-size: 0.9rem;
+        line-height: 1.6;
+        color: var(--color-text-primary);
+    }
+</style>

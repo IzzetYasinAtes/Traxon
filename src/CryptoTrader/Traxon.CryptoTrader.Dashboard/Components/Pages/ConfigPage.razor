@@ -18,10 +18,7 @@
             <h2 style="font-size: 1rem; font-weight: 700; margin: 0 0 8px 0; color: var(--color-text-primary);">PaperPoly</h2>
             <div style="display: flex; flex-direction: column;">
                 <ConfigRow Label="Başlangıç Bakiyesi" Value="$50" Source="PaperPolymarketEngine.cs" />
-                <ConfigRow Label="Slippage" Value="%1" Source="PaperPolymarketEngine.cs" />
-                <ConfigRow Label="Taker Fee" Value="%1.8" Source="PaperPolymarketEngine.cs" />
-                <ConfigRow Label="Min Giriş Fiyatı" Value="0.25" Source="PaperPolymarketEngine.cs" />
-                <ConfigRow Label="Max Giriş Fiyatı" Value="0.55" Source="PaperPolymarketEngine.cs" />
+                <ConfigRow Label="Taker Fee" Value="Fee = shares x 0.072 x p x (1-p)" Source="PaperPolymarketEngine.cs" />
                 <ConfigRow Label="Pozisyon Büyüklüğü" Value="Bakiyenin %2'si, min $1" Source="PaperPolymarketEngine.cs" />
             </div>
         </div>
@@ -35,7 +32,7 @@
                 <ConfigRow Label="Min Edge (Yüksek Vol)" Value="%12" Source="PositionSizer.cs" />
                 <ConfigRow Label="Min Edge (Düşük Vol)" Value="%15" Source="PositionSizer.cs" />
                 <ConfigRow Label="Max Pozisyon Oranı" Value="%2 (Bakiyenin max yüzdesi, $50'de ~$1)" Source="PositionSizer.cs" />
-                <ConfigRow Label="Kelly Çarpanı" Value="%15" Source="PositionSizer.cs" />
+                <ConfigRow Label="Kelly Çarpanı" Value="%15 (sinyal üretiminde kullanılır, pozisyon boyutlandırmada değil)" Source="PositionSizer.cs" />
                 <ConfigRow Label="Simüle Bankroll" Value="$50" Source="SignalGenerator.cs" />
             </div>
         </div>

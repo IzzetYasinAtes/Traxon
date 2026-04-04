@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Traxon.CryptoTrader.Application.Abstractions;
 using Traxon.CryptoTrader.Infrastructure.Buffers;
@@ -77,7 +78,13 @@ public static class DependencyInjection
 
         if (enabled.Contains("PaperPoly"))
         {
-            services.AddSingleton<PaperPolymarketEngine>();
+            services.AddSingleton<PaperPolymarketEngine>(sp =>
+                new PaperPolymarketEngine(
+                    sp.GetRequiredService<IPolymarketClient>(),
+                    sp.GetRequiredService<IMarketDiscoveryService>(),
+                    sp.GetRequiredService<IOptions<PolymarketOptions>>(),
+                    sp.GetRequiredService<ITradeLogger>(),
+                    sp.GetRequiredService<ILogger<PaperPolymarketEngine>>()));
             services.AddSingleton<ITradingEngine>(sp => sp.GetRequiredService<PaperPolymarketEngine>());
         }
 

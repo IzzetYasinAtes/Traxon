@@ -67,30 +67,47 @@ def create_and_post():
     try:
         data = request.json
 
-        from py_clob_client.clob_types import OrderArgs, OrderType
+        from py_clob_client.clob_types import OrderArgs, MarketOrderArgs, OrderType
         from py_clob_client.order_builder.constants import BUY, SELL
-
-        # Validate
-        required = ["token_id", "price", "size", "side"]
-        for field in required:
-            if field not in data:
-                return jsonify({"success": False, "error": f"Missing field: {field}"}), 400
-
-        order_args = OrderArgs(
-            token_id=data["token_id"],
-            price=float(data["price"]),
-            size=float(data["size"]),
-            side=BUY if data["side"] == "BUY" else SELL
-        )
 
         order_type_str = data.get("order_type", "GTC")
         order_type = getattr(OrderType, order_type_str, OrderType.GTC)
+        side = BUY if data.get("side") == "BUY" else SELL
 
-        # create_order (EIP-712 sign) + post_order (HMAC + send)
-        response = client.create_and_post_order(
-            order_args=order_args,
-            order_type=order_type
-        )
+        # FAK/FOK = market order (amount in dollars), GTC/GTD = limit order (size in shares)
+        if order_type_str in ("FAK", "FOK"):
+            required = ["token_id", "amount", "side"]
+            for field in required:
+                if field not in data:
+                    return jsonify({"success": False, "error": f"Missing field: {field}"}), 400
+
+            order_args = MarketOrderArgs(
+                token_id=data["token_id"],
+                amount=float(data["amount"]),
+                side=side
+            )
+
+            response = client.create_and_post_market_order(
+                order_args=order_args,
+                order_type=order_type
+            )
+        else:
+            required = ["token_id", "price", "size", "side"]
+            for field in required:
+                if field not in data:
+                    return jsonify({"success": False, "error": f"Missing field: {field}"}), 400
+
+            order_args = OrderArgs(
+                token_id=data["token_id"],
+                price=float(data["price"]),
+                size=float(data["size"]),
+                side=side
+            )
+
+            response = client.create_and_post_order(
+                order_args=order_args,
+                order_type=order_type
+            )
 
         logger.info(f"Order posted: {response}")
 

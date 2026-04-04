@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Traxon.CryptoTrader.Application.Abstractions;
 using Traxon.CryptoTrader.Polymarket.Authentication;
 using Traxon.CryptoTrader.Polymarket.Engines;
@@ -21,8 +22,10 @@ public static class DependencyInjection
 
         services.AddTransient<PolymarketAuthHandler>();
 
-        services.AddHttpClient<IPolymarketClient, PolymarketClient>(client =>
+        services.AddHttpClient<IPolymarketClient, PolymarketClient>((sp, client) =>
         {
+            var opts = sp.GetRequiredService<IOptions<PolymarketOptions>>().Value;
+            client.BaseAddress = new Uri(opts.BaseUrl.TrimEnd('/') + "/");
             client.Timeout = TimeSpan.FromSeconds(15);
         })
         .AddHttpMessageHandler<PolymarketAuthHandler>();

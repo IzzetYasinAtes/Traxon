@@ -113,6 +113,63 @@ public sealed class PolymarketSigningClient : IPolymarketSigningClient
         }
     }
 
+    public async Task<Result<string>> CreateAndPostMarketOrderAsync(
+        string tokenId, decimal amountUsdc, string side,
+        string orderType = "FAK", CancellationToken ct = default)
+    {
+        try
+        {
+            var payload = JsonSerializer.Serialize(new
+            {
+                token_id = tokenId,
+                amount = amountUsdc.ToString(CultureInfo.InvariantCulture),
+                side,
+                order_type = orderType
+            }, JsonOptions);
+
+            var content = new StringContent(payload, Encoding.UTF8, "application/json");
+
+            var response = await _pipeline.ExecuteAsync(
+                async token => await _httpClient.PostAsync("/create-and-post", content, token),
+                ct);
+
+            var json = await response.Content.ReadAsStringAsync(ct);
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            var success = root.TryGetProperty("success", out var successProp) && successProp.GetBoolean();
+
+            if (!success)
+            {
+                var error = root.TryGetProperty("error", out var errProp)
+                    ? errProp.GetString() ?? "Unknown error"
+                    : "Unknown error";
+                _logger.LogError("SigningClient MarketOrder failed: {Error}", error);
+                return Result<string>.Failure(new Error("Signer.MarketOrderFailed", error));
+            }
+
+            var orderId = "";
+            if (root.TryGetProperty("response", out var respElement))
+            {
+                if (respElement.ValueKind == JsonValueKind.Object &&
+                    respElement.TryGetProperty("orderID", out var orderIdProp))
+                    orderId = orderIdProp.GetString() ?? "";
+                else if (respElement.ValueKind == JsonValueKind.String)
+                    orderId = respElement.GetString() ?? "";
+                else
+                    orderId = respElement.GetRawText();
+            }
+
+            _logger.LogInformation("SigningClient market order posted: {OrderId}", orderId);
+            return Result<string>.Success(orderId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "SigningClient MarketOrder unexpected error");
+            return Result<string>.Failure(new Error("Signer.UnexpectedError", ex.Message));
+        }
+    }
+
     public async Task<Result<bool>> CancelOrderAsync(string orderId, CancellationToken ct = default)
     {
         try

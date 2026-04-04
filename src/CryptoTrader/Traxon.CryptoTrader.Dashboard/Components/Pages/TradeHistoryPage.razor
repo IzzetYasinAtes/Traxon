@@ -62,7 +62,9 @@
                     <th class="py-2 px-3 text-right">Adil Değer</th>
                     <th class="py-2 px-3 text-right">Kenar</th>
                     <th class="py-2 px-3 text-left">Rejim</th>
-                    <th class="py-2 px-3 text-left">Zaman</th>
+                    <th class="py-2 px-3 text-left">Sinyal</th>
+                    <th class="py-2 px-3 text-left">Alım</th>
+                    <th class="py-2 px-3 text-left">Kapanış</th>
                 </tr>
             </thead>
             <tbody>
@@ -97,13 +99,19 @@
                         <td class="py-1.5 px-3 text-right font-mono" style="color: var(--color-accent-gold);">@($"{t.Edge:P1}")</td>
                         <td class="py-1.5 px-3 font-mono" style="color: var(--color-text-muted);">@t.Regime</td>
                         <td class="py-1.5 px-3 font-mono" style="color: var(--color-text-muted);">
-                            @t.OpenedAt.AddHours(3).ToString("MM/dd HH:mm")
+                            @(t.SignalGeneratedAt.HasValue ? t.SignalGeneratedAt.Value.AddHours(3).ToString("MM.dd HH:mm:ss") : "—")
+                        </td>
+                        <td class="py-1.5 px-3 font-mono" style="color: var(--color-text-muted);">
+                            @t.OpenedAt.AddHours(3).ToString("MM.dd HH:mm:ss")
+                        </td>
+                        <td class="py-1.5 px-3 font-mono" style="color: var(--color-text-muted);">
+                            @(t.ClosedAt.HasValue ? t.ClosedAt.Value.AddHours(3).ToString("MM.dd HH:mm:ss") : "—")
                         </td>
                     </tr>
                 }
                 @if (_trades.Count == 0)
                 {
-                    <tr><td colspan="14" class="py-8 text-center" style="color: var(--color-text-muted);">Veri bulunamadı</td></tr>
+                    <tr><td colspan="16" class="py-8 text-center" style="color: var(--color-text-muted);">Veri bulunamadı</td></tr>
                 }
             </tbody>
         </table>

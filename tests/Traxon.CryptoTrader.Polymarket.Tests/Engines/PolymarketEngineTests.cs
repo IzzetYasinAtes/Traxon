@@ -15,13 +15,15 @@ namespace Traxon.CryptoTrader.Polymarket.Tests.Engines;
 
 public sealed class PolymarketEngineTests
 {
-    private readonly IPolymarketClient       _client      = Substitute.For<IPolymarketClient>();
-    private readonly IMarketDiscoveryService _discovery   = Substitute.For<IMarketDiscoveryService>();
-    private readonly ITradeLogger            _tradeLogger = Substitute.For<ITradeLogger>();
+    private readonly IPolymarketClient        _client        = Substitute.For<IPolymarketClient>();
+    private readonly IPolymarketSigningClient _signingClient = Substitute.For<IPolymarketSigningClient>();
+    private readonly IMarketDiscoveryService  _discovery     = Substitute.For<IMarketDiscoveryService>();
+    private readonly ITradeLogger             _tradeLogger   = Substitute.For<ITradeLogger>();
 
     private PolymarketEngine CreateSut(bool enabled = false) =>
         new PolymarketEngine(
             _client,
+            _signingClient,
             _discovery,
             MSOptions.Create(new PolymarketOptions { Enabled = enabled }),
             _tradeLogger,

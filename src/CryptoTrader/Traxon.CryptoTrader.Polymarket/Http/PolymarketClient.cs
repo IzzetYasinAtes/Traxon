@@ -34,7 +34,7 @@ public sealed class PolymarketClient : IPolymarketClient
         _restPipeline = new ResiliencePipelineBuilder()
             .AddTimeout(new TimeoutStrategyOptions
             {
-                Timeout = TimeSpan.FromSeconds(10)
+                Timeout = TimeSpan.FromSeconds(5)
             })
             .AddRetry(new RetryStrategyOptions
             {
@@ -57,7 +57,7 @@ public sealed class PolymarketClient : IPolymarketClient
                 FailureRatio      = 0.5,
                 SamplingDuration  = TimeSpan.FromSeconds(30),
                 MinimumThroughput = 3,
-                BreakDuration     = TimeSpan.FromSeconds(60),
+                BreakDuration     = TimeSpan.FromSeconds(15),
                 OnOpened          = args =>
                 {
                     _logger.LogError(

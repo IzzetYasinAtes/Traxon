@@ -26,7 +26,14 @@ public sealed class PolymarketAuthHandler : DelegatingHandler
         var body      = string.Empty;
 
         if (request.Content is not null)
-            body = await request.Content.ReadAsStringAsync(ct);
+        {
+            var bytes = await request.Content.ReadAsByteArrayAsync(ct);
+            body = Encoding.UTF8.GetString(bytes);
+            var newContent = new ByteArrayContent(bytes);
+            if (request.Content.Headers.ContentType is not null)
+                newContent.Headers.ContentType = request.Content.Headers.ContentType;
+            request.Content = newContent;
+        }
 
         var message   = timestamp + method + path + body;
         var signature = ComputeHmac(_options.ApiSecret, message);

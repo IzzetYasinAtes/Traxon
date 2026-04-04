@@ -19,16 +19,26 @@ public sealed class PolymarketEngine : ITradingEngine, IAsyncDisposable
     private readonly ITradeLogger               _tradeLogger;
     private readonly ILogger<PolymarketEngine>  _logger;
 
-    private readonly ConcurrentDictionary<Guid, Trade>  _openTrades    = new();
-    private readonly ConcurrentDictionary<Guid, string> _tradeToOrderId = new();
-    private readonly SemaphoreSlim                       _lock          = new(1, 1);
+    private readonly ConcurrentDictionary<Guid, Trade>  _openTrades         = new();
+    private readonly ConcurrentDictionary<Guid, string> _tradeToOrderId    = new();
+    private readonly ConcurrentDictionary<Guid, string> _tradeToTokenId    = new();
+    private readonly ConcurrentDictionary<Guid, Guid>   _tradeToPositionMap = new();
+    private readonly SemaphoreSlim                       _lock              = new(1, 1);
+    private readonly SemaphoreSlim                       _initLock          = new(1, 1);
+    private volatile bool                                _initialized;
 
     private PeriodicTimer?          _heartbeatTimer;
     private CancellationTokenSource? _heartbeatCts;
     private Task?                    _heartbeatTask;
 
     private const decimal InitialBalance = 10_000m;
-    private const decimal TakerFeeRate  = 0.018m; // %1.8 taker fee
+    private const decimal FeeRate        = 0.072m; // Polymarket crypto taker fee rate
+
+    // Polymarket sadece bu asset'ler için market açar
+    private static readonly HashSet<string> SupportedAssets = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "HYPE"
+    };
 
     private readonly Portfolio _portfolio;
 
@@ -51,6 +61,55 @@ public sealed class PolymarketEngine : ITradingEngine, IAsyncDisposable
         _portfolio     = new Portfolio(EngineName, InitialBalance);
     }
 
+    /// <summary>
+    /// Worker restart sonrasi in-memory portfolio ve _openTrades'i DB'den restore eder (bir kez).
+    /// </summary>
+    private async Task EnsureInitializedAsync(CancellationToken ct)
+    {
+        if (_initialized) return;
+        await _initLock.WaitAsync(ct);
+        try
+        {
+            if (_initialized) return;
+
+            var snapshot = await _tradeLogger.GetLatestSnapshotAsync(EngineName, ct);
+            if (snapshot is not null)
+            {
+                var winCount = snapshot.WinRate.HasValue && snapshot.TradeCount > 0
+                    ? (int)Math.Round(snapshot.WinRate.Value * snapshot.TradeCount)
+                    : 0;
+                var lossCount = snapshot.TradeCount - winCount;
+                _portfolio.Restore(snapshot.Balance, snapshot.TotalPnL, winCount, lossCount);
+                _logger.LogInformation(
+                    "[LivePoly] Portfolio restored: Balance:{Balance:F2} PnL:{PnL:F2} W:{Win} L:{Loss}",
+                    snapshot.Balance, snapshot.TotalPnL, winCount, lossCount);
+            }
+
+            var openTrades = await _tradeLogger.GetOpenTradesAsync(EngineName, ct);
+            foreach (var trade in openTrades ?? [])
+            {
+                _openTrades[trade.Id] = trade;
+
+                var position = new Position(
+                    asset:        trade.Asset,
+                    timeFrame:    trade.TimeFrame,
+                    direction:    trade.Direction,
+                    entryPrice:   trade.EntryPrice,
+                    positionSize: trade.PositionSize,
+                    stopLoss:     null,
+                    takeProfit:   null);
+                _portfolio.OpenPosition(position);
+                _tradeToPositionMap[trade.Id] = position.Id;
+            }
+
+            _initialized = true;
+        }
+        finally
+        {
+            _initLock.Release();
+        }
+    }
+
     public Task<Result<bool>> IsReadyAsync(CancellationToken ct = default)
     {
         if (!_options.Enabled)
@@ -62,14 +121,24 @@ public sealed class PolymarketEngine : ITradingEngine, IAsyncDisposable
     public async Task<Result<Trade>> OpenPositionAsync(
         Signal signal, CancellationToken ct = default)
     {
+        await EnsureInitializedAsync(ct);
+
         if (!_options.Enabled)
             return Result<Trade>.Failure(Error.Disabled);
+
+        if (_portfolio.Balance <= 0)
+            return Result<Trade>.Failure(new Error("LivePoly.InsufficientBalance", "Balance is zero"));
 
         await _lock.WaitAsync(ct);
         try
         {
             if (_openTrades.Values.Any(t => t.Asset == signal.Asset))
                 return Result<Trade>.Failure(Error.DuplicatePosition);
+
+            // Fast pre-check: Polymarket sadece belirli asset'ler için market açar
+            var baseAsset = signal.Asset.Symbol.Replace("USDT", "");
+            if (!SupportedAssets.Contains(baseAsset))
+                return Result<Trade>.Failure(Error.MarketNotFound);
 
             // Find matching market
             var discoverResult = await _discovery.DiscoverMarketsAsync(ct);
@@ -95,15 +164,14 @@ public sealed class PolymarketEngine : ITradingEngine, IAsyncDisposable
                 return Result<Trade>.Failure(midpointResult.Error!);
 
             var marketPrice  = midpointResult.Value;
-            var positionSize = Math.Min(
-                signal.KellyFraction * _portfolio.Balance,
-                _options.MaxPositionSizeUsdc);
 
-            // Place maker limit order slightly below midpoint
-            var limitPrice = Math.Max(0.01m, marketPrice - 0.01m);
+            var positionSize = Math.Max(_portfolio.Balance * 0.02m, 1m);
 
-            var placeResult = await _signingClient.CreateAndPostOrderAsync(
-                market.RelevantTokenId, limitPrice, positionSize, "BUY", "GTC", ct);
+            // FAK market order (taker) — USDC miktarı gönder, mevcut fiyattan anında al
+            var entryPrice = marketPrice;
+
+            var placeResult = await _signingClient.CreateAndPostMarketOrderAsync(
+                market.RelevantTokenId, positionSize, "BUY", "FAK", ct);
             if (placeResult.IsFailure)
                 return Result<Trade>.Failure(placeResult.Error!);
 
@@ -123,7 +191,7 @@ public sealed class PolymarketEngine : ITradingEngine, IAsyncDisposable
                 asset:             signal.Asset,
                 timeFrame:         signal.TimeFrame,
                 direction:         signal.Direction,
-                entryPrice:        limitPrice,
+                entryPrice:        entryPrice,
                 fairValue:         signal.FairValue,
                 edge:              signal.Edge,
                 positionSize:      positionSize,
@@ -134,16 +202,34 @@ public sealed class PolymarketEngine : ITradingEngine, IAsyncDisposable
                 indicatorSnapshot: indicatorJson,
                 entryReason:       $"FV:{signal.FairValue:F3} Edge:{signal.Edge:F3} OrderId:{orderId}");
 
-            _openTrades[trade.Id]    = trade;
-            _tradeToOrderId[trade.Id] = orderId;
+            var position = new Position(
+                asset:        signal.Asset,
+                timeFrame:    signal.TimeFrame,
+                direction:    signal.Direction,
+                entryPrice:   entryPrice,
+                positionSize: positionSize,
+                stopLoss:     null,
+                takeProfit:   null);
+
+            var openResult = _portfolio.OpenPosition(position);
+            if (openResult.IsFailure)
+                return Result<Trade>.Failure(openResult.Error!);
+
+            _openTrades[trade.Id]           = trade;
+            _tradeToOrderId[trade.Id]       = orderId;
+            _tradeToTokenId[trade.Id]       = market.RelevantTokenId;
+            _tradeToPositionMap[trade.Id]   = position.Id;
 
             await _tradeLogger.LogTradeOpenedAsync(trade, ct);
+            await _tradeLogger.LogPortfolioSnapshotAsync(_portfolio, ct);
 
             _logger.LogInformation(
                 "[LivePoly] Trade OPENED: {Symbol} {Direction} Entry:{Entry:F4} Size:{Size:F2} Order:{OrderId}",
                 trade.Asset.Symbol, trade.Direction, trade.EntryPrice, trade.PositionSize, orderId);
 
-            EnsureHeartbeatStarted();
+            // Heartbeat sadece gerçek trade açıkken başlar
+            if (_portfolio.Balance > 0)
+                EnsureHeartbeatStarted();
 
             return Result<Trade>.Success(trade);
         }
@@ -163,6 +249,8 @@ public sealed class PolymarketEngine : ITradingEngine, IAsyncDisposable
                 return Result<Trade>.Failure(Error.TradeNotFound);
 
             _tradeToOrderId.TryRemove(tradeId, out var orderId);
+            _tradeToTokenId.TryRemove(tradeId, out _);
+            _tradeToPositionMap.TryRemove(tradeId, out var posId);
 
             if (!string.IsNullOrEmpty(orderId))
             {
@@ -173,6 +261,8 @@ public sealed class PolymarketEngine : ITradingEngine, IAsyncDisposable
             }
 
             trade.Close(0m, TradeOutcome.Loss, -trade.PositionSize);
+            _portfolio.ClosePosition(posId, -trade.PositionSize, TradeOutcome.Loss);
+
             await _tradeLogger.LogTradeClosedAsync(trade, ct);
             await _tradeLogger.LogPortfolioSnapshotAsync(_portfolio, ct);
 
@@ -201,26 +291,62 @@ public sealed class PolymarketEngine : ITradingEngine, IAsyncDisposable
     /// </summary>
     public async Task CheckPositionsAsync(Candle candle, CancellationToken ct = default)
     {
+        await EnsureInitializedAsync(ct);
+
         if (_openTrades.IsEmpty) return;
 
         var tradesToClose = new List<(Guid tradeId, decimal exitPrice, TradeOutcome outcome, decimal pnl)>();
+
+        // Fetch ALL markets (including closed) once for all trades
+        var discoverResult = await _discovery.DiscoverAllMarketsAsync(ct);
+        if (discoverResult.IsFailure)
+        {
+            _logger.LogWarning("[LivePoly] DiscoverAllMarkets failed: {Error}", discoverResult.Error?.Message);
+            return;
+        }
+
+        var allMarkets = discoverResult.Value!;
 
         foreach (var (tradeId, trade) in _openTrades)
         {
             try
             {
-                var discoverResult = await _discovery.DiscoverMarketsAsync(ct);
-                if (discoverResult.IsFailure) continue;
+                // Match by exact token ID to find the specific market this trade was opened on
+                _tradeToTokenId.TryGetValue(tradeId, out var tokenId);
+                if (string.IsNullOrEmpty(tokenId)) continue;
 
-                var targetDirection = trade.Direction == SignalDirection.Up ? "Up" : "Down";
-                var market = discoverResult.Value!
-                    .FirstOrDefault(m => m.UnderlyingAsset.Equals(
-                        trade.Asset.Symbol.Replace("USDT", ""),
-                        StringComparison.OrdinalIgnoreCase)
-                        && m.Direction == targetDirection);
+                var market = allMarkets
+                    .FirstOrDefault(m => m.YesTokenId == tokenId || m.NoTokenId == tokenId);
 
                 if (market is null) continue;
 
+                // Market resolved (closed with outcome price)
+                // Fee hesapla: shares * 0.072 * p * (1-p)
+                var tradeShares = trade.PositionSize / trade.EntryPrice;
+                var tradeFee = tradeShares * FeeRate * trade.EntryPrice * (1m - trade.EntryPrice);
+
+                if (market.ResolvedPrice.HasValue)
+                {
+                    if (market.ResolvedPrice.Value >= 0.99m)
+                    {
+                        // WIN — payout: shares * $1.00
+                        var pnl = (tradeShares * 1.0m) - trade.PositionSize - tradeFee;
+                        tradesToClose.Add((tradeId, 1.0m, TradeOutcome.Win, pnl));
+                    }
+                    else
+                    {
+                        // LOSS — payout: $0
+                        var pnl = -(trade.PositionSize + tradeFee);
+                        tradesToClose.Add((tradeId, 0.0m, TradeOutcome.Loss, pnl));
+                    }
+
+                    _logger.LogInformation(
+                        "[LivePoly] Market RESOLVED for {Asset} {Direction}: ResolvedPrice={Price}",
+                        trade.Asset.Symbol, trade.Direction, market.ResolvedPrice.Value);
+                    continue;
+                }
+
+                // Market still open — use midpoint price
                 var midpointResult = await _client.GetMidpointAsync(market.RelevantTokenId, ct);
                 if (midpointResult.IsFailure) continue;
 
@@ -228,20 +354,15 @@ public sealed class PolymarketEngine : ITradingEngine, IAsyncDisposable
 
                 if (currentPrice >= 0.95m)
                 {
-                    // YES kazandi — tam resolve
-                    var exitPrice = 1.0m;
-                    var fee = trade.PositionSize * TakerFeeRate;
-                    var pnl = (exitPrice - trade.EntryPrice) / trade.EntryPrice * trade.PositionSize - fee;
-                    tradesToClose.Add((tradeId, exitPrice, TradeOutcome.Win, pnl));
+                    var pnl = (tradeShares * 1.0m) - trade.PositionSize - tradeFee;
+                    tradesToClose.Add((tradeId, 1.0m, TradeOutcome.Win, pnl));
                 }
                 else if (currentPrice <= 0.05m)
                 {
-                    // NO kazandi — tam kayip
-                    var exitPrice = 0.0m;
-                    var pnl = -trade.PositionSize;
-                    tradesToClose.Add((tradeId, exitPrice, TradeOutcome.Loss, pnl));
+                    var pnl = -(trade.PositionSize + tradeFee);
+                    tradesToClose.Add((tradeId, 0.0m, TradeOutcome.Loss, pnl));
                 }
-                // Henuz resolve olmadiysa bekle
+                // 0.05 < price < 0.95 → not resolved yet, WAIT
             }
             catch (Exception ex)
             {
@@ -254,8 +375,11 @@ public sealed class PolymarketEngine : ITradingEngine, IAsyncDisposable
             if (_openTrades.TryRemove(tradeId, out var trade))
             {
                 _tradeToOrderId.TryRemove(tradeId, out _);
+                _tradeToTokenId.TryRemove(tradeId, out _);
+                _tradeToPositionMap.TryRemove(tradeId, out var posId);
 
                 trade.Close(exitPrice, outcome, pnl);
+                _portfolio.ClosePosition(posId, pnl, outcome);
 
                 await _tradeLogger.LogTradeClosedAsync(trade, ct);
                 await _tradeLogger.LogPortfolioSnapshotAsync(_portfolio, ct);
@@ -319,5 +443,6 @@ public sealed class PolymarketEngine : ITradingEngine, IAsyncDisposable
         }
 
         _lock.Dispose();
+        _initLock.Dispose();
     }
 }

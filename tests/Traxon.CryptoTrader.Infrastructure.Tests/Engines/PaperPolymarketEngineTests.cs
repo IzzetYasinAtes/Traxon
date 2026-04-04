@@ -1,22 +1,79 @@
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using NSubstitute;
 using Xunit;
 using Traxon.CryptoTrader.Application.Abstractions;
+using Traxon.CryptoTrader.Application.Polymarket.Models;
 using Traxon.CryptoTrader.Domain.Assets;
 using Traxon.CryptoTrader.Domain.Common;
 using Traxon.CryptoTrader.Domain.Indicators;
 using Traxon.CryptoTrader.Domain.Market;
 using Traxon.CryptoTrader.Domain.Trading;
 using Traxon.CryptoTrader.Infrastructure.Engines;
+using Traxon.CryptoTrader.Polymarket.Options;
+using MSOptions = Microsoft.Extensions.Options.Options;
 
 namespace Traxon.CryptoTrader.Infrastructure.Tests.Engines;
 
 public class PaperPolymarketEngineTests
 {
-    private readonly ITradeLogger _tradeLogger = Substitute.For<ITradeLogger>();
+    private readonly IPolymarketClient       _client      = Substitute.For<IPolymarketClient>();
+    private readonly IMarketDiscoveryService _discovery   = Substitute.For<IMarketDiscoveryService>();
+    private readonly ITradeLogger            _tradeLogger = Substitute.For<ITradeLogger>();
+
+    public PaperPolymarketEngineTests()
+    {
+        // Default: DiscoverMarketsAsync returns a matching market for BTC Up
+        var markets = new List<PolymarketMarket>
+        {
+            new PolymarketMarket
+            {
+                ConditionId = "cond1", Question = "BTC Up?",
+                YesTokenId = "yes1", NoTokenId = "no1",
+                EndDateUtcSeconds = DateTimeOffset.UtcNow.AddMinutes(5).ToUnixTimeSeconds(),
+                Active = true, Closed = false,
+                UnderlyingAsset = "BTC", Direction = "Up"
+            },
+            new PolymarketMarket
+            {
+                ConditionId = "cond1", Question = "BTC Down?",
+                YesTokenId = "yes1", NoTokenId = "no1",
+                EndDateUtcSeconds = DateTimeOffset.UtcNow.AddMinutes(5).ToUnixTimeSeconds(),
+                Active = true, Closed = false,
+                UnderlyingAsset = "BTC", Direction = "Down"
+            },
+            new PolymarketMarket
+            {
+                ConditionId = "cond2", Question = "ETH Up?",
+                YesTokenId = "yes2", NoTokenId = "no2",
+                EndDateUtcSeconds = DateTimeOffset.UtcNow.AddMinutes(5).ToUnixTimeSeconds(),
+                Active = true, Closed = false,
+                UnderlyingAsset = "ETH", Direction = "Up"
+            },
+            new PolymarketMarket
+            {
+                ConditionId = "cond2", Question = "ETH Down?",
+                YesTokenId = "yes2", NoTokenId = "no2",
+                EndDateUtcSeconds = DateTimeOffset.UtcNow.AddMinutes(5).ToUnixTimeSeconds(),
+                Active = true, Closed = false,
+                UnderlyingAsset = "ETH", Direction = "Down"
+            }
+        };
+
+        _discovery.DiscoverMarketsAsync(Arg.Any<CancellationToken>())
+            .Returns(Result<IReadOnlyList<PolymarketMarket>>.Success(markets.AsReadOnly()));
+        _discovery.DiscoverAllMarketsAsync(Arg.Any<CancellationToken>())
+            .Returns(Result<IReadOnlyList<PolymarketMarket>>.Success(markets.AsReadOnly()));
+
+        _client.GetMidpointAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Result<decimal>.Success(0.50m));
+    }
 
     private PaperPolymarketEngine CreateSut() => new PaperPolymarketEngine(
+        _client,
+        _discovery,
+        MSOptions.Create(new PolymarketOptions()),
         _tradeLogger,
         NullLogger<PaperPolymarketEngine>.Instance);
 
@@ -117,7 +174,7 @@ public class PaperPolymarketEngineTests
         var assets = new[]
         {
             Asset.BTCUSDT, Asset.ETHUSDT, Asset.SOLUSDT, Asset.XRPUSDT, Asset.DOGEUSDT,
-            Asset.AVAXUSDT, Asset.BNBUSDT, Asset.ADAUSDT, Asset.DOTUSDT, Asset.LINKUSDT
+            Asset.BNBUSDT, Asset.HYPEUSDT
         };
         foreach (var asset in assets)
         {
@@ -126,8 +183,8 @@ public class PaperPolymarketEngineTests
             await sut.OpenPositionAsync(sig);
         }
 
-        // 11. trade — MaxExposure asili
-        var extraSignal = new Signal(Asset.MATICUSDT, TimeFrame.FiveMinute, SignalDirection.Up,
+        // 8. trade — MaxExposure asili (ayni asset'e tekrar giris denemesi)
+        var extraSignal = new Signal(Asset.BTCUSDT, TimeFrame.FiveMinute, SignalDirection.Up,
             0.62m, 0.50m, 0.05m, 0.001m, 0.02m, MarketRegime.LowVolatility, MakeBullishIndicators());
         var result = await sut.OpenPositionAsync(extraSignal);
 

@@ -137,24 +137,36 @@ public sealed class AdminDataService(IDbContextFactory<AppDbContext> dbFactory)
             ? trades
             : trades.Where(t => t.Asset.Symbol.Contains(filter.Symbol, StringComparison.OrdinalIgnoreCase)).ToList();
 
-        return filtered.Select(t => new AdminTradeRow(
-            t.Id,
-            t.Engine,
-            t.Asset.Symbol,
-            t.TimeFrame.Value,
-            t.Direction.ToString(),
-            t.EntryPrice,
-            t.ExitPrice,
-            t.FairValue,
-            t.Edge,
-            t.PositionSize,
-            t.Status.ToString(),
-            t.Outcome?.ToString(),
-            t.PnL,
-            t.OpenedAt,
-            t.ClosedAt,
-            t.Regime.ToString(),
-            t.EntryReason)).ToList();
+        // Fetch signal generation times for trades
+        var tradeIds = filtered.Select(t => t.Id).ToList();
+        var signalTimes = await db.SignalEngineResults
+            .Where(e => e.TradeId != null && tradeIds.Contains(e.TradeId!.Value))
+            .Join(db.SignalRecords, e => e.SignalRecordId, s => s.Id, (e, s) => new { e.TradeId, s.GeneratedAt })
+            .ToDictionaryAsync(x => x.TradeId!.Value, x => x.GeneratedAt);
+
+        return filtered.Select(t =>
+        {
+            signalTimes.TryGetValue(t.Id, out var sigTime);
+            return new AdminTradeRow(
+                t.Id,
+                t.Engine,
+                t.Asset.Symbol,
+                t.TimeFrame.Value,
+                t.Direction.ToString(),
+                t.EntryPrice,
+                t.ExitPrice,
+                t.FairValue,
+                t.Edge,
+                t.PositionSize,
+                t.Status.ToString(),
+                t.Outcome?.ToString(),
+                t.PnL,
+                t.OpenedAt,
+                t.ClosedAt,
+                t.Regime.ToString(),
+                t.EntryReason,
+                sigTime != default ? sigTime : null);
+        }).ToList();
     }
 
     public async Task<int> GetTradeCountAsync(AdminTradeFilter filter)
@@ -306,7 +318,8 @@ public record AdminTradeRow(
     DateTime OpenedAt,
     DateTime? ClosedAt,
     string Regime,
-    string EntryReason);
+    string EntryReason,
+    DateTime? SignalGeneratedAt);
 
 public record EngineStatusRow(
     string Engine,

@@ -1,8 +1,9 @@
 @using Microsoft.EntityFrameworkCore
+@using Microsoft.Data.SqlClient
 @inject IDbContextFactory<Traxon.CryptoTrader.Infrastructure.Persistence.AppDbContext> DbFactory
 @inject IJSRuntime JS
 
-<div style="width:100%; height:@(Height)px; background-color: var(--color-bg-surface); border-radius: var(--radius-card); overflow: hidden; position: relative;">
+<div style="width:100%; height:100%; background-color: var(--color-bg-surface); border-radius: var(--radius-card); overflow: hidden; position: relative;">
     <div id="@_chartId" style="width:100%; height:100%;"></div>
     @if (_candleDataJson is null)
     {
@@ -29,26 +30,34 @@
         _prevKey = key;
 
         await using var db = await DbFactory.CreateDbContextAsync();
+        var conn = db.Database.GetDbConnection();
+        await conn.OpenAsync();
 
-        // Use FromSqlRaw to avoid owned entity LINQ translation issues
-        var candles = await db.Candles
-            .FromSqlRaw(
-                "SELECT TOP 200 * FROM Candles WHERE Symbol = {0} AND [Interval] = {1} ORDER BY OpenTime DESC",
-                Symbol, Interval)
-            .ToListAsync();
-        candles.Reverse();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT TOP 200 OpenTime, [Open], High, Low, [Close] FROM Candles WHERE Symbol = @sym AND [Interval] = @tf ORDER BY OpenTime DESC";
+        cmd.Parameters.Add(new SqlParameter("@sym", Symbol));
+        cmd.Parameters.Add(new SqlParameter("@tf", Interval));
 
-        if (candles.Count > 0)
+        var items = new List<object>();
+        await using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
         {
-            var data = candles.Select(c => new
+            var openTime = reader.GetDateTime(0);
+            items.Add(new
             {
-                time = new DateTimeOffset(c.OpenTime, TimeSpan.Zero).ToUnixTimeSeconds(),
-                open = (float)c.Open,
-                high = (float)c.High,
-                low = (float)c.Low,
-                close = (float)c.Close
+                time = new DateTimeOffset(openTime, TimeSpan.Zero).ToUnixTimeSeconds(),
+                open = (double)reader.GetDecimal(1),
+                high = (double)reader.GetDecimal(2),
+                low = (double)reader.GetDecimal(3),
+                close = (double)reader.GetDecimal(4)
             });
-            _candleDataJson = System.Text.Json.JsonSerializer.Serialize(data);
+        }
+
+        items.Reverse();
+
+        if (items.Count > 0)
+        {
+            _candleDataJson = System.Text.Json.JsonSerializer.Serialize(items);
         }
         else
         {

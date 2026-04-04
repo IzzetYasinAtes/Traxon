@@ -21,11 +21,13 @@
     <PackageReference Include="Serilog.Sinks.File" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="logs\" />
+  </ItemGroup>
+
   <!-- Tailwind CSS v4 build — skipped if exe not found -->
   <Target Name="Tailwind" BeforeTargets="Build">
-    <Exec Command="$(SolutionDir)tailwindcss.exe -i Styles/input.css -o wwwroot/css/app.css --minify"
-          WorkingDirectory="$(ProjectDir)"
-          Condition="Exists('$(SolutionDir)tailwindcss.exe')" />
+    <Exec Command="$(SolutionDir)tailwindcss.exe -i Styles/input.css -o wwwroot/css/app.css --minify" WorkingDirectory="$(ProjectDir)" Condition="Exists('$(SolutionDir)tailwindcss.exe')" />
   </Target>
 
 </Project>

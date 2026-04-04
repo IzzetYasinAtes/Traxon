@@ -1,0 +1,613 @@
+@page "/livepoly-transition"
+
+<div class="docs-container">
+    <div class="docs-header-row">
+        <div>
+            <h1 class="docs-main-title">LivePoly Gecis Rehberi</h1>
+            <p class="docs-subtitle">PaperPoly'den LivePoly'ye gecis sureci — neden, nasil ve ne degisti</p>
+        </div>
+    </div>
+
+    <div class="docs-content">
+    <!-- ================================================================== -->
+    <!-- BOLUM 1: Neden LivePoly'ye Gectik? -->
+    <!-- ================================================================== -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-green);">
+        <h2 class="docs-title">1. Neden LivePoly'ye Gectik?</h2>
+        <ul class="docs-list">
+            <li>PaperPoly ile 1 hafta test ettik: %52 win rate, +$133 kar, 300 trade</li>
+            <li>Ama PaperPoly gercekci degildi — sabit 0.40 entry fiyat kullaniyordu</li>
+            <li>Gercek Polymarket'te fiyat ~0.50, yani PaperPoly'nin kari yanilticiydi</li>
+            <li>LivePoly'ye gecis: gercek fiyatlarla test et, para kaybetmeden</li>
+        </ul>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- BOLUM 2: Eski PaperPoly Nasil Calisiyordu? -->
+    <!-- ================================================================== -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-blue);">
+        <h2 class="docs-title">2. Eski PaperPoly Nasil Calisiyordu?</h2>
+        <table class="docs-table">
+            <thead>
+                <tr>
+                    <th>Adim</th>
+                    <th>Eski PaperPoly</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Sinyal</td>
+                    <td>5m candle kapaninca uretilir (RSI, MACD, ATR, FairValue, Edge)</td>
+                </tr>
+                <tr>
+                    <td>Market bulma</td>
+                    <td>Yok — Polymarket API'ye baglanmiyordu</td>
+                </tr>
+                <tr>
+                    <td>Fiyat alma</td>
+                    <td>Sabit 0.40 (simulasyon)</td>
+                </tr>
+                <tr>
+                    <td>Entry price</td>
+                    <td>0.40 + 0.01 slippage = 0.41</td>
+                </tr>
+                <tr>
+                    <td>Resolve</td>
+                    <td>Candle yonu: candle.Close >= candle.Open → WIN</td>
+                </tr>
+                <tr>
+                    <td>WIN kar</td>
+                    <td>(1.0 - 0.41) / 0.41 = +%143</td>
+                </tr>
+                <tr>
+                    <td>LOSS zarar</td>
+                    <td>-%100</td>
+                </tr>
+                <tr>
+                    <td>Fee</td>
+                    <td>%1.8 sabit (yanlis hesap)</td>
+                </tr>
+                <tr>
+                    <td>Basabas WR</td>
+                    <td>~%41</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- BOLUM 3: Yeni Sistem Nasil Calisiyor? -->
+    <!-- ================================================================== -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-green);">
+        <h2 class="docs-title">3. Yeni Sistem Nasil Calisiyor?</h2>
+        <table class="docs-table">
+            <thead>
+                <tr>
+                    <th>Adim</th>
+                    <th>Yeni PaperPoly</th>
+                    <th>LivePoly</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Sinyal</td>
+                    <td>Ayni ✓</td>
+                    <td>Ayni ✓</td>
+                </tr>
+                <tr>
+                    <td>Market bulma</td>
+                    <td>Gamma API (5-min crypto markets)</td>
+                    <td>Gamma API ✓</td>
+                </tr>
+                <tr>
+                    <td>Fiyat alma</td>
+                    <td>Polymarket midpoint (~0.50)</td>
+                    <td>Polymarket midpoint ✓</td>
+                </tr>
+                <tr>
+                    <td>Entry price</td>
+                    <td>midpoint (market order)</td>
+                    <td>midpoint (FAK market order)</td>
+                </tr>
+                <tr>
+                    <td>Position size</td>
+                    <td>Bakiyenin %2'si, min $1</td>
+                    <td>Bakiyenin %2'si, min $1</td>
+                </tr>
+                <tr>
+                    <td>Resolve</td>
+                    <td>Polymarket fiyat: ≥0.95 WIN, ≤0.05 LOSS</td>
+                    <td>Polymarket fiyat ✓</td>
+                </tr>
+                <tr>
+                    <td>WIN kar</td>
+                    <td>payout - yatirim - fee</td>
+                    <td>payout - yatirim - fee</td>
+                </tr>
+                <tr>
+                    <td>LOSS zarar</td>
+                    <td>-(yatirim + fee)</td>
+                    <td>-(yatirim + fee)</td>
+                </tr>
+                <tr>
+                    <td>Fee</td>
+                    <td>shares × 0.072 × p × (1-p)</td>
+                    <td>Polymarket gercek fee</td>
+                </tr>
+                <tr>
+                    <td>Order gonderme</td>
+                    <td>Simulasyon (gondermez)</td>
+                    <td>FAK market order (gercek)</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- BOLUM 4: Fiyat ve Kar Hesabi -->
+    <!-- ================================================================== -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-gold);">
+        <h2 class="docs-title">4. Fiyat ve Kar Hesabi</h2>
+
+        <div class="docs-info">
+            <strong>Bilgi:</strong> Polymarket'te her share ya $1 olur (kazandiysan) ya $0 (kaybettiysen). Aradaki fark senin karin veya zararin.
+        </div>
+
+        <p><strong>Ornek:</strong> entry = 0.50, $1 yatirim</p>
+        <table class="docs-table">
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>Hesap</th>
+                    <th>Sonuc</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Share sayisi</td>
+                    <td>$1.00 / 0.50</td>
+                    <td>2 share</td>
+                </tr>
+                <tr>
+                    <td>Fee</td>
+                    <td>2 × 0.072 × 0.50 × 0.50</td>
+                    <td>$0.036</td>
+                </tr>
+                <tr>
+                    <td>Toplam maliyet</td>
+                    <td>$1.00 + $0.036</td>
+                    <td>$1.036</td>
+                </tr>
+                <tr>
+                    <td>WIN payout</td>
+                    <td>2 × $1.00</td>
+                    <td>$2.00</td>
+                </tr>
+                <tr>
+                    <td>WIN net kar</td>
+                    <td>$2.00 - $1.036</td>
+                    <td>+$0.964</td>
+                </tr>
+                <tr>
+                    <td>LOSS payout</td>
+                    <td>$0</td>
+                    <td>$0</td>
+                </tr>
+                <tr>
+                    <td>LOSS net zarar</td>
+                    <td>-$1.036</td>
+                    <td>-$1.036</td>
+                </tr>
+                <tr>
+                    <td>Basabas win rate</td>
+                    <td>1.036 / 2.0</td>
+                    <td>%51.8</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- BOLUM 5: Polymarket Emir Tipleri -->
+    <!-- ================================================================== -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-purple);">
+        <h2 class="docs-title">5. Polymarket Emir Tipleri</h2>
+
+        <div class="docs-warning">
+            <strong>DIKKAT:</strong> Dogru emir tipi secimi cok onemli. Yanlis tip secilirse trade kacabilir veya beklenmedik fiyattan dolabilir.
+        </div>
+
+        <table class="docs-table">
+            <thead>
+                <tr>
+                    <th>Emir Tipi</th>
+                    <th>Aciklama</th>
+                    <th>Maker/Taker</th>
+                    <th>Fee</th>
+                    <th>Kullanim</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>GTC</strong></td>
+                    <td>Limit order. Belirttigin fiyattan koyar, dolana kadar bekler.</td>
+                    <td>Maker</td>
+                    <td>0</td>
+                    <td>Sabirli alim</td>
+                </tr>
+                <tr>
+                    <td><strong>GTD</strong></td>
+                    <td>GTC gibi ama tarih limiti var. Belirtilen tarihe kadar bekler.</td>
+                    <td>Maker</td>
+                    <td>0</td>
+                    <td>Zamanli alim</td>
+                </tr>
+                <tr>
+                    <td><strong>FOK</strong></td>
+                    <td>Market order. Tamami dolsun yoksa iptal.</td>
+                    <td>Taker</td>
+                    <td>Var</td>
+                    <td>Tam alim garanti</td>
+                </tr>
+                <tr>
+                    <td><strong>FAK</strong></td>
+                    <td>Market order. Ne kadar dolarsa o kadar, kalani iptal.</td>
+                    <td>Taker</td>
+                    <td>Var</td>
+                    <td>Hizli kismi alim</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3 class="docs-subtitle-h3">GTC (Good Till Cancelled)</h3>
+        <p>"Bu fiyattan al" dersin, order book'a koyulur. Birisi gelip senin fiyatindan satarsa dolulur. 5dk markette dolmayabilir.</p>
+
+        <h3 class="docs-subtitle-h3">GTD (Good Till Date)</h3>
+        <p>GTC gibi ama son kullanma tarihi var. Tarih gelince otomatik iptal.</p>
+
+        <h3 class="docs-subtitle-h3">FOK (Fill or Kill)</h3>
+        <p>"Su an tam miktari al, alamiyorsan hic alma." Hiz onemli ama fiyat kayarsa hic alamazsin.</p>
+
+        <h3 class="docs-subtitle-h3">FAK (Fill and Kill)</h3>
+        <p>"Ne kadar alabiliyorsan hemen al, kalani iptal et." 5dk market icin EN IYI SECIM — hiz + kismi alim.</p>
+
+        <div class="docs-info">
+            <strong>Bilgi:</strong> Biz FAK kullaniyoruz. 5 dakikalik markette hiz kritik. FAK, mevcut fiyattan ne kadar share varsa aninda alir. Dolmayan kisim iptal edilir — beklemez.
+        </div>
+
+        <h3 class="docs-subtitle-h3">Maker vs Taker</h3>
+        <table class="docs-table">
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>Maker</th>
+                    <th>Taker</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Ne yapar</td>
+                    <td>Order book'a yeni order ekler</td>
+                    <td>Mevcut order'i doldurur</td>
+                </tr>
+                <tr>
+                    <td>Fee</td>
+                    <td>0 (bedava!)</td>
+                    <td>shares × 0.072 × p × (1-p)</td>
+                </tr>
+                <tr>
+                    <td>Hiz</td>
+                    <td>Yavas (bekler)</td>
+                    <td>Hizli (aninda)</td>
+                </tr>
+                <tr>
+                    <td>Garanti</td>
+                    <td>Dolmayabilir</td>
+                    <td>Dolar (mevcut kadar)</td>
+                </tr>
+                <tr>
+                    <td>Emir tipleri</td>
+                    <td>GTC, GTD</td>
+                    <td>FOK, FAK</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- BOLUM 6: Neden FAK Sectik? -->
+    <!-- ================================================================== -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-blue);">
+        <h2 class="docs-title">6. Neden FAK Sectik?</h2>
+        <div class="docs-step">
+            <div class="docs-step-number">1</div>
+            <div class="docs-step-content">
+                <strong>5 dakikalik market — her saniye onemli</strong>
+            </div>
+        </div>
+        <div class="docs-step">
+            <div class="docs-step-number">2</div>
+            <div class="docs-step-content">
+                <strong>GTC ile beklesek market kapanabilir</strong>
+            </div>
+        </div>
+        <div class="docs-step">
+            <div class="docs-step-number">3</div>
+            <div class="docs-step-content">
+                <strong>FOK ile tamami dolmazsa hic alamayiz</strong>
+            </div>
+        </div>
+        <div class="docs-step">
+            <div class="docs-step-number">4</div>
+            <div class="docs-step-content">
+                <strong>FAK ile ne kadar varsa aliriz, kalani birakiriz</strong>
+            </div>
+        </div>
+        <div class="docs-step">
+            <div class="docs-step-number">5</div>
+            <div class="docs-step-content">
+                <strong>Fee oduyoruz ama trade'i kacirmiyoruz</strong>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- BOLUM 7: Resolve (Sonuclanma) Nasil Calisiyor? -->
+    <!-- ================================================================== -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-gold);">
+        <h2 class="docs-title">7. Resolve (Sonuclanma) Nasil Calisiyor?</h2>
+        <p>5-min market acilisinda BTC = $84,000 diyelim.</p>
+        <p>5 dakika sonra Chainlink oracle BTC fiyatini kontrol eder:</p>
+        <ul class="docs-list">
+            <li>BTC ≥ $84,000 → "Up" kazanir (Up token = $1, Down token = $0)</li>
+            <li>BTC &lt; $84,000 → "Down" kazanir (Down token = $1, Up token = $0)</li>
+        </ul>
+
+        <h3 class="docs-subtitle-h3">Kodda Nasil Kontrol Ediyoruz</h3>
+        <pre class="docs-code">Her candle kapanisinda CheckPositionsAsync calisir:
+1. DiscoverAllMarketsAsync() → tum marketleri al (kapanmis dahil)
+2. Market'in ResolvedPrice'ina bak:
+   - ResolvedPrice = 1.0 → WIN (bu yon kazandi)
+   - ResolvedPrice = 0.0 → LOSS (bu yon kaybetti)
+   - ResolvedPrice = null → henuz kapanmadi, BEKLE
+3. Eger market henuz kapanmadiysa midpoint fiyata bak:
+   - Fiyat ≥ 0.95 → WIN (neredeyse kesin)
+   - Fiyat ≤ 0.05 → LOSS (neredeyse kesin)
+   - 0.05 &lt; fiyat &lt; 0.95 → BEKLE</pre>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- BOLUM 8: Sinyal Uretimi (Degismedi) -->
+    <!-- ================================================================== -->
+    <div class="docs-card" style="border-left-color: var(--color-text-muted);">
+        <h2 class="docs-title">8. Sinyal Uretimi (Degismedi)</h2>
+
+        <div class="docs-info">
+            <strong>Bilgi:</strong> Sinyal uretim mekanizmasi hic degismedi. Ayni matematik, ayni indikatorler.
+        </div>
+
+        <pre class="docs-code">Binance WebSocket → 1m candle
+    ↓
+Buffer biriktirme → 5m candle olusur
+    ↓
+Indikator hesaplama (RSI, MACD, ATR, Bollinger, vs.)
+    ↓
+FairValue + Edge + Kelly hesaplama
+    ↓
+Sinyal: "BTCUSDT Up" veya "BTCUSDT Down"
+    ↓
+Engine'lere gonderilir (PaperPoly + LivePoly)</pre>
+    </div>
+    </div>
+</div>
+
+<style>
+    .docs-container {
+        max-width: 950px;
+        margin: 0 auto;
+        padding: 0 16px 40px 16px;
+        overflow-y: auto;
+    }
+
+    .docs-header-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 8px;
+    }
+
+    .docs-main-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--color-accent-green);
+        margin-bottom: 4px;
+    }
+
+    .docs-subtitle {
+        font-size: 0.85rem;
+        color: var(--color-text-muted);
+        margin-bottom: 24px;
+    }
+
+    .docs-card {
+        background-color: var(--color-bg-surface);
+        border: 1px solid var(--color-border-default);
+        border-left: 4px solid var(--color-accent-green);
+        border-radius: 10px;
+        padding: 20px 24px;
+        margin-bottom: 20px;
+    }
+
+    .docs-title {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: var(--color-text-primary);
+        margin-bottom: 12px;
+    }
+
+    .docs-subtitle-h3 {
+        font-size: 1.0rem;
+        font-weight: 600;
+        color: var(--color-text-secondary);
+        margin-top: 16px;
+        margin-bottom: 8px;
+    }
+
+    .docs-card p {
+        font-size: 0.95rem;
+        line-height: 1.65;
+        color: var(--color-text-primary);
+        margin-bottom: 8px;
+    }
+
+    .docs-source {
+        font-size: 0.8rem !important;
+        color: var(--color-text-muted) !important;
+        font-style: italic;
+    }
+
+    .docs-code {
+        background-color: var(--color-bg-primary);
+        border: 1px solid var(--color-border-default);
+        border-radius: 6px;
+        padding: 14px 16px;
+        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        font-size: 0.85rem;
+        line-height: 1.5;
+        color: var(--color-accent-gold);
+        overflow-x: auto;
+        white-space: pre;
+        margin: 8px 0;
+    }
+
+    .docs-example {
+        background-color: var(--color-bg-elevated);
+        border: 1px solid var(--color-border-default);
+        border-radius: 6px;
+        padding: 12px 16px;
+        margin: 8px 0;
+        font-size: 0.9rem;
+        line-height: 1.6;
+        color: var(--color-text-primary);
+    }
+
+    .docs-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 12px 0;
+        font-size: 0.9rem;
+    }
+
+    .docs-table th {
+        text-align: left;
+        padding: 8px 12px;
+        background-color: var(--color-bg-elevated);
+        color: var(--color-text-secondary);
+        font-weight: 600;
+        border-bottom: 1px solid var(--color-border-default);
+    }
+
+    .docs-table td {
+        padding: 8px 12px;
+        color: var(--color-text-primary);
+        border-bottom: 1px solid var(--color-border-subtle);
+    }
+
+    .docs-table code {
+        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        font-size: 0.85rem;
+        color: var(--color-accent-gold);
+        background-color: var(--color-bg-primary);
+        padding: 1px 5px;
+        border-radius: 3px;
+    }
+
+    .docs-list {
+        list-style: none;
+        padding-left: 0;
+        margin-bottom: 8px;
+    }
+
+    .docs-list li {
+        font-size: 0.95rem;
+        line-height: 1.65;
+        color: var(--color-text-primary);
+        padding-left: 16px;
+        position: relative;
+        margin-bottom: 4px;
+    }
+
+    .docs-list li::before {
+        content: "▸";
+        position: absolute;
+        left: 0;
+        color: var(--color-text-muted);
+    }
+
+    .docs-step {
+        display: flex;
+        gap: 14px;
+        align-items: flex-start;
+        margin-bottom: 16px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--color-border-subtle);
+    }
+
+    .docs-step:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+        margin-bottom: 0;
+    }
+
+    .docs-step-number {
+        flex-shrink: 0;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background-color: var(--color-accent-green);
+        color: var(--color-bg-primary);
+        font-weight: 700;
+        font-size: 0.85rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-top: 2px;
+    }
+
+    .docs-step-content {
+        flex: 1;
+    }
+
+    .docs-step-content strong {
+        font-size: 0.95rem;
+        color: var(--color-text-primary);
+    }
+
+    .docs-step-content p {
+        margin-top: 4px;
+    }
+
+    .docs-warning {
+        background-color: rgba(255, 71, 87, 0.08);
+        border: 1px solid rgba(255, 71, 87, 0.3);
+        border-left: 4px solid var(--color-accent-red);
+        border-radius: 6px;
+        padding: 12px 16px;
+        margin: 8px 0;
+        font-size: 0.9rem;
+        line-height: 1.6;
+        color: var(--color-text-primary);
+    }
+
+    .docs-info {
+        background-color: rgba(59, 130, 246, 0.08);
+        border: 1px solid rgba(59, 130, 246, 0.3);
+        border-left: 4px solid var(--color-accent-blue);
+        border-radius: 6px;
+        padding: 12px 16px;
+        margin: 8px 0;
+        font-size: 0.9rem;
+        line-height: 1.6;
+        color: var(--color-text-primary);
+    }
+</style>

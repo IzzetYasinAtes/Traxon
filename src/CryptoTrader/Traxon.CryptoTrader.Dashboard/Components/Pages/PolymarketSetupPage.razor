@@ -369,8 +369,8 @@ Sinyal uretilir (MarketDataWorker)
 LivePoly engine sinyal alir
     ├─ GammaAPI'den matching market bul
     ├─ Midpoint fiyat al
-    ├─ Limit price hesapla
-    ├─ Position size hesapla (Kelly * bakiye, max $10)
+    ├─ Market order (FAK) — midpoint fiyattan alınır
+    ├─ Position size hesapla (Bakiyenin %2'si, min $1)
     ↓
 .NET → HTTP POST http://127.0.0.1:5099/create-and-post
     ↓
@@ -398,13 +398,13 @@ Python Signing Service:
             </thead>
             <tbody>
                 <tr>
-                    <td>Max pozisyon</td>
-                    <td><strong>$10 USDC</strong></td>
-                    <td><code>PolymarketOptions.MaxPositionSizeUsdc</code></td>
+                    <td>Pozisyon boyutu</td>
+                    <td><strong>Bakiyenin %2'si, min $1</strong></td>
+                    <td><code>PositionSizer.cs</code></td>
                 </tr>
                 <tr>
                     <td>Min market suresi</td>
-                    <td><strong>10 dakika</strong></td>
+                    <td><strong>1 dakika</strong></td>
                     <td><code>PolymarketOptions.MarketMinutesMinRemaining</code></td>
                 </tr>
                 <tr>
@@ -414,8 +414,8 @@ Python Signing Service:
                 </tr>
                 <tr>
                     <td>Taker fee</td>
-                    <td><strong>%1.8</strong></td>
-                    <td><code>PolymarketEngine.TakerFeeRate</code></td>
+                    <td><strong>Fee = shares x 0.072 x p x (1-p) (~%3.6 @@ p=0.50)</strong></td>
+                    <td><code>PolymarketEngine</code></td>
                 </tr>
                 <tr>
                     <td>Win esigi</td>
@@ -434,8 +434,8 @@ Python Signing Service:
                 </tr>
                 <tr>
                     <td>Order tipi</td>
-                    <td><strong>GTC</strong></td>
-                    <td>Limit order</td>
+                    <td><strong>FAK (Fill and Kill) market order</strong></td>
+                    <td>Market order</td>
                 </tr>
             </tbody>
         </table>
