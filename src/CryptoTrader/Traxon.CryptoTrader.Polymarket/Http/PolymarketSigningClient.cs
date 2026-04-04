@@ -15,7 +15,8 @@ public sealed class PolymarketSigningClient : IPolymarketSigningClient
     private readonly ILogger<PolymarketSigningClient> _logger;
     private readonly ResiliencePipeline _pipeline;
 
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    // Snake_case korunmalı — Python signing service snake_case bekliyor
+    private static readonly JsonSerializerOptions JsonOptions = new();
 
     public PolymarketSigningClient(
         HttpClient httpClient,

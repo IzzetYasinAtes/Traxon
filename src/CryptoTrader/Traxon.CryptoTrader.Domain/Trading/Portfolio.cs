@@ -18,7 +18,8 @@ public sealed class Portfolio : AggregateRoot<Guid>
     public IReadOnlyList<Position> OpenPositions => _openPositions.AsReadOnly();
 
     public decimal TotalExposure => _openPositions.Sum(p => p.PositionSize);
-    public decimal MaxExposure => Balance * 0.30m;
+    // TODO: Bu limit tamamen kaldırılabilir ama şimdilik %90 kaldı
+    public decimal MaxExposure => Balance * 0.90m;
     public decimal MaxPositionSize => Math.Max(Balance * 0.02m, 1.0m);
 
     private Portfolio() { Engine = null!; }

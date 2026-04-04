@@ -13,6 +13,12 @@ public sealed class MarketDiscoveryService : IMarketDiscoveryService
     private readonly PolymarketOptions            _options;
     private readonly ILogger<MarketDiscoveryService> _logger;
 
+    // Cache — aynı 5 saniye içindeki çağrılar aynı sonucu döndürür
+    private IReadOnlyList<PolymarketMarket>? _cachedAll;
+    private DateTime _cacheTime = DateTime.MinValue;
+    private static readonly TimeSpan CacheDuration = TimeSpan.FromSeconds(5);
+    private readonly SemaphoreSlim _cacheLock = new(1, 1);
+
     public MarketDiscoveryService(
         IGammaApiClient gammaClient,
         IOptions<PolymarketOptions> options,
@@ -23,11 +29,38 @@ public sealed class MarketDiscoveryService : IMarketDiscoveryService
         _logger      = logger;
     }
 
+    private async Task<Result<IReadOnlyList<PolymarketMarket>>> FetchAndCacheAsync(CancellationToken ct)
+    {
+        await _cacheLock.WaitAsync(ct);
+        try
+        {
+            // Cache hâlâ geçerli mi?
+            if (_cachedAll is not null && DateTime.UtcNow - _cacheTime < CacheDuration)
+                return Result<IReadOnlyList<PolymarketMarket>>.Success(_cachedAll);
+
+            var result = await _gammaClient.GetActiveCryptoMarketsAsync(ct);
+            if (result.IsFailure)
+                return result;
+
+            _cachedAll = result.Value!
+                .Where(m => !string.IsNullOrEmpty(m.Direction)
+                         && !string.IsNullOrEmpty(m.UnderlyingAsset))
+                .ToList()
+                .AsReadOnly();
+            _cacheTime = DateTime.UtcNow;
+
+            return Result<IReadOnlyList<PolymarketMarket>>.Success(_cachedAll);
+        }
+        finally
+        {
+            _cacheLock.Release();
+        }
+    }
+
     public async Task<Result<IReadOnlyList<PolymarketMarket>>> DiscoverMarketsAsync(
         CancellationToken ct = default)
     {
-        var result = await _gammaClient.GetActiveCryptoMarketsAsync(ct);
-
+        var result = await FetchAndCacheAsync(ct);
         if (result.IsFailure)
             return result;
 
@@ -36,9 +69,7 @@ public sealed class MarketDiscoveryService : IMarketDiscoveryService
         var filtered = result.Value!
             .Where(m => m.Active
                      && !m.Closed
-                     && m.TimeLeft >= minTimeLeft
-                     && !string.IsNullOrEmpty(m.Direction)
-                     && !string.IsNullOrEmpty(m.UnderlyingAsset))
+                     && m.TimeLeft >= minTimeLeft)
             .ToList()
             .AsReadOnly();
 
@@ -55,16 +86,6 @@ public sealed class MarketDiscoveryService : IMarketDiscoveryService
     public async Task<Result<IReadOnlyList<PolymarketMarket>>> DiscoverAllMarketsAsync(
         CancellationToken ct = default)
     {
-        var result = await _gammaClient.GetActiveCryptoMarketsAsync(ct);
-        if (result.IsFailure)
-            return result;
-
-        var all = result.Value!
-            .Where(m => !string.IsNullOrEmpty(m.Direction)
-                     && !string.IsNullOrEmpty(m.UnderlyingAsset))
-            .ToList()
-            .AsReadOnly();
-
-        return Result<IReadOnlyList<PolymarketMarket>>.Success(all);
+        return await FetchAndCacheAsync(ct);
     }
 }
