@@ -70,7 +70,7 @@
             diyagram, veri akisinin tum adimlarini gosterir. Her adim oncekinin ciktisini girdi olarak alir:
         </p>
         <pre class="docs-code">
-  Binance WebSocket API (kline stream)
+  WebSocket API (kline stream)
         |
         v
   [MarketDataWorker]        &lt;- BackgroundService, canli mum verisi alir (1m+5m+15m+1h)
@@ -88,8 +88,8 @@
         |                       6 bilesenden agirlikli skor, 1h trend teyidi,
         |                       hacim dogrulama, rejim tespiti, Kelly pozisyon hesabi
         v
-  [TradingEngine]           &lt;- PaperBinance: SL/TP bazli spot sim
-        |                       PaperPoly:    binary resolution sim
+  [TradingEngine]           &lt;- PaperPoly:    Gamma API + FAK market order
+        |                       LivePoly:     gercek Polymarket trading
         v
   [TradeLogger]             &lt;- SQL Server'a trade + portfolio snapshot kaydeder
         |
@@ -99,8 +99,8 @@
 
         <h3 class="docs-subtitle-h3">WebSocket Veri Akisi Detayli</h3>
         <p>
-            Binance WebSocket API'den <code>kline</code> stream uzerinden canli mum verileri alinir. Sistem tum
-            <code>Asset.Tradeable</code> varliklar (BTCUSDT, ETHUSDT, SOLUSDT, XRPUSDT, DOGEUSDT, BNBUSDT, DOTUSDT, MATICUSDT)
+            WebSocket API'den <code>kline</code> stream uzerinden canli mum verileri alinir. Sistem tum
+            <code>Asset.Tradeable</code> varliklar (BTCUSDT, ETHUSDT, SOLUSDT, XRPUSDT, DOGEUSDT, BNBUSDT, HYPEUSDT)
             ve tum <code>TimeFrame.All</code> zaman dilimleri (1m, 5m, 15m, 1h) icin stream dinler. Her mum kapandiginda
             (candle close event) indicator hesaplama ve sinyal uretim sureci tetiklenir. 1h mumlar sadece trend dogrulama
             (Adim 5) icin kullanilir, islem acma karari 5m mumlara dayanir.
@@ -550,6 +550,7 @@ positionSize  = max(0, positionSize)
         </div>
     </div>
 
+    @* BOLUM 5: PaperBinance Motoru — UI'dan gizlendi, kod korunuyor
     <!-- ================================================================== -->
     <!-- BOLUM 5: PaperBinance Motoru -->
     <!-- ================================================================== -->
@@ -694,6 +695,7 @@ PnL = (101.050 - 100.125) / 100.125 x $1.00 = +$0.0092
             Basabas WR: 0.575 / (0.575 + 0.80) = <strong>%41.8</strong> (komisyon oncesi %33.3'ten yuksek).
         </p>
     </div>
+    BOLUM 5 SONU *@
 
     <!-- ================================================================== -->
     <!-- BOLUM 6: PaperPoly Motoru -->
@@ -703,9 +705,10 @@ PnL = (101.050 - 100.125) / 100.125 x $1.00 = +$0.0092
         <p class="docs-source">Kaynak: <code>PaperPolymarketEngine.cs:1-276</code></p>
 
         <p>
-            PaperPoly, <strong>Polymarket binary-resolution simulasyonu</strong> yapan paper trading motorudur.
-            Kripto fiyat hareketlerini tahmin eden bir tahmin piyasasi motoru olarak calisir. Her pozisyon
-            1 mum suresi sonunda mum yonune gore WIN veya LOSS olarak sonuclanir.
+            PaperPoly, <strong>Polymarket binary-resolution</strong> paper trading motorudur.
+            Gamma API uzerinden gercek 5-dakikalik Polymarket event'lerini bulur ve FAK (Fill-and-Kill)
+            market order ile taker olarak islem acar. Her pozisyon Polymarket ResolvedPrice ile sonuclanir
+            (1.0 = WIN, 0.0 = LOSS). Midpoint fallback: &ge;0.95 WIN, &le;0.05 LOSS.
         </p>
 
         <table class="docs-table">
@@ -726,78 +729,78 @@ PnL = (101.050 - 100.125) / 100.125 x $1.00 = +$0.0092
                 </tr>
                 <tr>
                     <td><strong>Giris Fiyati</strong></td>
-                    <td><code>rawEntry + Slippage</code></td>
-                    <td>$0.41 (0.40 + 0.01)</td>
-                    <td>Sabit dusuk giris — kazanc asimetrisi icin.</td>
+                    <td><code>midpoint</code></td>
+                    <td>~$0.50 (dinamik)</td>
+                    <td>Polymarket midpoint fiyati — piyasa kosullarina gore degisir.</td>
+                </tr>
+                <tr>
+                    <td><strong>Order Tipi</strong></td>
+                    <td>—</td>
+                    <td>FAK market order</td>
+                    <td>Fill-and-Kill taker order — aninda doldurulur.</td>
                 </tr>
                 <tr>
                     <td><strong>Komisyon</strong></td>
-                    <td><code>TakerFeeRate</code></td>
-                    <td>%1.8 (0.018)</td>
-                    <td>Sadece kazanilan islemlerden kesilir.</td>
-                </tr>
-                <tr>
-                    <td><strong>Min Entry</strong></td>
-                    <td><code>MinEntryPrice</code></td>
-                    <td>0.25</td>
-                    <td>Minimum kabul edilen giris fiyati (Analyst v4).</td>
-                </tr>
-                <tr>
-                    <td><strong>Max Entry</strong></td>
-                    <td><code>MaxEntryPrice</code></td>
-                    <td>0.55</td>
-                    <td>Maksimum kabul edilen giris fiyati (Analyst v4).</td>
+                    <td>—</td>
+                    <td>shares x 0.072 x p x (1-p)</td>
+                    <td>Polymarket taker fee formulu. ~%3.6 (p=0.50 icin).</td>
                 </tr>
                 <tr>
                     <td><strong>Pozisyon</strong></td>
                     <td>—</td>
                     <td>max(Balance x %2, $1)</td>
-                    <td>Standart Kelly-uyumlu pozisyon buyuklugu.</td>
+                    <td>Bakiyenin %2'si, minimum $1 garantili.</td>
                 </tr>
             </tbody>
         </table>
 
-        <h3 class="docs-subtitle-h3">Sabit 0.41$ Giris Mantigi</h3>
+        <h3 class="docs-subtitle-h3">Dinamik Midpoint Giris</h3>
         <p>
-            PaperPoly, sinyal skoru veya fair value'ya bakmaksizin <strong>her zaman 0.40$ baz fiyat + 0.01$ slippage = 0.41$</strong>
-            giris fiyati kullanir. Bu sabit giris fiyati, <strong>kazanc/kayip asimetrisini maksimize eder</strong>:
-            kazandiginda +%143.9, kaybettiginde -%100. Bu asimetri sayesinde %41 kazanma orani basabas icin yeterlidir.
+            PaperPoly, Polymarket midpoint fiyatini giris fiyati olarak kullanir (~0.50, piyasa kosullarina gore degisir).
+            Slippage yoktur — FAK market order ile aninda doldurulur. p=0.50 icin: kazandiginda +%100,
+            kaybettiginde -%100. Bu simetrik yapiyla <strong>%51.8 kazanma orani</strong> basabas icin yeterlidir
+            (fee dahil).
         </p>
 
         <h3 class="docs-subtitle-h3">Hisse Hesabi</h3>
         <pre class="docs-code">
 // Pozisyon acildiginda:
-rawEntry     = 0.40
-entryPrice   = rawEntry + Slippage = 0.40 + 0.01 = 0.41
+entryPrice   = midpoint   // ~0.50 (Polymarket'tan dinamik)
 positionSize = max(portfolio.Balance x 0.02, $1)
 
-// Hisse sayisi (kavramsal):
+// Hisse sayisi:
 shares = positionSize / entryPrice
-// Ornek: $1 / $0.41 = 2.439 hisse
+// Ornek: $1 / $0.50 = 2.000 hisse
         </pre>
 
-        <h3 class="docs-subtitle-h3">Resolution Mantigi (Mum Yonu)</h3>
+        <h3 class="docs-subtitle-h3">Resolution Mantigi (Polymarket ResolvedPrice)</h3>
         <p>
-            Pozisyon, bir sonraki mumun kapanisinda resolve olur. Karar mekanizmasi son derece basittir:
+            Pozisyon, Polymarket'in gercek resolution mekanizmasi ile sonuclanir. Oncelikle ResolvedPrice
+            kontrol edilir; eger henuz resolve olmamissa midpoint fallback kullanilir:
         </p>
         <pre class="docs-code">
-// candle.Close >= candle.Open → mum YESIL → UP kazanir
-// candle.Close &lt;  candle.Open → mum KIRMIZI → DOWN kazanir
+// Birincil: Polymarket ResolvedPrice
+ResolvedPrice == 1.0 → WIN (olay gerceklesti)
+ResolvedPrice == 0.0 → LOSS (olay gerceklesmedi)
 
-isUp     = candle.Close >= candle.Open
-tradeWon = (direction == UP   && isUp)
-        || (direction == DOWN && !isUp)
+// Fallback: midpoint bazli karar
+midpoint >= 0.95 → WIN
+midpoint &lt;= 0.05 → LOSS
+
+tradeWon = (direction == UP   && resolved == WIN)
+        || (direction == DOWN && resolved == LOSS)
         </pre>
 
-        <h3 class="docs-subtitle-h3">Kazanc Hesabi (WIN)</h3>
+        <h3 class="docs-subtitle-h3">Kazanc Hesabi (WIN) — p=0.50 ornegi</h3>
         <pre class="docs-code">
 outcome   = Win
 exitPrice = 1.00   // hisse $1'a resolve olur
-fee       = positionSize x TakerFeeRate   // $1 x 0.018 = $0.018
-PnL       = (1.00 - entryPrice) / entryPrice x positionSize - fee
-          = (1.00 - 0.41) / 0.41 x $1 - $0.018
-          = 1.4390 x $1 - $0.018
-          = $1.439 - $0.018 = +$1.421
+shares    = $1 / $0.50 = 2.000
+fee       = shares x 0.072 x p x (1-p)
+          = 2.000 x 0.072 x 0.50 x 0.50 = $0.036
+PnL       = shares x (1.00 - entryPrice) - fee
+          = 2.000 x $0.50 - $0.036
+          = $1.000 - $0.036 = +$0.964
         </pre>
 
         <h3 class="docs-subtitle-h3">Kayip Hesabi (LOSS)</h3>
@@ -808,27 +811,30 @@ PnL       = -positionSize   // tum yatirim kaybedilir
           = -$1.00           // fee kesilmez (zaten sifir)
         </pre>
 
-        <h3 class="docs-subtitle-h3">Basabas Matematik Ispati</h3>
+        <h3 class="docs-subtitle-h3">Basabas Matematik Ispati (p=0.50)</h3>
         <pre class="docs-code">
-// Beklenen deger sifir olacak WR:
+// p=0.50 giris fiyati ile (fee dahil):
+NetKazanc = $0.964 (hisse basina $0.50 kazanc - $0.036 fee)
+NetKayip  = $1.000
+
 WR x NetKazanc = (1-WR) x NetKayip
-WR x $1.421 = (1-WR) x $1.00
-WR x 1.421 + WR x 1.00 = 1.00
-WR x 2.421 = 1.00
-WR = 1.00 / 2.421 = 0.4130 = %41.3 (fee dahil)
+WR x $0.964 = (1-WR) x $1.00
+WR x 0.964 + WR x 1.00 = 1.00
+WR x 1.964 = 1.00
+WR = 1.00 / 1.964 = 0.5092 = ~%50.9
 
-// Fee'siz: WR = 1.00 / 2.439 = 0.410 = %41.0
+// Fee'siz: WR = 1.00 / 2.00 = 0.500 = %50.0
+// Fee ile basabas: ~%51.8 (gercek fee hesabiyla)
 
-// Ornek: %50 WR ile beklenen PnL per trade:
-E[PnL] = 0.50 x $1.421 - 0.50 x $1.00 = $0.711 - $0.500 = +$0.211
-// Yani her islemde ortalama +$0.211 kar beklenir!
+// Ornek: %55 WR ile beklenen PnL per trade:
+E[PnL] = 0.55 x $0.964 - 0.45 x $1.00 = $0.530 - $0.450 = +$0.080
         </pre>
 
         <h3 class="docs-subtitle-h3">Compound Growth (Bilesik Buyume) Analizi</h3>
         <p>
-            %50 WR varsayimiyla, her islemde bakiyenin %2'si kullanildiginda (en az $1), 50 islem sonrasi
-            beklenen bakiye: $50 + (50 x 0.50 x $1.421 - 50 x 0.50 x $1.00) = $50 + $10.53 = <strong>$60.53</strong>.
-            Bu %21 buyume demektir. 200 islem sonrasi: ~$50 x 1.21^4 = <strong>$107</strong> (bilesik etkiyle).
+            %55 WR varsayimiyla, her islemde bakiyenin %2'si kullanildiginda (en az $1), 100 islem sonrasi
+            beklenen bakiye: $50 + (55 x $0.964 - 45 x $1.00) = $50 + ($53.02 - $45.00) = <strong>$58.02</strong>.
+            Bu %16 buyume demektir. 400 islem sonrasi: ~$50 x 1.16^4 = <strong>$90.5</strong> (bilesik etkiyle).
         </p>
     </div>
 
@@ -840,7 +846,7 @@ E[PnL] = 0.50 x $1.421 - 0.50 x $1.00 = $0.711 - $0.500 = +$0.211
         <p class="docs-source">Kaynak: <code>Portfolio.cs:1-74</code></p>
 
         <p>
-            Her engine (<strong>PaperBinance</strong> ve <strong>PaperPoly</strong>) bagimsiz bir Portfolio nesnesi yonetir.
+            Her engine (<strong>PaperPoly</strong> ve <strong>LivePoly</strong>) bagimsiz bir Portfolio nesnesi yonetir.
             Portfolio sinifi, <code>AggregateRoot&lt;Guid&gt;</code>'den turetilmistir ve pozisyon acma/kapama, bakiye takibi
             ve risk limitleri saglar. Tum bakiye islemleri thread-safe ConcurrentDictionary ve SemaphoreSlim
             ile korunur.
@@ -937,7 +943,7 @@ Balance += positionSize + PnL
         <ul class="docs-list">
             <li><strong>Bakiye tutarliligi:</strong> Restart sonrasi bakiye dogru degerden devam eder</li>
             <li><strong>Duplicate onleme:</strong> Ayni asset icin birden fazla trade acilmaz</li>
-            <li><strong>SL/TP takibi:</strong> PaperBinance'da SL/TP degerleri trade'in <code>IndicatorSnapshot</code> JSON'ından parse edilir</li>
+            <li><strong>SL/TP takibi:</strong> SL/TP degerleri trade'in <code>IndicatorSnapshot</code> JSON'ından parse edilir</li>
             <li><strong>WinRate korunmasi:</strong> Win/Loss sayaclari snapshot'tan restore edilir</li>
         </ul>
     </div>
@@ -985,7 +991,7 @@ Balance += positionSize + PnL
             <tbody>
                 <tr><td>Id</td><td>uniqueidentifier</td><td>Primary key (GUID)</td></tr>
                 <tr><td>SignalRecordId</td><td>uniqueidentifier</td><td>FK → SignalRecords.Id</td></tr>
-                <tr><td>EngineName</td><td>nvarchar(20)</td><td>Engine adi (PaperBinance, PaperPoly)</td></tr>
+                <tr><td>EngineName</td><td>nvarchar(20)</td><td>Engine adi (PaperPoly, LivePoly)</td></tr>
                 <tr><td>Accepted</td><td>bit</td><td>Kabul edildi mi?</td></tr>
                 <tr><td>RejectionReason</td><td>nvarchar(100)?</td><td>Red sebebi kodu (null ise kabul)</td></tr>
                 <tr><td>TradeId</td><td>uniqueidentifier?</td><td>Acilan trade ID (null ise reddedildi)</td></tr>

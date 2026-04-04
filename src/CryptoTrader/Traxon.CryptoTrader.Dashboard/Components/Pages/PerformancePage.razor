@@ -18,7 +18,7 @@
     {
         <!-- Motor bazli KPI Kartlari - yan yana -->
         <div class="grid grid-cols-2 gap-2" style="flex-shrink: 0;">
-            @foreach (var e in _summary.ByEngine)
+            @foreach (var e in _summary.ByEngine.Where(e => !e.Engine.Contains("Binance", StringComparison.OrdinalIgnoreCase)))
             {
                 var wr = e.Trades > 0 ? (decimal)e.Wins / e.Trades : 0;
                 var pct = (e.TotalPnL / 50m) * 100m;
@@ -60,7 +60,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var e in _summary.ByEngine)
+                    @foreach (var e in _summary.ByEngine.Where(e => !e.Engine.Contains("Binance", StringComparison.OrdinalIgnoreCase)))
                     {
                         var wr = e.Trades > 0 ? (decimal)e.Wins / e.Trades : 0;
                         <tr style="border-top: 1px solid var(--color-border-default);">
@@ -100,7 +100,9 @@
     protected override async Task OnInitializedAsync()
     {
         _summary = await DataService.GetPerformanceSummaryAsync();
-        _equityPoints = await DataService.GetEquityCurveAsync();
+        _equityPoints = (await DataService.GetEquityCurveAsync())
+            .Where(p => !p.Engine.Contains("Binance", StringComparison.OrdinalIgnoreCase))
+            .ToList();
 
         // Calculate initial balance per engine from latest snapshot (Balance - TotalPnL)
         var engines = await DataService.GetEngineStatusAsync();

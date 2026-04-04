@@ -6,12 +6,26 @@ namespace Traxon.CryptoTrader.Binance.Mappers;
 
 internal static class BinanceMapper
 {
+    /// <summary>
+    /// Generates a deterministic candle ID from symbol + interval + openTime.
+    /// Prevents ID collisions across different symbols at the same timeframe.
+    /// </summary>
+    private static long GenerateCandleId(string symbol, string interval, long openTimeTicks)
+    {
+        long hash = openTimeTicks;
+        foreach (var c in symbol)
+            hash = hash * 31 + c;
+        foreach (var c in interval)
+            hash = hash * 31 + c;
+        return hash;
+    }
+
     /// <summary>Maps a WebSocket stream kline (IBinanceStreamKlineData) to a Candle.</summary>
     public static Candle ToCandle(IBinanceStreamKlineData klineData, Asset asset, TimeFrame timeFrame)
     {
         var k = klineData.Data;
         return new Candle(
-            id: k.OpenTime.Ticks,
+            id: GenerateCandleId(asset.Symbol, timeFrame.Value, k.OpenTime.Ticks),
             asset: asset,
             timeFrame: timeFrame,
             openTime: k.OpenTime,
@@ -30,7 +44,7 @@ internal static class BinanceMapper
     public static Candle ToCandle(IBinanceKline kline, Asset asset, TimeFrame timeFrame)
     {
         return new Candle(
-            id: kline.OpenTime.Ticks,
+            id: GenerateCandleId(asset.Symbol, timeFrame.Value, kline.OpenTime.Ticks),
             asset: asset,
             timeFrame: timeFrame,
             openTime: kline.OpenTime,

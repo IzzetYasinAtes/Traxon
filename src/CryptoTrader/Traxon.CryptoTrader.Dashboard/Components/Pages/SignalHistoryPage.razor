@@ -69,7 +69,7 @@
                         </td>
                         <td class="py-1.5 px-3 font-mono" style="color: var(--color-text-muted);">@s.Regime</td>
                         <td class="py-1.5 px-3">
-                            @foreach (var er in s.EngineResults)
+                            @foreach (var er in s.EngineResults.Where(e => !e.EngineName.Contains("Binance", StringComparison.OrdinalIgnoreCase)))
                             {
                                 <div class="text-xs" style="color: @(er.Accepted ? "var(--color-accent-green)" : "var(--color-accent-red)")">
                                     @er.EngineName @(er.Accepted ? "\u2713" : "\u2717")
@@ -81,7 +81,7 @@
                             }
                         </td>
                         <td class="py-1.5 px-3 font-mono" style="color: var(--color-text-muted);">
-                            @s.GeneratedAt.ToString("MM/dd HH:mm")
+                            @s.GeneratedAt.AddHours(3).ToString("MM/dd HH:mm")
                         </td>
                     </tr>
                 }

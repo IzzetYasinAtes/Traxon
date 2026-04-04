@@ -10,4 +10,5 @@ public interface IPolymarketClient
     Task<Result<string>>             PlaceOrderAsync(PolymarketOrderRequest order, CancellationToken ct = default);
     Task<Result<bool>>               CancelOrderAsync(string orderId, CancellationToken ct = default);
     Task<Result<bool>>               SendHeartbeatAsync(CancellationToken ct = default);
+    Task<Result<decimal>>            GetBalanceAsync(CancellationToken ct = default);
 }

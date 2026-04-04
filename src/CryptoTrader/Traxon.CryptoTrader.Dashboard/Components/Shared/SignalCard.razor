@@ -42,7 +42,7 @@
     </div>
 
     <div class="mt-2 text-xs" style="color: var(--color-text-muted);">
-        @Signal.GeneratedAt.ToLocalTime().ToString("HH:mm:ss")
+        @Signal.GeneratedAt.AddHours(3).ToString("HH:mm:ss")
     </div>
 </div>
 

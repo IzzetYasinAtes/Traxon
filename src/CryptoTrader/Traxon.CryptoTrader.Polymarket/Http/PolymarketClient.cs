@@ -34,7 +34,7 @@ public sealed class PolymarketClient : IPolymarketClient
         _restPipeline = new ResiliencePipelineBuilder()
             .AddTimeout(new TimeoutStrategyOptions
             {
-                Timeout = TimeSpan.FromSeconds(10)
+                Timeout = TimeSpan.FromSeconds(5)
             })
             .AddRetry(new RetryStrategyOptions
             {
@@ -57,7 +57,7 @@ public sealed class PolymarketClient : IPolymarketClient
                 FailureRatio      = 0.5,
                 SamplingDuration  = TimeSpan.FromSeconds(30),
                 MinimumThroughput = 3,
-                BreakDuration     = TimeSpan.FromSeconds(60),
+                BreakDuration     = TimeSpan.FromSeconds(15),
                 OnOpened          = args =>
                 {
                     _logger.LogError(
@@ -295,6 +295,58 @@ public sealed class PolymarketClient : IPolymarketClient
             _logger.LogWarning(ex, "Polymarket heartbeat failed");
             return Result<bool>.Failure(
                 new Error("Polymarket.HeartbeatFailed", ex.Message));
+        }
+    }
+
+    public async Task<Result<decimal>> GetBalanceAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _restPipeline.ExecuteAsync(
+                async token => await _httpClient.GetAsync("/balance", token),
+                ct);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogError("Polymarket GetBalance failed: {Status}", response.StatusCode);
+                return Result<decimal>.Failure(
+                    new Error("Polymarket.HttpError", $"HTTP {(int)response.StatusCode}"));
+            }
+
+            var json = await response.Content.ReadAsStringAsync(ct);
+            using var doc = JsonDocument.Parse(json);
+
+            // CLOB API returns balance as a string number
+            var balanceStr = doc.RootElement.TryGetProperty("balance", out var balProp)
+                ? balProp.GetString()
+                : doc.RootElement.GetRawText().Trim('"');
+
+            if (!decimal.TryParse(balanceStr, System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out var balance))
+            {
+                return Result<decimal>.Failure(
+                    new Error("Polymarket.ParseError", "Could not parse balance value."));
+            }
+
+            return Result<decimal>.Success(balance);
+        }
+        catch (BrokenCircuitException ex)
+        {
+            _logger.LogError(ex, "Polymarket circuit open — GetBalance rejected");
+            return Result<decimal>.Failure(
+                new Error("Polymarket.CircuitOpen", "Circuit breaker is open."));
+        }
+        catch (TimeoutRejectedException ex)
+        {
+            _logger.LogError(ex, "Polymarket timeout — GetBalance");
+            return Result<decimal>.Failure(
+                new Error("Polymarket.Timeout", "Request timed out."));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Polymarket GetBalance unexpected error");
+            return Result<decimal>.Failure(
+                new Error("Polymarket.UnexpectedError", ex.Message));
         }
     }
 

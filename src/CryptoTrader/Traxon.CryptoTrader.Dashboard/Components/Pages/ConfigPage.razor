@@ -1,5 +1,7 @@
 @page "/config"
 @rendermode InteractiveServer
+@using Traxon.CryptoTrader.Application.Abstractions
+@inject ISecureSettingService SecureSettingService
 
 <div style="display: flex; flex-direction: column; height: calc(100vh - 50px); overflow: hidden; gap: 8px; padding: 8px;">
     <div style="flex-shrink: 0;">
@@ -9,32 +11,14 @@
         </div>
     </div>
 
-    <div class="grid grid-cols-3 gap-3" style="flex: 1; min-height: 0;">
-
-        @* PaperBinance *@
-        <div class="rounded-[8px]" style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default); padding: 10px 12px; overflow-y: auto;">
-            <h2 style="font-size: 1rem; font-weight: 700; margin: 0 0 8px 0; color: var(--color-text-primary);">PaperBinance</h2>
-            <div style="display: flex; flex-direction: column;">
-                <ConfigRow Label="Başlangıç Bakiyesi" Value="$50" Source="PaperBinanceEngine.cs" />
-                <ConfigRow Label="Slippage" Value="%0.05" Source="PaperBinanceEngine.cs" />
-                <ConfigRow Label="Komisyon" Value="%0.075" Source="PaperBinanceEngine.cs" />
-                <ConfigRow Label="Stop Loss" Value="%0.5" Source="PaperBinanceEngine.cs" />
-                <ConfigRow Label="Take Profit" Value="%1.0" Source="PaperBinanceEngine.cs" />
-                <ConfigRow Label="Max Tutma Süresi" Value="6 mum" Source="PaperBinanceEngine.cs" />
-                <ConfigRow Label="Min Pozisyon" Value="$1" Source="PaperBinanceEngine.cs" />
-                <ConfigRow Label="Pozisyon Büyüklüğü" Value="Bakiyenin %2'si, min $1" Source="PaperBinanceEngine.cs" />
-            </div>
-        </div>
+    <div class="grid grid-cols-2 gap-3" style="flex-shrink: 0; min-height: 0;">
 
         @* PaperPoly *@
         <div class="rounded-[8px]" style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default); padding: 10px 12px; overflow-y: auto;">
             <h2 style="font-size: 1rem; font-weight: 700; margin: 0 0 8px 0; color: var(--color-text-primary);">PaperPoly</h2>
             <div style="display: flex; flex-direction: column;">
                 <ConfigRow Label="Başlangıç Bakiyesi" Value="$50" Source="PaperPolymarketEngine.cs" />
-                <ConfigRow Label="Slippage" Value="%1" Source="PaperPolymarketEngine.cs" />
-                <ConfigRow Label="Taker Fee" Value="%1.8" Source="PaperPolymarketEngine.cs" />
-                <ConfigRow Label="Min Giriş Fiyatı" Value="0.25" Source="PaperPolymarketEngine.cs" />
-                <ConfigRow Label="Max Giriş Fiyatı" Value="0.55" Source="PaperPolymarketEngine.cs" />
+                <ConfigRow Label="Taker Fee" Value="Fee = shares x 0.072 x p x (1-p)" Source="PaperPolymarketEngine.cs" />
                 <ConfigRow Label="Pozisyon Büyüklüğü" Value="Bakiyenin %2'si, min $1" Source="PaperPolymarketEngine.cs" />
             </div>
         </div>
@@ -48,16 +32,138 @@
                 <ConfigRow Label="Min Edge (Yüksek Vol)" Value="%12" Source="PositionSizer.cs" />
                 <ConfigRow Label="Min Edge (Düşük Vol)" Value="%15" Source="PositionSizer.cs" />
                 <ConfigRow Label="Max Pozisyon Oranı" Value="%2 (Bakiyenin max yüzdesi, $50'de ~$1)" Source="PositionSizer.cs" />
-                <ConfigRow Label="Kelly Çarpanı" Value="%15" Source="PositionSizer.cs" />
+                <ConfigRow Label="Kelly Çarpanı" Value="%15 (sinyal üretiminde kullanılır, pozisyon boyutlandırmada değil)" Source="PositionSizer.cs" />
                 <ConfigRow Label="Simüle Bankroll" Value="$50" Source="SignalGenerator.cs" />
             </div>
         </div>
 
     </div>
 
+    @* Polymarket Credentials *@
+    <div class="rounded-[8px]" style="flex-shrink: 0; background-color: var(--color-bg-surface); border: 1px solid var(--color-border-default); padding: 10px 12px;">
+        <h2 style="font-size: 1rem; font-weight: 700; margin: 0 0 8px 0; color: var(--color-text-primary);">Polymarket Credentials</h2>
+
+        @if (_credentialStatus is null)
+        {
+            <div style="font-size: 0.85rem; color: var(--color-text-muted);">Yükleniyor...</div>
+        }
+        else
+        {
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                @foreach (var field in _credentialFields)
+                {
+                    <div style="display: flex; align-items: center; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--color-border-subtle);">
+                        <span style="font-size: 0.85rem; font-weight: 600; color: var(--color-text-secondary); min-width: 120px; white-space: nowrap;">@field.Label</span>
+
+                        @if (_credentialStatus.TryGetValue(field.Key, out var isFilled) && isFilled)
+                        {
+                            <span style="font-size: 0.8rem; color: #22c55e; font-weight: 600; min-width: 50px;">Dolu</span>
+                        }
+                        else
+                        {
+                            <span style="font-size: 0.8rem; color: #ef4444; font-weight: 600; min-width: 50px;">Bos</span>
+                        }
+
+                        <input type="@field.InputType"
+                               placeholder="@field.Placeholder"
+                               value="@field.InputValue"
+                               @oninput="(e) => field.InputValue = e.Value?.ToString() ?? string.Empty"
+                               style="flex: 1; background: var(--color-bg-default); border: 1px solid var(--color-border-default); border-radius: 4px; padding: 4px 8px; font-size: 0.85rem; color: var(--color-text-primary); min-width: 0;" />
+                    </div>
+                }
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 12px; margin-top: 10px;">
+                <button @onclick="SaveCredentials"
+                        disabled="@_saving"
+                        style="background: var(--color-accent-emphasis); color: #fff; border: none; border-radius: 4px; padding: 6px 16px; font-size: 0.85rem; font-weight: 600; cursor: pointer;">
+                    @(_saving ? "Kaydediliyor..." : "Kaydet")
+                </button>
+
+                @if (!string.IsNullOrEmpty(_saveMessage))
+                {
+                    <span style="font-size: 0.8rem; color: #22c55e; font-weight: 600;">@_saveMessage</span>
+                }
+            </div>
+        }
+    </div>
+
     <div style="flex-shrink: 0; padding: 2px 0;">
         <p style="font-size: 0.7rem; color: var(--color-text-muted); margin: 0;">
-            Tüm ayarlar ilgili dosyalarda <code>const</code> olarak tanımlıdır. Değiştirmek için kod güncellemesi gerekir.
+            Tüm ayarlar ilgili dosyalarda <code>const</code> olarak tanımlıdır. Credential'lar sifreli olarak DB'de saklanir.
         </p>
     </div>
 </div>
+
+@code {
+    private sealed class CredentialField
+    {
+        public required string Key { get; init; }
+        public required string Label { get; init; }
+        public required string Placeholder { get; init; }
+        public required string InputType { get; init; }
+        public string InputValue { get; set; } = string.Empty;
+    }
+
+    private readonly List<CredentialField> _credentialFields =
+    [
+        new() { Key = "Polymarket:ApiKey",        Label = "API Key",        Placeholder = "API Key girin...",        InputType = "text" },
+        new() { Key = "Polymarket:ApiSecret",     Label = "API Secret",     Placeholder = "API Secret girin...",     InputType = "password" },
+        new() { Key = "Polymarket:Passphrase",    Label = "Passphrase",     Placeholder = "Passphrase girin...",     InputType = "text" },
+        new() { Key = "Polymarket:WalletAddress", Label = "Wallet Address", Placeholder = "Wallet adresi girin...",  InputType = "text" },
+        new() { Key = "Polymarket:PrivateKey",    Label = "Private Key",    Placeholder = "Private Key girin...",    InputType = "password" },
+        new() { Key = "Polymarket:SignatureType", Label = "Signature Type", Placeholder = "0, 1 veya 2 girin...",    InputType = "text" },
+    ];
+
+    private Dictionary<string, bool>? _credentialStatus;
+    private bool _saving;
+    private string _saveMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadStatusAsync();
+    }
+
+    private async Task LoadStatusAsync()
+    {
+        var keys = _credentialFields.Select(f => f.Key);
+        _credentialStatus = await SecureSettingService.GetStatusAsync(keys);
+    }
+
+    private async Task SaveCredentials()
+    {
+        _saving = true;
+        _saveMessage = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            var fieldsToSave = _credentialFields
+                .Where(f => !string.IsNullOrWhiteSpace(f.InputValue))
+                .ToList();
+
+            if (fieldsToSave.Count == 0)
+            {
+                _saveMessage = "Kaydedilecek alan yok.";
+                return;
+            }
+
+            foreach (var field in fieldsToSave)
+            {
+                await SecureSettingService.SetAsync(field.Key, field.InputValue.Trim());
+                field.InputValue = string.Empty;
+            }
+
+            await LoadStatusAsync();
+            _saveMessage = $"{fieldsToSave.Count} alan kaydedildi.";
+        }
+        catch (Exception ex)
+        {
+            _saveMessage = $"Hata: {ex.Message}";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Traxon.CryptoTrader.Application.Abstractions;
 using Traxon.CryptoTrader.Polymarket.Authentication;
 using Traxon.CryptoTrader.Polymarket.Engines;
@@ -21,8 +22,10 @@ public static class DependencyInjection
 
         services.AddTransient<PolymarketAuthHandler>();
 
-        services.AddHttpClient<IPolymarketClient, PolymarketClient>(client =>
+        services.AddHttpClient<IPolymarketClient, PolymarketClient>((sp, client) =>
         {
+            var opts = sp.GetRequiredService<IOptions<PolymarketOptions>>().Value;
+            client.BaseAddress = new Uri(opts.BaseUrl.TrimEnd('/') + "/");
             client.Timeout = TimeSpan.FromSeconds(15);
         })
         .AddHttpMessageHandler<PolymarketAuthHandler>();
@@ -34,11 +37,16 @@ public static class DependencyInjection
 
         services.AddSingleton<IMarketDiscoveryService, MarketDiscoveryService>();
 
+        services.AddHttpClient<IPolymarketSigningClient, PolymarketSigningClient>(client =>
+        {
+            client.BaseAddress = new Uri("http://127.0.0.1:5099");
+            client.Timeout = TimeSpan.FromSeconds(15);
+        });
+
         services.AddSingleton<PolymarketWebSocketClient>();
 
         services.AddSingleton<PolymarketEngine>();
-        services.AddSingleton<ITradingEngine>(
-            sp => sp.GetRequiredService<PolymarketEngine>());
+        // ITradingEngine kaydı Infrastructure DI'da yapılır (EnabledEngines kontrolü ile)
 
         return services;
     }

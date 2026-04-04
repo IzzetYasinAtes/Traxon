@@ -15,6 +15,7 @@ public sealed class PolymarketOptions
     public string  GammaApiUrl               { get; set; } = "https://gamma-api.polymarket.com";
     public int     HeartbeatIntervalSeconds  { get; set; } = 5;
     public int     WsPingIntervalSeconds     { get; set; } = 10;
-    public decimal MaxPositionSizeUsdc       { get; set; } = 10m;
-    public int     MarketMinutesMinRemaining { get; set; } = 10;
+    public int     MarketMinutesMinRemaining { get; set; } = 1;
+    public string  PrivateKey                { get; set; } = string.Empty;
+    public int     SignatureType             { get; set; } = 0; // 0=EOA, 1=Magic, 2=Proxy
 }

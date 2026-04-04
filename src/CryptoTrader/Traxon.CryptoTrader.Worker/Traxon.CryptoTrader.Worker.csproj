@@ -17,4 +17,8 @@
     <ProjectReference Include="..\Traxon.CryptoTrader.Polymarket\Traxon.CryptoTrader.Polymarket.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="logs\" />
+  </ItemGroup>
+
 </Project>

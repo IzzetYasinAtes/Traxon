@@ -1,4 +1,5 @@
 @page "/chart"
+@rendermode InteractiveServer
 
 <div class="chart-page">
     <!-- Ust Bar: Sembol + Zaman Dilimi -->
@@ -27,18 +28,16 @@
 
     <!-- Chart Alani -->
     <div class="chart-area">
-        <CandlestickChart Symbol="@_selectedSymbol" Interval="@_selectedTimeframe" Height="_chartHeight" />
+        <CandlestickChart Symbol="@_selectedSymbol" Interval="@_selectedTimeframe" Height="0" />
     </div>
 </div>
 
 @code {
-    private readonly string[] _symbols = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT", "DOGEUSDT", "BNBUSDT", "DOTUSDT", "MATICUSDT"];
-    private readonly string[] _timeframes = ["1m", "5m", "15m"];
+    private readonly string[] _symbols = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT", "DOGEUSDT", "BNBUSDT", "HYPEUSDT"];
+    private readonly string[] _timeframes = ["1m", "5m", "15m", "1h"];
 
     private string _selectedSymbol = "BTCUSDT";
     private string _selectedTimeframe = "1m";
-    private int _chartHeight = 800;
-
     private void SelectSymbol(string symbol)
     {
         _selectedSymbol = symbol;

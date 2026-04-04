@@ -48,4 +48,23 @@ public sealed class MarketDiscoveryService : IMarketDiscoveryService
 
         return Result<IReadOnlyList<PolymarketMarket>>.Success(filtered);
     }
+
+    /// <summary>
+    /// Tüm marketleri döndürür (kapanmış dahil). CheckPositionsAsync için kullanılır.
+    /// </summary>
+    public async Task<Result<IReadOnlyList<PolymarketMarket>>> DiscoverAllMarketsAsync(
+        CancellationToken ct = default)
+    {
+        var result = await _gammaClient.GetActiveCryptoMarketsAsync(ct);
+        if (result.IsFailure)
+            return result;
+
+        var all = result.Value!
+            .Where(m => !string.IsNullOrEmpty(m.Direction)
+                     && !string.IsNullOrEmpty(m.UnderlyingAsset))
+            .ToList()
+            .AsReadOnly();
+
+        return Result<IReadOnlyList<PolymarketMarket>>.Success(all);
+    }
 }

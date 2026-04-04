@@ -58,7 +58,7 @@
         </p>
         <p>
             Bitcoin disinda binlerce kripto para vardir: <strong>Ethereum (ETH)</strong> akilli sozlesmeler calistirabilir,
-            <strong>Solana (SOL)</strong> yuksek hizli islemler sunar, <strong>BNB</strong> Binance ekosisteminin tokenidir,
+            <strong>Solana (SOL)</strong> yuksek hizli islemler sunar, <strong>BNB</strong> buyuk borsalarin ekosistem tokenidir,
             <strong>XRP</strong> bankalar arasi havale icin tasarlanmistir. Her birinin farkli bir kullanim alani ve teknolojisi
             vardir, ancak hepsi blockchain altyapisini kullanir.
         </p>
@@ -90,13 +90,12 @@
             tum islemlerini <strong>USDT bazli ciftlerde</strong> (BTCUSDT, ETHUSDT, SOLUSDT vb.) yapar.
         </p>
 
-        <h3 class="guide-subtitle-h3">Binance Nedir?</h3>
+        <h3 class="guide-subtitle-h3">Kripto Borsalari ve Veri Kaynaklari</h3>
         <p>
-            <strong>Binance</strong>, dunyanin en buyuk kripto para borsasidir. 2017 yilinda Changpeng Zhao (CZ) tarafindan
-            kurulmustur. Gunluk islem hacmi milyarlarca dolari bulur. Binance, spot trading, vadeli islemler (futures),
-            staking, launchpad ve daha bircok hizmet sunar. Traxon sistemi, Binance'in <strong>WebSocket API'sini</strong>
-            kullanarak canli fiyat verisi alir. Bu API sayesinde her mum kapanisinda aninda veri alinir ve islem kararlari
-            milisaniyeler icinde verilebilir.
+            Kripto borsalari, dijital varliklarin alim-satiminin yapildigi platformlardir. Traxon sistemi,
+            <strong>WebSocket API</strong> uzerinden canli fiyat verisi alir. Bu API sayesinde her mum kapanisinda
+            aninda veri alinir ve islem kararlari milisaniyeler icinde verilebilir. Sistem, Polymarket uzerinde
+            tahmin piyasasi islemleri yaparak kar elde etmeyi hedefler.
         </p>
 
         <h3 class="guide-subtitle-h3">Polymarket Nedir? Tahmin Piyasasi Nasil Calisir?</h3>
@@ -113,7 +112,7 @@
             <strong>Paper trading (kagit uzerinde islem)</strong>, gercek para kullanmadan sanal bakiye ile islem yapmayi
             ifade eder. Stratejinizi test etmek, sistemin karliligini olcmek ve risk yonetimini denemek icin idealdir.
             Traxon sistemi <strong>tamamen paper trading</strong> yapar — gercek para riski yoktur, ama gercek piyasa
-            verilerini kullanir. Her iki motor da (PaperBinance ve PaperPoly) 50$'lik sanal bakiye ile baslar. Paper
+            verilerini kullanir. PaperPoly motoru 50$'lik sanal bakiye ile baslar, LivePoly ise gercek bakiye kullanir. Paper
             trading, bir stratejinin gercek parayla kullanilmadan once kanitlanmasi icin kritik bir adimdir.
         </p>
     </div>
@@ -469,7 +468,7 @@
             Zarar sadece %2. Yeni bir firsatta tekrar girebilirsiniz. Sermayeniz korundu.
         </div>
         <p>
-            Traxon PaperBinance motoru <strong>%0.5 SL</strong> kullanir. Bu cok siki bir stop loss'tur cunku scalping
+            Traxon sistemi <strong>%0.5 SL</strong> kullanir. Bu cok siki bir stop loss'tur cunku scalping
             (cok kisa vadeli islem) stratejisi izler. Daha uzun vadeli stratejilerde SL %2-5 arasi olabilir.
         </p>
 
@@ -485,7 +484,7 @@
             karla cikmistiniz.
         </div>
         <p>
-            Traxon PaperBinance motoru <strong>%1.0 TP</strong> kullanir. SL %0.5 oldugundan, bu 1:2 risk/odul orani saglar.
+            Traxon sistemi <strong>%1.0 TP</strong> kullanir. SL %0.5 oldugundan, bu 1:2 risk/odul orani saglar.
         </p>
 
         <h3 class="guide-subtitle-h3">Risk/Odul Orani (Risk/Reward Ratio)</h3>
@@ -556,8 +555,8 @@
             Ortalama kazanc/kayip: 2.0 (kazandiginizda kaybettiginizin 2 kati)<br /><br />
             f* = (0.55 x 2.0 - 0.45) / 2.0 = (1.10 - 0.45) / 2.0 = 0.65 / 2.0 = <strong>0.325</strong><br /><br />
             Kelly, bakiyenizin %32.5'ini riske atmanizi onerir. Ama bu pratikte <strong>cok agresiftir</strong> cunku
-            modelin tahminleri her zaman dogru degildir. Bu yuzden Traxon sistemi <strong>%15 Kelly</strong> kullanir:
-            0.325 x 0.15 = <strong>%4.87</strong>. Ve buna ek olarak max %2 siniri vardir.
+            modelin tahminleri her zaman dogru degildir. PaperPoly motoru Kelly hesabi yerine
+            <strong>sabit bakiyenin %2'si</strong> (minimum $1) pozisyon buyuklugu kullanir.
         </div>
 
         <h3 class="guide-subtitle-h3">Drawdown: Maksimum Dusus</h3>
@@ -605,36 +604,20 @@
             Algoritmik sistemler genellikle taker fee oder cunku hizli islem yapmak ister.
         </p>
 
-        <h3 class="guide-subtitle-h3">Binance Fee Yapisi</h3>
-        <p>
-            Binance standart taker fee'si <strong>%0.10</strong>'dur. Ancak BNB (Binance'in kendi tokeni) ile odeme
-            yapildiginda <strong>%0.075</strong>'e duser. Traxon sistemi %0.075 komisyon orani kullanir
-            (<code>CommissionRate = 0.00075</code>). Hem giris hem cikista komisyon odendiginden, bir islmin toplam
-            komisyon maliyeti <strong>%0.15</strong> civarindadir (round-trip).
-        </p>
-
         <h3 class="guide-subtitle-h3">Polymarket Fee Yapisi</h3>
         <p>
-            Traxon PaperPoly motoru <strong>%1.8 taker fee</strong> simule eder (<code>TakerFeeRate = 0.018</code>).
-            Bu fee sadece kazanilan islemlerden kesilir. Kaybedilen islemlerde zaten pozisyon tamamen sifirlanir
-            (exitPrice = 0.00), bu yuzden ek fee kesilmez.
-        </p>
-
-        <h3 class="guide-subtitle-h3">Slippage (Kayma)</h3>
-        <p>
-            <strong>Slippage</strong>, emirinizin beklediginiz fiyattan farkli bir fiyatta gerceklesmesidir. Sebepleri:
-            dusuk likidite, hizli fiyat hareketi veya buyuk emir buyuklugu. Ornegin 100$'dan almak isterken 100.05$'dan
-            alinabilir. Traxon PaperBinance %0.05 (<code>SlippageRate = 0.0005</code>), PaperPoly ise $0.01 sabit
-            slippage simule eder.
+            Traxon PaperPoly motoru Polymarket'in gercek taker fee formulunu kullanir:
+            <code>fee = shares x 0.072 x p x (1-p)</code>. Burada <code>p</code> giris fiyatidir (midpoint).
+            p=0.50 icin fee orani ~%3.6'dir. Fee sadece kazanilan islemlerden kesilir. Kaybedilen islemlerde
+            pozisyon tamamen sifirlanir (exitPrice = 0.00), bu yuzden ek fee kesilmez.
         </p>
 
         <h3 class="guide-subtitle-h3">Round-Trip Maliyet Hesabi</h3>
         <div class="guide-example">
-            <strong>PaperBinance round-trip maliyet:</strong><br />
-            Giris: lastCandle.Close x (1 + 0.0005 + 0.00075) = +%0.125 kayip<br />
-            Cikis: exitPrice x (1 - 0.00075) = +%0.075 kayip<br />
-            <strong>Toplam maliyet: ~%0.20 per trade</strong><br /><br />
-            Bu, TP'nin %1.0 oldugu bir sistemde maliyetin toplam karin %20'sine karsilik gelir.
+            <strong>PaperPoly maliyet:</strong><br />
+            Taker fee: shares x 0.072 x p x (1-p) — sadece kazanilan islemlerden kesilir.<br />
+            Slippage: Yok — FAK market order ile aninda doldurulur.<br />
+            <strong>Toplam maliyet: kazanc durumunda ~%3.6 (p=0.50 icin)</strong><br /><br />
             Bu yuzden her sinyalin kaliteli olmasi ve gereksiz islem (overtrading) yapilmamasi kritiktir.
         </div>
     </div>
@@ -660,66 +643,68 @@
 
         <h3 class="guide-subtitle-h3">Hisse Sistemi: Adim Adim Hesaplama</h3>
         <div class="guide-example">
-            <strong>Ornek — $100 ile 0.41$'dan alis:</strong><br />
+            <strong>Ornek — $100 ile midpoint ~0.50$'dan alis:</strong><br />
             Yatirim: $100<br />
-            Hisse fiyati: $0.41<br />
-            Alinan hisse sayisi: $100 / $0.41 = <strong>243.9 hisse</strong><br /><br />
+            Hisse fiyati (midpoint): $0.50<br />
+            Alinan hisse sayisi: $100 / $0.50 = <strong>200 hisse</strong><br /><br />
 
             <strong>Olay gerceklesirse (WIN):</strong><br />
             Her hisse $1.00'a resolve olur<br />
-            Toplam deger: 243.9 x $1.00 = $243.90<br />
-            Brut kar: $243.90 - $100 = <strong class="text-green">+$143.90</strong><br />
-            Fee (%1.8): $100 x 0.018 = $1.80<br />
-            Net kar: $143.90 - $1.80 = <strong class="text-green">+$142.10</strong><br />
-            Getiri: +%142.1<br /><br />
+            Toplam deger: 200 x $1.00 = $200.00<br />
+            Brut kar: $200.00 - $100 = <strong class="text-green">+$100.00</strong><br />
+            Fee: 200 x 0.072 x 0.50 x 0.50 = $3.60<br />
+            Net kar: $100.00 - $3.60 = <strong class="text-green">+$96.40</strong><br />
+            Getiri: +%96.4<br /><br />
 
             <strong>Olay gerceklesmezse (LOSS):</strong><br />
             Her hisse $0.00'a resolve olur<br />
-            Toplam deger: 243.9 x $0.00 = $0.00<br />
+            Toplam deger: 200 x $0.00 = $0.00<br />
             Kayip: $0.00 - $100 = <strong class="text-red">-$100.00</strong><br />
             Getiri: -%100
         </div>
 
-        <h3 class="guide-subtitle-h3">Neden %41 Basabas? — Matematik Ispati</h3>
+        <h3 class="guide-subtitle-h3">Neden ~%51.8 Basabas? — Matematik Ispati</h3>
         <p>
-            0.41$ giris fiyati ile basabas (breakeven) icin gereken kazanma oranini hesaplayalim. Basabas noktasi,
-            uzun vadede beklenen degerin sifir oldugu noktadir:
+            Midpoint ~0.50$ giris fiyati ile basabas (breakeven) icin gereken kazanma oranini hesaplayalim.
+            Basabas noktasi, uzun vadede beklenen degerin sifir oldugu noktadir:
         </p>
         <div class="guide-formula">
-            <code>Beklenen Deger = WR x Kazanc - (1-WR) x Kayip = 0</code><br />
-            <code>WR x 1.439 = (1-WR) x 1.00</code><br />
-            <code>WR x 1.439 + WR x 1.00 = 1.00</code><br />
-            <code>WR x 2.439 = 1.00</code><br />
-            <code>WR = 1.00 / 2.439 = <strong>0.410 = %41.0</strong></code>
+            <code>Beklenen Deger = WR x NetKazanc - (1-WR) x Kayip = 0</code><br />
+            <code>NetKazanc = $0.964 ($1.00 brut - $0.036 fee)</code><br />
+            <code>WR x 0.964 = (1-WR) x 1.00</code><br />
+            <code>WR x 0.964 + WR x 1.00 = 1.00</code><br />
+            <code>WR x 1.964 = 1.00</code><br />
+            <code>WR = 1.00 / 1.964 = <strong>~0.509 = ~%50.9</strong></code><br />
+            <code>Gercek fee hesabiyla basabas: <strong>~%51.8</strong></code>
         </div>
         <p>
-            Bu demek ki <strong>%41'den fazla</strong> kazanma orani saglarsaniz uzun vadede karli olursunuz.
-            Ornegin %50 WR ile beklenen getiri: 0.50 x 1.439 - 0.50 x 1.00 = <strong>+%22 per trade</strong>.
-            Bu cok guclu bir asimetridir cunku kazandiginizda kaybettiginizin 1.44 katini alirsiniz.
+            Bu demek ki <strong>%52'den fazla</strong> kazanma orani saglarsaniz uzun vadede karli olursunuz.
+            Ornegin %55 WR ile beklenen getiri per trade: 0.55 x 0.964 - 0.45 x 1.00 = <strong>+$0.08</strong>.
+            Eski sabit 0.41$ giris fiyatina gore asimetri daha dusuktur ama gercek piyasa fiyatlariyla islem yapilir.
         </p>
 
         <h3 class="guide-subtitle-h3">Traxon PaperPoly Nasil Calisir?</h3>
         <p>
-            Traxon sistemi <strong>gercek Polymarket'a baglanmaz</strong>. Bunun yerine kripto fiyat hareketlerini
-            tahmin ederek Polymarket mantigi ile simule eder. Sabit 0.40$ giris fiyati + 0.01$ slippage = <strong>0.41$ entry</strong>.
-            Her pozisyon bakiyenin %2'si buyuklugundedir (minimum $1). Pozisyon 1 mum suresi (5 dakika) sonra
-            resolve olur: mum yesil kapandiysa UP kazanir, kirmizi kapandiysa DOWN kazanir.
+            Traxon sistemi <strong>Gamma API uzerinden gercek Polymarket event'lerini bulur</strong> ve 5-dakikalik
+            zaman dilimlerinde islem acar. Giris fiyati Polymarket midpoint'idir (~0.50, dinamik).
+            FAK (Fill-and-Kill) market order ile taker olarak aninda doldurulur — slippage yoktur.
+            Her pozisyon bakiyenin %2'si buyuklugundedir (minimum $1).
         </p>
         <p>
-            <strong>Gercek Polymarket vs Traxon simulasyonu farklari:</strong> Gercek Polymarket'ta hisse fiyatlari
-            arz-talebe gore belirlenir ve degiskendir; Traxon'da sabit 0.41$'dir. Gercek Polymarket'ta resolution
-            gercek dunya olaylarina baglidir; Traxon'da mum yonune baglidir. Gercek Polymarket'ta likidite riski
-            vardir; Traxon'da sonsuz likidite varsayilir.
+            Pozisyon sonuclari Polymarket ResolvedPrice ile belirlenir (1.0 = WIN, 0.0 = LOSS).
+            Henuz resolve olmamis pozisyonlar icin midpoint fallback kullanilir: midpoint &ge;0.95 WIN,
+            midpoint &le;0.05 LOSS. Fee gercek Polymarket formuluyle hesaplanir:
+            <code>shares x 0.072 x p x (1-p)</code>.
         </p>
 
         <h3 class="guide-subtitle-h3">Compound Growth (Bilesik Buyume) Analizi</h3>
         <div class="guide-example">
-            <strong>%50 WR ile 100 islem senaryosu (bakiye: $50):</strong><br />
+            <strong>%55 WR ile 100 islem senaryosu (bakiye: $50, p=0.50):</strong><br />
             Her islem: bakiye x %2 = $1<br />
-            50 kazanc x ($1 x 1.439 - $0.018 fee) = 50 x $1.421 = +$71.05<br />
-            50 kayip x (-$1) = -$50.00<br />
-            Net kar: +$21.05<br />
-            Yeni bakiye: $50 + $21.05 = <strong>$71.05</strong> (%42 buyume)
+            55 kazanc x ($1 x 1.00 - $0.036 fee) = 55 x $0.964 = +$53.02<br />
+            45 kayip x (-$1) = -$45.00<br />
+            Net kar: +$8.02<br />
+            Yeni bakiye: $50 + $8.02 = <strong>$58.02</strong> (%16 buyume)
         </div>
     </div>
 

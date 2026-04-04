@@ -94,7 +94,7 @@ public sealed class BinanceMarketDataProvider : IMarketDataProvider, IAsyncDispo
         try
         {
             var result = await _restPipeline.ExecuteAsync(
-                async ct => await _restClient.SpotApi.ExchangeData.GetKlinesAsync(
+                async ct => await _restClient.UsdFuturesApi.ExchangeData.GetKlinesAsync(
                     symbol: asset.Symbol,
                     interval: interval,
                     limit: limit,
@@ -147,7 +147,7 @@ public sealed class BinanceMarketDataProvider : IMarketDataProvider, IAsyncDispo
 
         foreach (var (symbol, interval, asset, tf) in streams)
         {
-            var sub = await _socketClient.SpotApi.ExchangeData.SubscribeToKlineUpdatesAsync(
+            var sub = await _socketClient.UsdFuturesApi.ExchangeData.SubscribeToKlineUpdatesAsync(
                 symbol: symbol,
                 interval: interval,
                 onMessage: async data =>

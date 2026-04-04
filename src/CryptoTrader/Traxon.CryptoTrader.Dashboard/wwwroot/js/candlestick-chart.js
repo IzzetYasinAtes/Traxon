@@ -19,7 +19,9 @@ window.traxonCandlestickChart = {
             },
             timeScale: { timeVisible: true, secondsVisible: false }
         });
-        chart.resize(el.parentElement.offsetWidth || 800, el.parentElement.offsetHeight || height);
+        var width = el.clientWidth || el.parentElement.offsetWidth || 800;
+        var height2 = el.clientHeight || el.parentElement.offsetHeight || 600;
+        chart.resize(width, height2);
 
         var series = chart.addSeries(LightweightCharts.CandlestickSeries, {
             upColor: '#00d4aa',
@@ -36,7 +38,9 @@ window.traxonCandlestickChart = {
 
         window.addEventListener('resize', function () {
             if (el.parentElement) {
-                chart.resize(el.parentElement.offsetWidth, el.parentElement.offsetHeight);
+                var w = el.clientWidth || el.parentElement.offsetWidth || 800;
+                var h = el.clientHeight || el.parentElement.offsetHeight || 600;
+                chart.resize(w, h);
             }
         });
     }
