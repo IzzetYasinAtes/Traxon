@@ -22,6 +22,10 @@ public sealed class MarketDataWorker : BackgroundService
     private readonly IMarketDiscoveryService     _discovery;
     private readonly ILogger<MarketDataWorker>   _logger;
 
+    private const int BackfillDays = 3;
+    private const int BackfillPageSize = 1500;
+    private const int MinFiveMinuteCandles = 30;
+
     public MarketDataWorker(
         IMarketDataProvider marketDataProvider,
         ICandleBuffer candleBuffer,
@@ -48,54 +52,14 @@ public sealed class MarketDataWorker : BackgroundService
         _logger              = logger;
     }
 
-    /// <summary>TimeFrame bazli backfill limit: 1m→120, 5m→500, 15m→500, 1h→48.</summary>
-    private static int GetBackfillLimit(TimeFrame tf) => tf.Value switch
-    {
-        "1m"  => 120,
-        "5m"  => 500,
-        "15m" => 500,
-        "1h"  => 48,
-        _     => 200
-    };
-
-    /// <summary>TimeFrame bazli warmup esigi: 1m→30, 5m→100, 15m→100, 1h→24.</summary>
-    private static int GetWarmupThreshold(TimeFrame tf) => tf.Value switch
-    {
-        "1m"  => 30,
-        "5m"  => 100,
-        "15m" => 100,
-        "1h"  => 24,
-        _     => 50
-    };
-
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("MarketDataWorker starting — loading historical candles...");
+        _logger.LogInformation("MarketDataWorker starting — loading historical 1m candles (paginated {Days}-day backfill)...", BackfillDays);
 
-        foreach (var asset in Asset.Tradeable)
-        foreach (var tf in TimeFrame.All)
-        {
-            var candlesResult = await _marketDataProvider.GetHistoricalCandlesAsync(
-                asset, tf, limit: GetBackfillLimit(tf), stoppingToken);
+        await BackfillOneMinuteCandlesAsync(stoppingToken);
+        AggregateBackfilledCandles();
 
-            if (candlesResult.IsFailure)
-            {
-                _logger.LogWarning("Failed to load historical candles for {Symbol}/{Interval}: {Error}",
-                    asset.Symbol, tf.Value, candlesResult.Error!.Message);
-                continue;
-            }
-
-            foreach (var candle in candlesResult.Value!)
-            {
-                _candleBuffer.Add(candle);
-                _ = _candleWriter.WriteAsync(candle, stoppingToken);
-            }
-
-            _logger.LogInformation("Loaded {Count} candles for {Symbol}/{Interval}",
-                candlesResult.Value!.Count, asset.Symbol, tf.Value);
-        }
-
-        _logger.LogInformation("Buffer warm-up complete. Starting WebSocket stream...");
+        _logger.LogInformation("Buffer warm-up complete. Starting WebSocket stream (1m only)...");
 
         var engineCount = _tradingEngines.Count();
         _publisher.PublishSystemStatus(new SystemStatusDto(
@@ -106,18 +70,105 @@ public sealed class MarketDataWorker : BackgroundService
 
         await _marketDataProvider.StartStreamAsync(
             assets: Asset.Tradeable,
-            timeFrames: TimeFrame.All,
+            timeFrames: TimeFrame.Streamed,
             onCandleClosed: OnCandleClosedAsync,
             cancellationToken: stoppingToken);
 
         await Task.Delay(Timeout.Infinite, stoppingToken);
     }
 
+    private async Task BackfillOneMinuteCandlesAsync(CancellationToken ct)
+    {
+        var startTime = DateTime.UtcNow.AddDays(-BackfillDays);
+
+        foreach (var asset in Asset.Tradeable)
+        {
+            var currentStart = startTime;
+            var totalLoaded = 0;
+
+            while (currentStart < DateTime.UtcNow)
+            {
+                var candlesResult = await _marketDataProvider.GetHistoricalCandlesAsync(
+                    asset, TimeFrame.OneMinute, BackfillPageSize, currentStart, ct);
+
+                if (candlesResult.IsFailure)
+                {
+                    _logger.LogWarning("Failed to load 1m candles for {Symbol} from {Start}: {Error}",
+                        asset.Symbol, currentStart, candlesResult.Error!.Message);
+                    break;
+                }
+
+                var candles = candlesResult.Value!;
+                if (candles.Count == 0) break;
+
+                foreach (var candle in candles)
+                {
+                    _candleBuffer.Add(candle);
+                    _ = _candleWriter.WriteAsync(candle, ct);
+                }
+
+                totalLoaded += candles.Count;
+                currentStart = candles[^1].CloseTime;
+
+                if (candles.Count < BackfillPageSize) break;
+            }
+
+            _logger.LogInformation("Backfilled {Count} 1m candles for {Symbol}", totalLoaded, asset.Symbol);
+        }
+    }
+
+    private void AggregateBackfilledCandles()
+    {
+        foreach (var asset in Asset.Tradeable)
+        {
+            var allOneMinute = _candleBuffer.GetAll(asset, TimeFrame.OneMinute);
+            if (allOneMinute.IsFailure) continue;
+
+            foreach (var targetTf in TimeFrame.Aggregated)
+            {
+                var aggregated = CandleAggregator.AggregateAll(allOneMinute.Value!, asset, targetTf);
+                foreach (var candle in aggregated)
+                    _candleBuffer.Add(candle);
+
+                _logger.LogInformation("Aggregated {Count} {TF} candles for {Symbol}",
+                    aggregated.Count, targetTf.Value, asset.Symbol);
+            }
+        }
+    }
+
     private async Task OnCandleClosedAsync(Candle candle)
     {
         _candleBuffer.Add(candle);
+        PublishTickerUpdate(candle);
+        _publisher.PublishCandleUpdate(candle.ToCandleDto());
+        WriteCandleAsync(candle);
 
-        // Ticker guncelle — onceki close ile karsilastir
+        // Aggregate 1m candle into higher timeframes at boundaries
+        foreach (var targetTf in TimeFrame.Aggregated)
+        {
+            if (!CandleAggregator.CompletesTimeFrame(candle, targetTf))
+                continue;
+
+            var minutesNeeded = targetTf.TotalSeconds / 60;
+            var recentResult = _candleBuffer.GetLast(candle.Asset, TimeFrame.OneMinute, minutesNeeded);
+            if (recentResult.IsFailure) continue;
+
+            var aggregated = CandleAggregator.Aggregate(recentResult.Value!, candle.Asset, targetTf);
+            if (aggregated is null) continue;
+
+            _candleBuffer.Add(aggregated);
+            WriteCandleAsync(aggregated);
+
+            if (targetTf == TimeFrame.FiveMinute)
+                await RunSignalPipelineAsync(aggregated);
+        }
+
+        foreach (var engine in _tradingEngines)
+            await engine.CheckPositionsAsync(candle);
+    }
+
+    private void PublishTickerUpdate(Candle candle)
+    {
         decimal change = 0m;
         decimal changePercent = 0m;
         var bufferResult = _candleBuffer.GetAll(candle.Asset, candle.TimeFrame);
@@ -133,153 +184,158 @@ public sealed class MarketDataWorker : BackgroundService
         }
         _publisher.PublishTickerUpdate(new TickerDto(
             candle.Asset.Symbol, candle.Close, change, changePercent, DateTime.UtcNow));
+    }
 
-        // Candle guncelle
-        _publisher.PublishCandleUpdate(candle.ToCandleDto());
-
-        // SQL'e async yaz (fire-and-forget — hata sinyal uretimini ENGELLEMEMELI)
+    private void WriteCandleAsync(Candle candle)
+    {
         _ = Task.Run(async () =>
         {
             try { await _candleWriter.WriteAsync(candle); }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Candle write failed for {Symbol}, signal generation continues",
-                    candle.Asset.Symbol);
+                _logger.LogWarning(ex, "Candle write failed for {Symbol}/{TF}, signal generation continues",
+                    candle.Asset.Symbol, candle.TimeFrame.Value);
             }
         });
+    }
 
-        // Polymarket sadece 5 dakikalık market sunuyor — sadece 5m mumlar sinyal üretir
-        if (candle.TimeFrame != TimeFrame.FiveMinute)
-            return;
-
-        if (!_candleBuffer.IsWarmedUp(candle.Asset, candle.TimeFrame, minimumCandles: GetWarmupThreshold(candle.TimeFrame)))
+    private async Task RunSignalPipelineAsync(Candle fiveMinCandle)
+    {
+        if (!_candleBuffer.IsWarmedUp(fiveMinCandle.Asset, TimeFrame.FiveMinute, minimumCandles: MinFiveMinuteCandles))
         {
-            _logger.LogDebug("Buffer not warmed up yet for {Symbol}/{Interval}",
-                candle.Asset.Symbol, candle.TimeFrame.Value);
+            _logger.LogDebug("Buffer not warmed up yet for {Symbol}/5m", fiveMinCandle.Asset.Symbol);
             return;
         }
 
-        var candlesResult = _candleBuffer.GetAll(candle.Asset, candle.TimeFrame);
+        var candlesResult = _candleBuffer.GetAll(fiveMinCandle.Asset, TimeFrame.FiveMinute);
         if (candlesResult.IsFailure) return;
 
         var indicatorResult = _indicatorCalculator.Calculate(
-            candle.Asset, candle.TimeFrame, candlesResult.Value!);
+            fiveMinCandle.Asset, TimeFrame.FiveMinute, candlesResult.Value!);
 
         if (indicatorResult.IsFailure)
         {
-            _logger.LogWarning("Indicator calc failed for {Symbol}/{Interval}: {Error}",
-                candle.Asset.Symbol, candle.TimeFrame.Value, indicatorResult.Error!.Message);
+            _logger.LogWarning("Indicator calc failed for {Symbol}/5m: {Error}",
+                fiveMinCandle.Asset.Symbol, indicatorResult.Error!.Message);
+            return;
+        }
+
+        var indicators = indicatorResult.Value!;
+        _logger.LogInformation(
+            "{Symbol}/5m — RSI:{Rsi:F1} MACD:{Macd:F6} BB({Lower:F2}/{Upper:F2}) ATR:{Atr:F6} Bulls:{Bulls}/5",
+            fiveMinCandle.Asset.Symbol,
+            indicators.Rsi.Value,
+            indicators.Macd.Histogram,
+            indicators.BollingerBands.Lower, indicators.BollingerBands.Upper,
+            indicators.Atr.Value,
+            indicators.BullishCount());
+
+        await TryGenerateAndDispatchSignalAsync(fiveMinCandle, candlesResult.Value!, indicators);
+    }
+
+    private async Task TryGenerateAndDispatchSignalAsync(
+        Candle candle,
+        IReadOnlyList<Candle> fiveMinCandles,
+        Domain.Indicators.TechnicalIndicators indicators)
+    {
+        // Compute Z-score from 1m candles to determine preliminary direction (mean reversion)
+        var oneMinuteResult = _candleBuffer.GetAll(candle.Asset, TimeFrame.OneMinute);
+        if (oneMinuteResult.IsFailure) return;
+
+        var oneMinuteCandles = oneMinuteResult.Value!;
+        var zScore = ZScoreCalculator.Compute(oneMinuteCandles);
+
+        // Mean reversion: positive Z = overbought = bet Down; negative Z = oversold = bet Up
+        var direction = zScore > 0 ? "Down" : "Up";
+
+        var baseAsset = candle.Asset.Symbol.Replace("USDT", "");
+
+        var discoverResult = await _discovery.DiscoverMarketsAsync();
+        if (discoverResult.IsFailure)
+        {
+            _logger.LogWarning("Polymarket market discovery failed for {Symbol}, skipping signal", candle.Asset.Symbol);
+            return;
+        }
+
+        var market = discoverResult.Value!
+            .FirstOrDefault(m => m.UnderlyingAsset.Equals(baseAsset, StringComparison.OrdinalIgnoreCase)
+                              && m.Direction == direction);
+        if (market is null)
+        {
+            _logger.LogDebug("No Polymarket market for {Symbol} {Direction}, skipping signal", candle.Asset.Symbol, direction);
+            return;
+        }
+
+        var midResult = await _polyClient.GetMidpointAsync(market.RelevantTokenId);
+        if (midResult.IsFailure)
+        {
+            _logger.LogWarning("Polymarket midpoint failed for {Symbol}, skipping signal", candle.Asset.Symbol);
+            return;
+        }
+
+        var marketPrice = midResult.Value;
+
+        // FairValue = P(Up). Down token midpoint = P(Down). Convert to same basis.
+        if (direction == "Down")
+            marketPrice = 1m - marketPrice;
+
+        var signalResult = _signalGenerator.Generate(
+            candle.Asset, candle.TimeFrame, oneMinuteCandles,
+            marketPrice, indicators);
+
+        if (signalResult.IsSuccess)
+        {
+            var sig = signalResult.Value!;
+            _logger.LogInformation(
+                ">>> SIGNAL: {Symbol}/5m {Direction} | FV:{FV:F3} Market:{Market:F3} Edge:{Edge:F3} " +
+                "Kelly:{Kelly:F4} Regime:{Regime} Bulls:{Bulls}/5",
+                sig.Asset.Symbol, sig.Direction,
+                sig.FairValue, sig.MarketPrice, sig.Edge, sig.KellyFraction, sig.Regime,
+                sig.Indicators.BullishCount());
+
+            _publisher.PublishSignalGenerated(sig.ToDto());
+            await DispatchToEnginesAsync(sig);
         }
         else
         {
-            var indicators = indicatorResult.Value!;
-            _logger.LogInformation(
-                "{Symbol}/{Interval} — RSI:{Rsi:F1} MACD:{Macd:F6} BB({Lower:F2}/{Upper:F2}) ATR:{Atr:F6} Bulls:{Bulls}/5",
-                candle.Asset.Symbol, candle.TimeFrame.Value,
-                indicators.Rsi.Value,
-                indicators.Macd.Histogram,
-                indicators.BollingerBands.Lower, indicators.BollingerBands.Upper,
-                indicators.Atr.Value,
-                indicators.BullishCount());
-
-            // Fetch real Polymarket midpoint — sinyal üretimi için
-            do
-            {
-                var direction = indicators.BullishCount() >= 3 ? "Up" : "Down";
-                var baseAsset = candle.Asset.Symbol.Replace("USDT", "");
-
-                var discoverResult = await _discovery.DiscoverMarketsAsync();
-                if (discoverResult.IsFailure)
-                {
-                    _logger.LogWarning("Polymarket market discovery failed for {Symbol}, skipping signal", candle.Asset.Symbol);
-                    break;
-                }
-
-                var market = discoverResult.Value!
-                    .FirstOrDefault(m => m.UnderlyingAsset.Equals(baseAsset, StringComparison.OrdinalIgnoreCase)
-                                      && m.Direction == direction);
-                if (market is null)
-                {
-                    _logger.LogDebug("No Polymarket market for {Symbol} {Direction}, skipping signal", candle.Asset.Symbol, direction);
-                    break;
-                }
-
-                var midResult = await _polyClient.GetMidpointAsync(market.RelevantTokenId);
-                if (midResult.IsFailure)
-                {
-                    _logger.LogWarning("Polymarket midpoint failed for {Symbol}, skipping signal", candle.Asset.Symbol);
-                    break;
-                }
-
-                var marketPrice = midResult.Value;
-
-                // FairValue = P(Up). Down token midpoint = P(Down). Convert to same basis.
-                if (direction == "Down")
-                    marketPrice = 1m - marketPrice;
-
-                var signalResult = _signalGenerator.Generate(
-                    candle.Asset, candle.TimeFrame, candlesResult.Value!,
-                    marketPrice, indicators);
-
-                if (signalResult.IsSuccess)
-                {
-                    var sig = signalResult.Value!;
-                    _logger.LogInformation(
-                        ">>> SIGNAL: {Symbol}/{Interval} {Direction} | FV:{FV:F3} Market:{Market:F3} Edge:{Edge:F3} " +
-                        "Kelly:{Kelly:F4} Regime:{Regime} Bulls:{Bulls}/5",
-                        sig.Asset.Symbol, sig.TimeFrame.Value, sig.Direction,
-                        sig.FairValue, sig.MarketPrice, sig.Edge, sig.KellyFraction, sig.Regime,
-                        sig.Indicators.BullishCount());
-
-                    _publisher.PublishSignalGenerated(sig.ToDto());
-
-                    // Dispatch to all engines in PARALLEL to avoid timing gaps
-                    // (e.g. LivePoly calling DiscoverMarketsAsync 1-2s after PaperPoly,
-                    //  by which time a 5-min market may have closed)
-                    var engineTasks = _tradingEngines.Select(async engine =>
-                    {
-                        var openResult = await engine.OpenPositionAsync(sig);
-                        if (openResult.IsFailure)
-                        {
-                            _logger.LogDebug(
-                                "[{Engine}] OpenPosition skipped: {Reason}",
-                                engine.EngineName, openResult.Error!.Code);
-                            return (engine.EngineName, false, (string?)openResult.Error!.Code, (Guid?)null);
-                        }
-                        else if (openResult.Value is not null)
-                        {
-                            var trade = openResult.Value;
-                            _logger.LogInformation(
-                                "Trade opened: {Engine} {Symbol} {Direction} size:{Size:F2}",
-                                engine.EngineName, sig.Asset.Symbol, sig.Direction, trade.PositionSize);
-                            _publisher.PublishTradeOpened(trade.ToDto());
-                            return (engine.EngineName, true, (string?)null, (Guid?)trade.Id);
-                        }
-                        else
-                        {
-                            return (engine.EngineName, false, (string?)null, (Guid?)null);
-                        }
-                    }).ToList();
-
-                    var completedTasks = await Task.WhenAll(engineTasks);
-                    var engineResults = completedTasks
-                        .Select(r => (engineName: r.Item1, accepted: r.Item2, rejectionCode: r.Item3, tradeId: r.Item4))
-                        .ToList();
-
-                    _ = _tradeLogger.LogSignalWithResultsAsync(sig, engineResults);
-                }
-                else
-                {
-                    _logger.LogDebug("No signal: {Symbol}/{Interval} — {Reason}",
-                        candle.Asset.Symbol, candle.TimeFrame.Value, signalResult.Error!.Code);
-                }
-            } while (false);
+            _logger.LogDebug("No signal: {Symbol}/5m — {Reason}",
+                candle.Asset.Symbol, signalResult.Error!.Code);
         }
+    }
 
-        foreach (var engine in _tradingEngines)
+    private async Task DispatchToEnginesAsync(Domain.Trading.Signal sig)
+    {
+        var engineTasks = _tradingEngines.Select(async engine =>
         {
-            await engine.CheckPositionsAsync(candle);
-        }
+            var openResult = await engine.OpenPositionAsync(sig);
+            if (openResult.IsFailure)
+            {
+                _logger.LogDebug(
+                    "[{Engine}] OpenPosition skipped: {Reason}",
+                    engine.EngineName, openResult.Error!.Code);
+                return (engine.EngineName, false, (string?)openResult.Error!.Code, (Guid?)null);
+            }
+            else if (openResult.Value is not null)
+            {
+                var trade = openResult.Value;
+                _logger.LogInformation(
+                    "Trade opened: {Engine} {Symbol} {Direction} size:{Size:F2}",
+                    engine.EngineName, sig.Asset.Symbol, sig.Direction, trade.PositionSize);
+                _publisher.PublishTradeOpened(trade.ToDto());
+                return (engine.EngineName, true, (string?)null, (Guid?)trade.Id);
+            }
+            else
+            {
+                return (engine.EngineName, false, (string?)null, (Guid?)null);
+            }
+        }).ToList();
+
+        var completedTasks = await Task.WhenAll(engineTasks);
+        var engineResults = completedTasks
+            .Select(r => (engineName: r.Item1, accepted: r.Item2, rejectionCode: r.Item3, tradeId: r.Item4))
+            .ToList();
+
+        _ = _tradeLogger.LogSignalWithResultsAsync(sig, engineResults);
     }
 
     public override async Task StopAsync(CancellationToken cancellationToken)

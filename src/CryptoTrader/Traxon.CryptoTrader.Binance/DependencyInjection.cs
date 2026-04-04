@@ -1,10 +1,8 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Traxon.CryptoTrader.Application.Abstractions;
-using Traxon.CryptoTrader.Binance.Abstractions;
 using Traxon.CryptoTrader.Binance.Adapters;
 using Traxon.CryptoTrader.Binance.Options;
-using Traxon.CryptoTrader.Binance.Services;
 
 namespace Traxon.CryptoTrader.Binance;
 
@@ -34,14 +32,6 @@ public static class DependencyInjection
         }
 
         services.AddSingleton<IMarketDataProvider, BinanceMarketDataProvider>();
-
-        // Real trading engine — sadece Enabled=true ise kaydet
-        if (opts.Enabled)
-        {
-            services.AddSingleton<IBinanceOrderService, BinanceOrderService>();
-            services.AddSingleton<BinanceEngine>();
-            services.AddSingleton<ITradingEngine>(sp => sp.GetRequiredService<BinanceEngine>());
-        }
 
         return services;
     }

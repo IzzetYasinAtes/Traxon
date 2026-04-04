@@ -26,31 +26,24 @@ public sealed class GammaApiClientTests
     [Fact]
     public async Task GetActiveCryptoMarketsAsync_ValidResponse_ReturnsMarkets()
     {
+        // Events endpoint returns array of events, each with nested markets array.
+        // clobTokenIds and outcomes are JSON-encoded strings.
+        // The mock returns the same response for all 7 assets x 3 timestamps = 21 requests,
+        // each producing 2 entries (Up + Down) = 42 total markets.
         const string json = """
         [
           {
-            "conditionId": "cond1",
-            "question": "Will BTC go Up by end of day?",
-            "clobTokenIds": ["token_yes_1", "token_no_1"],
-            "endDate": "2030-12-31T23:59:59Z",
-            "active": true,
-            "closed": false
-          },
-          {
-            "conditionId": "cond2",
-            "question": "Will ETH go Down by end of day?",
-            "clobTokenIds": ["token_yes_2", "token_no_2"],
-            "endDate": "2030-12-31T23:59:59Z",
-            "active": true,
-            "closed": false
-          },
-          {
-            "conditionId": "cond3",
-            "question": "Will SOL go Up by end of day?",
-            "clobTokenIds": ["token_yes_3", "token_no_3"],
-            "endDate": "2030-12-31T23:59:59Z",
-            "active": true,
-            "closed": false
+            "markets": [
+              {
+                "conditionId": "cond1",
+                "question": "Will BTC go Up?",
+                "clobTokenIds": "[\"token_yes_1\", \"token_no_1\"]",
+                "outcomes": "[\"Up\", \"Down\"]",
+                "endDate": "2030-12-31T23:59:59Z",
+                "active": true,
+                "closed": false
+              }
+            ]
           }
         ]
         """;
@@ -59,10 +52,10 @@ public sealed class GammaApiClientTests
         var result = await client.GetActiveCryptoMarketsAsync();
 
         result.IsSuccess.Should().BeTrue();
-        result.Value!.Count.Should().Be(3);
-        result.Value!.First(m => m.ConditionId == "cond1").Direction.Should().Be("Up");
-        result.Value!.First(m => m.ConditionId == "cond2").Direction.Should().Be("Down");
-        result.Value!.First(m => m.ConditionId == "cond3").UnderlyingAsset.Should().Be("SOL");
+        // 7 assets x 3 timestamps x 1 market x 2 directions = 42 entries
+        result.Value!.Count.Should().Be(42);
+        result.Value!.Should().Contain(m => m.Direction == "Up");
+        result.Value!.Should().Contain(m => m.Direction == "Down");
     }
 
     [Fact]
@@ -76,12 +69,14 @@ public sealed class GammaApiClientTests
     }
 
     [Fact]
-    public async Task GetActiveCryptoMarketsAsync_HttpFailure_ReturnsFailure()
+    public async Task GetActiveCryptoMarketsAsync_HttpFailure_ReturnsEmptyList()
     {
+        // Non-success HTTP status for individual slug requests is handled gracefully
+        // (continue to next slug), so the overall result is still Success with empty list.
         var client = CreateClient("{}", HttpStatusCode.ServiceUnavailable);
         var result = await client.GetActiveCryptoMarketsAsync();
 
-        result.IsSuccess.Should().BeFalse();
-        result.Error!.Code.Should().Be("Gamma.HttpError");
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Count.Should().Be(0);
     }
 }

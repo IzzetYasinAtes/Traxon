@@ -15,7 +15,6 @@ public interface ITradingEngine
     Task<Result<bool>>                 IsReadyAsync(CancellationToken ct = default);
     /// <summary>
     /// Her candle kapanisinda cagrilir.
-    /// PaperBinanceEngine: SL/TP kontrolu.
     /// PaperPolymarketEngine: Resolution suresi dolmus mu kontrolu.
     /// </summary>
     Task CheckPositionsAsync(Candle candle, CancellationToken ct = default);

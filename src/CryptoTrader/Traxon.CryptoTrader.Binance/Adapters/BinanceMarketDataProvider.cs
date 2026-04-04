@@ -83,11 +83,27 @@ public sealed class BinanceMarketDataProvider : IMarketDataProvider, IAsyncDispo
             .Build();
     }
 
-    public async Task<Result<IReadOnlyList<Candle>>> GetHistoricalCandlesAsync(
+    public Task<Result<IReadOnlyList<Candle>>> GetHistoricalCandlesAsync(
         Asset asset,
         TimeFrame timeFrame,
         int limit,
         CancellationToken cancellationToken = default)
+        => GetHistoricalCandlesCoreAsync(asset, timeFrame, limit, startTime: null, cancellationToken);
+
+    public async Task<Result<IReadOnlyList<Candle>>> GetHistoricalCandlesAsync(
+        Asset asset,
+        TimeFrame timeFrame,
+        int limit,
+        DateTime startTime,
+        CancellationToken cancellationToken = default)
+        => await GetHistoricalCandlesCoreAsync(asset, timeFrame, limit, startTime, cancellationToken);
+
+    private async Task<Result<IReadOnlyList<Candle>>> GetHistoricalCandlesCoreAsync(
+        Asset asset,
+        TimeFrame timeFrame,
+        int limit,
+        DateTime? startTime,
+        CancellationToken cancellationToken)
     {
         var interval = ToKlineInterval(timeFrame);
 
@@ -98,6 +114,7 @@ public sealed class BinanceMarketDataProvider : IMarketDataProvider, IAsyncDispo
                     symbol: asset.Symbol,
                     interval: interval,
                     limit: limit,
+                    startTime: startTime,
                     ct: ct),
                 cancellationToken);
 

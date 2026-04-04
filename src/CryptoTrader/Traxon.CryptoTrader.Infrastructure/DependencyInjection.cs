@@ -13,7 +13,6 @@ using Traxon.CryptoTrader.Infrastructure.Engines;
 using Traxon.CryptoTrader.Infrastructure.Patterns;
 using Traxon.CryptoTrader.Infrastructure.Persistence;
 using Traxon.CryptoTrader.Application.Options;
-using Traxon.CryptoTrader.Infrastructure.Signals;
 using Traxon.CryptoTrader.Polymarket.Engines;
 using Traxon.CryptoTrader.Polymarket.Options;
 
@@ -25,10 +24,10 @@ public static class DependencyInjection
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        // Core services — TF bazli kapasite: 1m→120, 5m→500, 15m→500, 1h→48
+        // Core services — TF bazli kapasite: 1m→4500 (3-day backfill), 5m→500, 15m→500, 1h→48
         var candleCapacities = new Dictionary<string, int>
         {
-            ["1m"]  = 120,
+            ["1m"]  = 4500,
             ["5m"]  = 500,
             ["15m"] = 500,
             ["1h"]  = 48
@@ -38,7 +37,7 @@ public static class DependencyInjection
         services.AddSingleton<IIndicatorCalculator, IndicatorCalculator>();
         services.AddSingleton<IFairValueCalculator, FairValueCalculator>();
         services.AddSingleton<IPositionSizer, PositionSizer>();
-        services.AddSingleton<ISignalGenerator, SignalGenerator>();
+        services.AddSingleton<ISignalGenerator, Signals.MeanReversionSignalGenerator>();
 
         // DataProtection + Secure Settings
         services.AddDataProtection()
@@ -86,12 +85,6 @@ public static class DependencyInjection
                     sp.GetRequiredService<ITradeLogger>(),
                     sp.GetRequiredService<ILogger<PaperPolymarketEngine>>()));
             services.AddSingleton<ITradingEngine>(sp => sp.GetRequiredService<PaperPolymarketEngine>());
-        }
-
-        if (enabled.Contains("PaperBinance"))
-        {
-            services.AddSingleton<PaperBinanceEngine>();
-            services.AddSingleton<ITradingEngine>(sp => sp.GetRequiredService<PaperBinanceEngine>());
         }
 
         if (enabled.Contains("LivePoly"))

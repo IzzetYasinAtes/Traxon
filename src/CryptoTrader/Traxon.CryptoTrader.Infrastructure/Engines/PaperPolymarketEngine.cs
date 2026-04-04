@@ -291,7 +291,7 @@ public sealed class PaperPolymarketEngine : ITradingEngine
                 if (string.IsNullOrEmpty(tokenId)) continue;
 
                 var market = allMarkets
-                    .FirstOrDefault(m => m.YesTokenId == tokenId || m.NoTokenId == tokenId);
+                    .FirstOrDefault(m => m.RelevantTokenId == tokenId);
 
                 if (market is null) continue;
 

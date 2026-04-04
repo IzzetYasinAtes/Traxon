@@ -29,7 +29,7 @@ public class PortfolioTests
     public void OpenPosition_ShouldFail_WhenExceedsMaxPosition()
     {
         var portfolio    = new Portfolio("PaperPoly", 1000m);
-        var bigPosition  = MakePosition(6m); // > 0.5% of $1000 = $5 MaxPositionSize
+        var bigPosition  = MakePosition(21m); // > 2% of $1000 = $20 MaxPositionSize
 
         var result = portfolio.OpenPosition(bigPosition);
 

@@ -7,9 +7,9 @@ namespace Traxon.CryptoTrader.Domain.Tests.Assets;
 public class AssetTests
 {
     [Fact]
-    public void All_ShouldContain_ElevenAssets()
+    public void All_ShouldContain_SevenAssets()
     {
-        Asset.All.Should().HaveCount(11);
+        Asset.All.Should().HaveCount(7);
     }
 
     [Theory]
@@ -18,12 +18,8 @@ public class AssetTests
     [InlineData("SOLUSDT")]
     [InlineData("XRPUSDT")]
     [InlineData("DOGEUSDT")]
-    [InlineData("AVAXUSDT")]
     [InlineData("BNBUSDT")]
-    [InlineData("ADAUSDT")]
-    [InlineData("DOTUSDT")]
-    [InlineData("LINKUSDT")]
-    [InlineData("MATICUSDT")]
+    [InlineData("HYPEUSDT")]
     public void FromSymbol_ShouldReturn_CorrectAsset(string symbol)
     {
         var asset = Asset.FromSymbol(symbol);
