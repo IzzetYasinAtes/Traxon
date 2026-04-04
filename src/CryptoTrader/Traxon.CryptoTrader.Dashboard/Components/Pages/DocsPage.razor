@@ -84,9 +84,9 @@
         |                       VWAP(20), Stochastic(14,3,3), SMA(10), SMA(30),
         |                       EMA(9), Volume(20), Parkinson Vol hesaplar
         v
-  [SignalGenerator V2]      &lt;- 11 adimlik filtre zincirinden gecerek sinyal uretir
-        |                       6 bilesenden agirlikli skor, 1h trend teyidi,
-        |                       hacim dogrulama, rejim tespiti, Kelly pozisyon hesabi
+  [MeanReversionSignalGenerator] &lt;- Z-Score mean reversion sinyal uretir
+        |                       ZScoreCalculator, indikator teyidi, rejim tespiti,
+        |                       NormalCDF fair value, Kelly pozisyon hesabi
         v
   [TradingEngine]           &lt;- PaperPoly:    Gamma API + FAK market order
         |                       LivePoly:     gercek Polymarket trading
@@ -131,112 +131,63 @@
     <!-- BOLUM 2: Sinyal Skoru Hesaplama -->
     <!-- ================================================================== -->
     <div class="docs-card" style="border-left-color: var(--color-accent-green);">
-        <h2 class="docs-title">2. Sinyal Skoru Hesaplama</h2>
-        <p class="docs-source">Kaynak: <code>TechnicalIndicators.cs:84-136</code></p>
+        <h2 class="docs-title">2. Z-Score Mean Reversion Sinyal Uretimi</h2>
+        <p class="docs-source">Kaynak: <code>MeanReversionSignalGenerator.cs</code>, <code>ZScoreCalculator.cs</code></p>
 
         <p>
-            Sinyal skoru, <strong>CalculateSignalScore()</strong> metodu ile hesaplanir. 6 farkli indikatorun agirlikli
-            ortalamasi olarak bir 0.0 - 1.0 arasinda deger uretir. 0.0 = tam bearish, 1.0 = tam bullish, 0.5 = notr.
-            Bu skor, sistemin "piyasa yukariya mi yoksa asagiya mi gidecek" sorusuna verdigi cevaptir.
+            Sistem, <strong>Z-Score tabanli mean reversion</strong> stratejisi kullanir. 1m mum verilerinden 5 dakikalik blok
+            getiriler hesaplanir, bu getirilerin Z-Score'u bulunur. Z-Score esik degeri (1.8) astiginda contrarian sinyal uretilir:
+            yuksek Z-Score (overbought) = Down sinyal, dusuk Z-Score (oversold) = Up sinyal.
         </p>
 
+        <h3 class="docs-subtitle-h3">Sinyal Uretim Katmanlari</h3>
         <table class="docs-table">
             <thead>
                 <tr>
-                    <th>Bilesen</th>
-                    <th>Agirlik</th>
-                    <th>Hesaplama</th>
-                    <th>Neden Bu Agirlik?</th>
+                    <th>Katman</th>
+                    <th>Aciklama</th>
+                    <th>Parametre</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
-                    <td><strong>RSI(7)</strong></td>
-                    <td>%25</td>
-                    <td><code>RsiShort.Value / 100</code> (0-1 normalize)</td>
-                    <td>Kisa vadeli momentum en guclu yon gostergesi. 7 periyot hizli tepki verir, scalping icin ideal. Fallback: RSI(14).</td>
+                    <td><strong>Z-Score</strong></td>
+                    <td>1m mumlardan 5 dakikalik blok getiriler hesaplanir, son 120 dakikalik pencere uzerinden Z-Score bulunur</td>
+                    <td><code>ZScoreThreshold = 1.8</code></td>
                 </tr>
                 <tr>
-                    <td><strong>MACD</strong></td>
-                    <td>%20</td>
-                    <td><code>Macd.IsBullish ? 1.0 : 0.0</code></td>
-                    <td>Trend degisimini yakalar. Binary sinyal (histogram > 0 ise bullish) net karar verir. Notr yok — ya bullish ya bearish.</td>
+                    <td><strong>Indikator Teyidi</strong></td>
+                    <td>Contrarian: Down sinyal icin en az 3 bullish indikator, Up sinyal icin en az 3 bearish indikator gerekir</td>
+                    <td><code>ConfirmThreshold = 3</code></td>
                 </tr>
                 <tr>
-                    <td><strong>Bollinger Bands</strong></td>
-                    <td>%20</td>
-                    <td><code>Clamp((Price-Lower)/(Upper-Lower), 0, 1)</code></td>
-                    <td>Fiyatin bant icindeki konumu. Lower band'e yakin = oversold (bullish), upper band'e yakin = overbought (bearish). Mean-reversion destekler.</td>
+                    <td><strong>Fair Value</strong></td>
+                    <td>Z-Score'dan Normal CDF ile fair value hesaplanir, market price ile karsilastirilarak edge bulunur</td>
+                    <td><code>DecayFactor = 0.4</code></td>
                 </tr>
                 <tr>
-                    <td><strong>EMA(9)</strong></td>
-                    <td>%15</td>
-                    <td><code>(Price > EMA ? 0.5 : 0) + (EMA.IsRising ? 0.5 : 0)</code></td>
-                    <td>Kisa vadeli trend yonu. Hem fiyat pozisyonu hem momentum (slope) olcer. Fallback: IsFastSmaAboveSlow.</td>
+                    <td><strong>Rejim Tespiti</strong></td>
+                    <td>Parkinson volatilite ile kisa/uzun donem karsilastirilir. Yuksek volatilite rejiminde pozisyon boyutu azaltilir</td>
+                    <td><code>Short=60m, Long=720m</code></td>
                 </tr>
                 <tr>
-                    <td><strong>Volume</strong></td>
-                    <td>%10</td>
-                    <td><code>Clamp(Volume.Ratio / 2.0, 0, 1)</code></td>
-                    <td>Hareketin arkasinda guc var mi? Ratio=2 (hacim ortalamanin 2 kati) tam skor verir. Fallback: 0.05 notr.</td>
-                </tr>
-                <tr>
-                    <td><strong>RSI(14)</strong></td>
-                    <td>%10</td>
-                    <td><code>Rsi.Value / 100</code> (0-1 normalize)</td>
-                    <td>Uzun vadeli momentum teyidi. RSI(7) ile tutarliysa sinyal guclu, tutarsizsa zayif.</td>
+                    <td><strong>Pozisyon Boyutu</strong></td>
+                    <td>Kelly criterion ile optimal pozisyon boyutu hesaplanir, minimum edge kontrolu yapilir</td>
+                    <td><code>Kelly fraction</code></td>
                 </tr>
             </tbody>
         </table>
 
-        <h3 class="docs-subtitle-h3">Skor Formulu (Koddan)</h3>
+        <h3 class="docs-subtitle-h3">Z-Score Hesaplama (ZScoreCalculator)</h3>
         <pre class="docs-code">
-// TechnicalIndicators.CalculateSignalScore()
-decimal score = 0;
-
-// 1. RSI7 (%25)
-score += 0.25 * (RsiShort?.Value ?? Rsi.Value) / 100;
-
-// 2. MACD (%20)
-score += 0.20 * (Macd.IsBullish ? 1 : 0);
-
-// 3. Bollinger Bands (%20)
-bbRange = Upper - Lower;
-bbPosition = (CurrentPrice - Lower) / bbRange;  // 0-1 arasi
-score += 0.20 * Clamp(bbPosition, 0, 1);
-
-// 4. EMA9 (%15)
-emaScore = (Price > EMA9 ? 0.5 : 0) + (EMA9.IsRising ? 0.5 : 0);
-score += 0.15 * emaScore;
-
-// 5. Volume (%10)
-score += 0.10 * Clamp(Volume.Ratio / 2.0, 0, 1);
-
-// 6. RSI14 (%10)
-score += 0.10 * Rsi.Value / 100;
-
-return Clamp(score, 0, 1);
+// ZScoreCalculator.Compute(candles)
+// 1. Son 120 dakikalik pencereden 5'er dakikalik blok getiriler hesapla
+// 2. Getirilerin ortalama (mu) ve standart sapmasini (sigma) bul
+// 3. Son 5 dakikalik getiriyi hesapla
+// 4. Z = (currentReturn - mu) / sigma
+// Z > 1.8  → overbought  → DOWN sinyal
+// Z &lt; -1.8 → oversold    → UP sinyal
         </pre>
-
-        <h3 class="docs-subtitle-h3">Ornek Hesaplama</h3>
-        <div class="docs-example">
-            <strong>Senaryo:</strong> RSI(7) = 65, MACD bullish, fiyat BB orta, EMA9 ustunde + rising, hacim ortalama, RSI(14) = 58<br /><br />
-            RSI7:   0.25 x (65/100) = 0.25 x 0.65 = <strong>0.1625</strong><br />
-            MACD:   0.20 x 1.0 = <strong>0.2000</strong><br />
-            BB:     0.20 x 0.50 (orta) = <strong>0.1000</strong><br />
-            EMA9:   0.15 x (0.5 + 0.5) = 0.15 x 1.0 = <strong>0.1500</strong><br />
-            Volume: 0.10 x clamp(1.0/2.0, 0, 1) = 0.10 x 0.5 = <strong>0.0500</strong><br />
-            RSI14:  0.10 x (58/100) = 0.10 x 0.58 = <strong>0.0580</strong><br /><br />
-            <strong>Toplam Skor = 0.7205</strong> → 0.60 ustunde → <strong>UP sinyal uretilir</strong>
-        </div>
-
-        <h3 class="docs-subtitle-h3">Fallback Davranisi</h3>
-        <p>
-            RSI(7) hesaplanamazsa (<code>RsiShort is null</code>) RSI(14) kullanilir — ayni normalize islemi uygulanir.
-            EMA(9) yoksa (<code>Ema9 is null</code>) SMA(10)/SMA(30) karsilastirilir: <code>IsFastSmaAboveSlow ? 1.0 : 0.0</code>.
-            Volume yoksa (<code>Volume is null</code>) 0.05 notr deger atanir. Bu fallback mekanizmasi, warmup asamasinda
-            veya veri eksikligi durumunda bile skor hesaplamasinin calismaya devam etmesini saglar.
-        </p>
     </div>
 
     <!-- ================================================================== -->
@@ -550,152 +501,7 @@ positionSize  = max(0, positionSize)
         </div>
     </div>
 
-    @* BOLUM 5: PaperBinance Motoru — UI'dan gizlendi, kod korunuyor
-    <!-- ================================================================== -->
-    <!-- BOLUM 5: PaperBinance Motoru -->
-    <!-- ================================================================== -->
-    <div class="docs-card" style="border-left-color: var(--color-accent-green);">
-        <h2 class="docs-title">5. PaperBinance Motoru</h2>
-        <p class="docs-source">Kaynak: <code>PaperBinanceEngine.cs:1-351</code></p>
-
-        <p>
-            PaperBinance, <strong>Binance spot trading simulasyonu</strong> yapan paper trading motorudur.
-            Yuzde bazli SL/TP kullanarak 1:2 risk/odul orani saglar. Her candle kapanisinda acik pozisyonlarin
-            SL/TP hit kontrolunu yapar. Sadece 5m timeframe'de islem acar.
-        </p>
-
-        <table class="docs-table">
-            <thead>
-                <tr>
-                    <th>Parametre</th>
-                    <th>Sabit Adi</th>
-                    <th>Deger</th>
-                    <th>Aciklama</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td><strong>Baslangic Bakiye</strong></td>
-                    <td><code>InitialBalance</code></td>
-                    <td>$50</td>
-                    <td>Paper trading baslangic sermayesi</td>
-                </tr>
-                <tr>
-                    <td><strong>Stop Loss</strong></td>
-                    <td><code>SlPercent</code></td>
-                    <td>%0.5 (0.005)</td>
-                    <td>Giris fiyatindan %0.5 uzakta. Scalping icin dar SL.</td>
-                </tr>
-                <tr>
-                    <td><strong>Take Profit</strong></td>
-                    <td><code>TpPercent</code></td>
-                    <td>%1.0 (0.010)</td>
-                    <td>Giris fiyatindan %1.0 uzakta. 1:2 Risk/Odul orani.</td>
-                </tr>
-                <tr>
-                    <td><strong>Max Hold</strong></td>
-                    <td><code>MaxHoldCandles</code></td>
-                    <td>6 mum</td>
-                    <td>6 x 5m = 30 dakika sonra force-close.</td>
-                </tr>
-                <tr>
-                    <td><strong>Komisyon</strong></td>
-                    <td><code>CommissionRate</code></td>
-                    <td>%0.075 (0.00075)</td>
-                    <td>Binance taker fee (BNB ile).</td>
-                </tr>
-                <tr>
-                    <td><strong>Slippage</strong></td>
-                    <td><code>SlippageRate</code></td>
-                    <td>%0.05 (0.0005)</td>
-                    <td>Emir kayma simulasyonu.</td>
-                </tr>
-                <tr>
-                    <td><strong>Min Pozisyon</strong></td>
-                    <td><code>MinPositionSize</code></td>
-                    <td>$1</td>
-                    <td>Minimum islem buyuklugu.</td>
-                </tr>
-            </tbody>
-        </table>
-
-        <h3 class="docs-subtitle-h3">Pozisyon Acma Akisi (Adim Adim)</h3>
-        <pre class="docs-code">
-1. TimeFrame kontrolu: sadece 5m kabul edilir
-2. Duplicate kontrolu: ayni asset icin acik trade var mi?
-3. CandleBuffer'dan son mumlar alinir
-4. Entry Price hesabi:
-   entryPrice = lastCandle.Close x (1 + SlippageRate + CommissionRate)
-              = lastCandle.Close x (1 + 0.0005 + 0.00075)
-              = lastCandle.Close x 1.00125
-
-5. Pozisyon boyutu:
-   positionSize = max(portfolio.Balance x 0.02, $1)
-
-6. SL/TP hesabi (UP pozisyon icin):
-   SL = entryPrice x (1 - 0.005)   // %0.5 asagi
-   TP = entryPrice x (1 + 0.010)   // %1.0 yukari
-
-7. SL/TP hesabi (DOWN pozisyon icin):
-   SL = entryPrice x (1 + 0.005)   // %0.5 yukari
-   TP = entryPrice x (1 - 0.010)   // %1.0 asagi
-
-8. Portfolio.OpenPosition() cagirilir (bakiyeden dusuLir)
-9. Trade DB'ye kaydedilir, SL/TP _slTpMap'e eklenir
-        </pre>
-
-        <h3 class="docs-subtitle-h3">Pozisyon Kontrol Dongusu (CheckPositionsAsync)</h3>
-        <p>
-            Her mum kapanisinda, o muma ait tum acik pozisyonlar kontrol edilir. Cikis <strong>oncelik sirasi</strong>:
-            <strong>TP > SL > MaxHold</strong>. Hem TP hem SL ayni mumda hit olursa TP onceliklidir (optimist varsayim).
-        </p>
-        <pre class="docs-code">
-// Her candle close'da cagirilir:
-foreach (var trade in openTrades[candle.Asset, candle.TimeFrame])
-{
-    // UP pozisyon:
-    tpHit = candle.High >= tp   // High TP'ye ulasti mi?
-    slHit = candle.Low  &lt;= sl   // Low SL'ye ulasti mi?
-
-    // DOWN pozisyon:
-    tpHit = candle.Low  &lt;= tp   // Low TP'ye ulasti mi?
-    slHit = candle.High >= sl   // High SL'ye ulasti mi?
-
-    // MaxHold: 6 mum (30dk) gecti mi?
-    maxHold = candle.OpenTime - trade.OpenedAt >= 5m x 6
-
-    // Cikis fiyati:
-    exitPrice = tpHit ? tp : slHit ? sl : candle.Close
-    reason    = tpHit ? "TakeProfit" : slHit ? "StopLoss" : "MaxHold"
-}
-        </pre>
-
-        <h3 class="docs-subtitle-h3">PnL Hesabi Formulu</h3>
-        <pre class="docs-code">
-// UP pozisyon icin:
-adjustedExit = exitPrice x (1 - CommissionRate)   // cikis komisyonu
-PnL = (adjustedExit - entryPrice) / entryPrice x positionSize
-
-// DOWN pozisyon icin:
-adjustedExit = exitPrice x (1 + CommissionRate)
-PnL = (entryPrice - adjustedExit) / entryPrice x positionSize
-
-// Ornek (UP, TP hit):
-entryPrice = 100.125 (100 x 1.00125)
-exitPrice  = TP = 100.125 x 1.01 = 101.126
-adjustedExit = 101.126 x (1 - 0.00075) = 101.050
-PnL = (101.050 - 100.125) / 100.125 x $1.00 = +$0.0092
-        </pre>
-
-        <h3 class="docs-subtitle-h3">Komisyon Etkisi Analizi</h3>
-        <p>
-            Round-trip komisyon maliyeti: giris (%0.125 = slippage + fee) + cikis (%0.075 = fee) = <strong>%0.20 toplam</strong>.
-            TP %1.0 oldugunda net kazanc %0.80, SL %0.5 oldugunda net kayip %0.575. Bu, efektif R:R oranini
-            1:2'den yaklasik <strong>1:1.39</strong>'a dusurur. Bu yuzden yuksek win rate kritik onem tasir.
-            Basabas WR: 0.575 / (0.575 + 0.80) = <strong>%41.8</strong> (komisyon oncesi %33.3'ten yuksek).
-        </p>
-    </div>
-    BOLUM 5 SONU *@
+    @* BOLUM 5: PaperBinance Motoru — silindi *@
 
     <!-- ================================================================== -->
     <!-- BOLUM 6: PaperPoly Motoru -->

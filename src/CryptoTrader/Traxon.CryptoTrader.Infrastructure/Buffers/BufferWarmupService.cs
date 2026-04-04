@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Traxon.CryptoTrader.Application.Abstractions;
+using Traxon.CryptoTrader.Domain.Assets;
+using Traxon.CryptoTrader.Domain.Market;
 using Traxon.CryptoTrader.Infrastructure.Persistence;
 
 namespace Traxon.CryptoTrader.Infrastructure.Buffers;
@@ -75,11 +77,34 @@ public sealed class BufferWarmupService : IHostedService
             _logger.LogInformation(
                 "BufferWarmupService completed — {Total} candles loaded for {Groups} symbol/timeframe groups",
                 totalLoaded, groups.Count);
+
+            // Aggregate 1m candles into higher timeframes
+            AggregateOneMinuteCandles();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "BufferWarmupService failed to load candles from DB");
             // Startup'ı bloklamıyoruz — buffer boş kalırsa MarketDataWorker dolduracak
+        }
+    }
+
+    private void AggregateOneMinuteCandles()
+    {
+        foreach (var asset in Asset.Tradeable)
+        {
+            var oneMinResult = _candleBuffer.GetAll(asset, TimeFrame.OneMinute);
+            if (oneMinResult.IsFailure) continue;
+
+            foreach (var targetTf in TimeFrame.Aggregated)
+            {
+                var aggregated = CandleAggregator.AggregateAll(oneMinResult.Value!, asset, targetTf);
+                foreach (var candle in aggregated)
+                    _candleBuffer.Add(candle);
+
+                _logger.LogInformation(
+                    "BufferWarmup aggregated {Count} {TF} candles for {Symbol}",
+                    aggregated.Count, targetTf.Value, asset.Symbol);
+            }
         }
     }
 

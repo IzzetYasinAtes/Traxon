@@ -24,6 +24,12 @@ public sealed class TimeFrame : ValueObject
 
     public static readonly IReadOnlyList<TimeFrame> All = [OneMinute, FiveMinute, FifteenMinute, OneHour];
 
+    /// <summary>Binance'den stream edilen timeframe'ler — sadece 1m.</summary>
+    public static readonly IReadOnlyList<TimeFrame> Streamed = [OneMinute];
+
+    /// <summary>1m mumlardan aggregate edilen ust timeframe'ler.</summary>
+    public static readonly IReadOnlyList<TimeFrame> Aggregated = [FiveMinute, FifteenMinute, OneHour];
+
     /// <summary>Sinyal uretimi icin kullanilan timeframe'ler (5m, 15m).</summary>
     public static readonly IReadOnlyList<TimeFrame> SignalTimeFrames = [FiveMinute, FifteenMinute];
 

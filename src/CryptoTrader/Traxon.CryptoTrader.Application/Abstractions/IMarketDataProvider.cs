@@ -7,12 +7,22 @@ namespace Traxon.CryptoTrader.Application.Abstractions;
 public interface IMarketDataProvider
 {
     /// <summary>
-    /// Startup'ta REST ile 200 candle çek ve buffer'ı doldur.
+    /// REST ile geçmiş candle'ları çek. startTime verilirse o zamandan itibaren çeker.
     /// </summary>
     Task<Result<IReadOnlyList<Candle>>> GetHistoricalCandlesAsync(
         Asset asset,
         TimeFrame timeFrame,
         int limit,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// REST ile belirli bir zaman aralığından itibaren candle çeker (paginated backfill).
+    /// </summary>
+    Task<Result<IReadOnlyList<Candle>>> GetHistoricalCandlesAsync(
+        Asset asset,
+        TimeFrame timeFrame,
+        int limit,
+        DateTime startTime,
         CancellationToken cancellationToken = default);
 
     /// <summary>

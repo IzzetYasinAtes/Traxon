@@ -163,14 +163,13 @@ public class PaperPolymarketEngineTests
     }
 
     [Fact]
-    public async Task OpenPosition_WithInsufficientBalance_ReturnsPortfolioInsufficient()
+    public async Task OpenPosition_WithDuplicateAssetAfterFillingAllSlots_ReturnsDuplicate()
     {
         var sut = CreateSut();
 
-        // Portfolio'yu doldur (max exposure %15, max position %2 => ~7-8 trade dolduruyor)
-        // Her trade kelly * balance, MaxPositionSize ile sinirli
-        // MaxPositionSize = balance * 0.02 = $200
-        // MaxExposure = balance * 0.15 = $1500 (~7 trade x $200 dynamic)
+        // Balance = $20, MaxPositionSize = max(20*0.02, 1) = $1
+        // MaxExposure = 20 * 0.90 = $18
+        // Open all 7 supported assets
         var assets = new[]
         {
             Asset.BTCUSDT, Asset.ETHUSDT, Asset.SOLUSDT, Asset.XRPUSDT, Asset.DOGEUSDT,
@@ -183,13 +182,13 @@ public class PaperPolymarketEngineTests
             await sut.OpenPositionAsync(sig);
         }
 
-        // 8. trade — MaxExposure asili (ayni asset'e tekrar giris denemesi)
+        // Try to open a duplicate asset — should fail with DuplicatePosition
         var extraSignal = new Signal(Asset.BTCUSDT, TimeFrame.FiveMinute, SignalDirection.Up,
             0.62m, 0.50m, 0.05m, 0.001m, 0.02m, MarketRegime.LowVolatility, MakeBullishIndicators());
         var result = await sut.OpenPositionAsync(extraSignal);
 
         result.IsFailure.Should().BeTrue();
-        result.Error!.Code.Should().Be("Domain.PortfolioInsufficient");
+        result.Error!.Code.Should().Be("Domain.DuplicatePosition");
     }
 
     [Fact]
@@ -231,28 +230,17 @@ public class PaperPolymarketEngineTests
     }
 
     [Fact]
-    public async Task CheckPositions_WhenCandleOpenedAfterTrade_BullishCandle_ClosesAsWin()
+    public async Task CheckPositions_WhenMidpointAboveThreshold_ClosesAsWin()
     {
         var sut    = CreateSut();
         var signal = CreateUpSignal();
         await sut.OpenPositionAsync(signal);
 
-        // candle.OpenTime is AFTER trade.OpenedAt → trade has expired (one full period elapsed)
-        var candle = new Candle(
-            id:          DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-            asset:       Asset.BTCUSDT,
-            timeFrame:   TimeFrame.FiveMinute,
-            openTime:    DateTime.UtcNow.AddSeconds(1),   // future → after trade.OpenedAt
-            closeTime:   DateTime.UtcNow.AddSeconds(301),
-            open:        100m,
-            high:        110m,
-            low:         90m,
-            close:       105m, // bullish → UP signal wins
-            volume:      1000m,
-            quoteVolume: 100000m,
-            tradeCount:  500,
-            isClosed:    true);
+        // After opening, set midpoint to 0.96 (>= 0.95 threshold) to trigger WIN resolution
+        _client.GetMidpointAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Result<decimal>.Success(0.96m));
 
+        var candle = CreateCandle(isBullish: true);
         await sut.CheckPositionsAsync(candle);
 
         var openTrades = (await sut.GetOpenTradesAsync()).Value!;
@@ -262,27 +250,17 @@ public class PaperPolymarketEngineTests
     }
 
     [Fact]
-    public async Task CheckPositions_WhenCandleOpenedAfterTrade_BearishCandle_DownSignalWins()
+    public async Task CheckPositions_WhenMidpointAboveThreshold_DownSignalWins()
     {
         var sut    = CreateSut();
         var signal = CreateDownSignal(); // DOWN on ETHUSDT
         await sut.OpenPositionAsync(signal);
 
-        var candle = new Candle(
-            id:          DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-            asset:       Asset.ETHUSDT,
-            timeFrame:   TimeFrame.FiveMinute,
-            openTime:    DateTime.UtcNow.AddSeconds(1),
-            closeTime:   DateTime.UtcNow.AddSeconds(301),
-            open:        100m,
-            high:        105m,
-            low:         85m,
-            close:       90m, // bearish → DOWN signal wins
-            volume:      1000m,
-            quoteVolume: 100000m,
-            tradeCount:  500,
-            isClosed:    true);
+        // Down signal uses NoTokenId. Midpoint >= 0.95 means Down token resolved to WIN.
+        _client.GetMidpointAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Result<decimal>.Success(0.96m));
 
+        var candle = CreateCandle(isBullish: false, asset: Asset.ETHUSDT);
         await sut.CheckPositionsAsync(candle);
 
         var openTrades = (await sut.GetOpenTradesAsync()).Value!;
@@ -292,27 +270,17 @@ public class PaperPolymarketEngineTests
     }
 
     [Fact]
-    public async Task CheckPositions_WhenCandleOpenedAfterTrade_BullishCandle_DownSignalLoses()
+    public async Task CheckPositions_WhenMidpointBelowThreshold_ClosesAsLoss()
     {
         var sut    = CreateSut();
         var signal = CreateDownSignal(); // DOWN on ETHUSDT
         await sut.OpenPositionAsync(signal);
 
-        var candle = new Candle(
-            id:          DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-            asset:       Asset.ETHUSDT,
-            timeFrame:   TimeFrame.FiveMinute,
-            openTime:    DateTime.UtcNow.AddSeconds(1),
-            closeTime:   DateTime.UtcNow.AddSeconds(301),
-            open:        100m,
-            high:        110m,
-            low:         95m,
-            close:       105m, // bullish → DOWN signal loses
-            volume:      1000m,
-            quoteVolume: 100000m,
-            tradeCount:  500,
-            isClosed:    true);
+        // Midpoint <= 0.05 means the token resolved to LOSS
+        _client.GetMidpointAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Result<decimal>.Success(0.04m));
 
+        var candle = CreateCandle(isBullish: true, asset: Asset.ETHUSDT);
         await sut.CheckPositionsAsync(candle);
 
         var openTrades = (await sut.GetOpenTradesAsync()).Value!;
@@ -329,7 +297,7 @@ public class PaperPolymarketEngineTests
         var result = await sut.GetPortfolioAsync();
 
         result.IsSuccess.Should().BeTrue();
-        result.Value!.Balance.Should().Be(10_000m);
+        result.Value!.Balance.Should().Be(20m);
         result.Value!.Engine.Should().Be("PaperPoly");
     }
 
