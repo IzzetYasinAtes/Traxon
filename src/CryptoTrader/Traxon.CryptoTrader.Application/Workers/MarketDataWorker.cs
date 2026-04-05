@@ -204,15 +204,11 @@ public sealed class MarketDataWorker : BackgroundService
         IReadOnlyList<Candle> oneMinCandles,
         Domain.Indicators.TechnicalIndicators indicators)
     {
+        // Compute Z-score for preliminary direction (used for market discovery)
         var zScore = ZScoreCalculator.Compute(oneMinCandles);
-
-        // Only DOWN signals — mean reversion works for overbought, not oversold
-        if (zScore <= 0)
-        {
-            _logger.LogDebug("Z-Score {Z:F2} <= 0 for {Symbol}, skipping (UP signals disabled)", zScore, candle.Asset.Symbol);
-            return;
-        }
-        var direction = "Down";
+        // Use absolute Z-score magnitude to pick the more likely direction for market lookup
+        // If Z-score is near zero, still try — the generator will filter via Hurst/confidence
+        var direction = zScore > 0 ? "Down" : "Up";
 
         var baseAsset = candle.Asset.Symbol.Replace("USDT", "");
 
