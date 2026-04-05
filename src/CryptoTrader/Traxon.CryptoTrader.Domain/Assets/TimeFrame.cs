@@ -22,19 +22,7 @@ public sealed class TimeFrame : ValueObject
     public static readonly TimeFrame FifteenMinute = new("15m", 900);
     public static readonly TimeFrame OneHour       = new("1h",  3600);
 
-    public static readonly IReadOnlyList<TimeFrame> All = [OneMinute, FiveMinute, FifteenMinute, OneHour];
-
-    /// <summary>Binance'den stream edilen timeframe'ler — sadece 1m.</summary>
-    public static readonly IReadOnlyList<TimeFrame> Streamed = [OneMinute];
-
-    /// <summary>1m mumlardan aggregate edilen ust timeframe'ler.</summary>
-    public static readonly IReadOnlyList<TimeFrame> Aggregated = [FiveMinute, FifteenMinute, OneHour];
-
-    /// <summary>Sinyal uretimi icin kullanilan timeframe'ler (5m, 15m).</summary>
-    public static readonly IReadOnlyList<TimeFrame> SignalTimeFrames = [FiveMinute, FifteenMinute];
-
-    /// <summary>Trend dogrulama icin kullanilan timeframe (1h).</summary>
-    public static readonly TimeFrame TrendTimeFrame = OneHour;
+    public static readonly IReadOnlyList<TimeFrame> All = [OneMinute];
 
     public static TimeFrame? FromValue(string value) =>
         All.FirstOrDefault(t => t.Value.Equals(value, StringComparison.OrdinalIgnoreCase));

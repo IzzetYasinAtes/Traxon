@@ -1,0 +1,12 @@
+{
+  "id": "8ef9ab9400834238b0b67a4313c9a475",
+  "sequence": 30,
+  "timestamp": "2026-04-02T06:24:27.2408513+00:00",
+  "from": "commander",
+  "to": "developer",
+  "type": "taskPlan",
+  "subject": "UI: Tablo d\u00FCzeni - Yat\u0131r\u0131m, Getiri, Kar/Zarar s\u00FCtunlar\u0131",
+  "body": "## G\u00F6rev\n\u0130\u015Flem tablolar\u0131na Yat\u0131r\u0131m ve Getiri s\u00FCtunlar\u0131 ekle, mevcut Getiri s\u00FCtununu Kar/Zarar olarak geri \u00E7evir. SADECE UI de\u011Fi\u015Fikli\u011Fi.\n\n## Yeni S\u00FCtun D\u00FCzeni \u00D6rne\u011Fi\n| Yat\u0131r\u0131m | Getiri | Kar/Zarar | Sonu\u00E7 |\n|---------|--------|-----------|-------|\n| $1.00   | $2.85  | \u002B$1.85    | Win   |\n| $1.00   | $0.00  | -$1.00    | Loss  |\n| $1.00   | \u2014      | \u2014         | A\u00C7IK  |\n\n- **Yat\u0131r\u0131m** = \u0060t.PositionSize\u0060 (yat\u0131r\u0131lan miktar)\n- **Getiri** = \u0060t.PositionSize \u002B t.PnL\u0060 (bakiyeye d\u00F6nen toplam miktar)\n- **Kar/Zarar** = \u0060t.PnL\u0060 (net k\u00E2r/zarar, \u002B/- format)\n",
+  "inReplyTo": null,
+  "metadata": null
+}

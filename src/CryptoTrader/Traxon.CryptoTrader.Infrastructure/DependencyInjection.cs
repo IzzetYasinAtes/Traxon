@@ -24,13 +24,10 @@ public static class DependencyInjection
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        // Core services — TF bazli kapasite: 1m→4500 (3-day backfill), 5m→500, 15m→500, 1h→48
+        // Core services — only 1m candles, 4500 capacity (3-day backfill)
         var candleCapacities = new Dictionary<string, int>
         {
-            ["1m"]  = 4500,
-            ["5m"]  = 500,
-            ["15m"] = 500,
-            ["1h"]  = 48
+            ["1m"] = 4500
         };
         services.AddSingleton<ICandleBuffer>(_ => new InMemoryCandleBuffer(candleCapacities, defaultCapacity: 200));
         services.AddSingleton<IPatternRecognizer, PatternRecognizer>();

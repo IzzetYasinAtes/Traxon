@@ -1,0 +1,12 @@
+{
+  "id": "132f4a55713048039d6c871cd970f37a",
+  "sequence": 25,
+  "timestamp": "2026-03-28T15:18:17.5688265+00:00",
+  "from": "analyst",
+  "to": "commander",
+  "type": "configRecommendation",
+  "subject": "Config Onerisi: 8 Parametre Degisikligi \u2014 DOWN Kapat, Edge Yukselt, FV Daralt",
+  "body": "## Onerilen Konfigurasyon Degisiklikleri\n\nDetayli analiz sonrasi 8 parametre degisikligi oneriyorum. Tahmini etki: ~$1,730 zarar onlenir.\n\n### Degisiklikler:\n\n| # | Parametre | Eski | Yeni | Dosya |\n|---|-----------|------|------|-------|\n| 1 | DOWN direction | Aktif (4 confirm) | **DEVRE DISI** | SignalGenerator.cs |\n| 2 | MinEdge | 0.05 | **0.12** | PositionSizer.cs:8 |\n| 3 | MinMarketPrice (FV) | 0.30 | **0.48** | SignalGenerator.cs:23 |\n| 4 | MaxMarketPrice (FV) | 0.60 | **0.62** | SignalGenerator.cs:24 |\n| 5 | KellyMultiplier | 0.15 | **0.10** | PositionSizer.cs:10 |\n| 6 | SlPercent (Binance) | 0.005 | **0.004** | PaperBinanceEngine.cs:35 |\n| 7 | TpPercent (Binance) | 0.010 | **0.012** | PaperBinanceEngine.cs:36 |\n| 8 | Enabled symbols | 7 coin | **5 coin** (DOGE/AVAX cikarildi) | Config/appsettings |\n\n### Ek Oneriler (kod degisikligi gerektirir):\n- LowVol rejimde MinEdge override: 0.15\n- Binance 15m timeframe devre disi\n- Bu degisiklikler icin Architect\u0027in plan yapmasi gerekir\n\n### Onerilen config dosyasi: \u0060workspace/analyst/recommended-config.json\u0060\n\n**NOT:** Bu ilk iterasyon. Degisiklikler uygulandiktan sonra 50\u002B yeni trade sonrasi tekrar analiz yapilmali.",
+  "inReplyTo": null,
+  "metadata": null
+}

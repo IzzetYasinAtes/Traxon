@@ -24,7 +24,7 @@ public sealed class MarketDataWorker : BackgroundService
 
     private const int BackfillDays = 3;
     private const int BackfillPageSize = 1500;
-    private const int MinFiveMinuteCandles = 30;
+    private const int MinOneMinuteCandles = 100;
 
     public MarketDataWorker(
         IMarketDataProvider marketDataProvider,
@@ -57,7 +57,6 @@ public sealed class MarketDataWorker : BackgroundService
         _logger.LogInformation("MarketDataWorker starting — loading historical 1m candles (paginated {Days}-day backfill)...", BackfillDays);
 
         await BackfillOneMinuteCandlesAsync(stoppingToken);
-        AggregateBackfilledCandles();
 
         _logger.LogInformation("Buffer warm-up complete. Starting WebSocket stream (1m only)...");
 
@@ -70,7 +69,7 @@ public sealed class MarketDataWorker : BackgroundService
 
         await _marketDataProvider.StartStreamAsync(
             assets: Asset.Tradeable,
-            timeFrames: TimeFrame.Streamed,
+            timeFrames: TimeFrame.All,
             onCandleClosed: OnCandleClosedAsync,
             cancellationToken: stoppingToken);
 
@@ -117,25 +116,6 @@ public sealed class MarketDataWorker : BackgroundService
         }
     }
 
-    private void AggregateBackfilledCandles()
-    {
-        foreach (var asset in Asset.Tradeable)
-        {
-            var allOneMinute = _candleBuffer.GetAll(asset, TimeFrame.OneMinute);
-            if (allOneMinute.IsFailure) continue;
-
-            foreach (var targetTf in TimeFrame.Aggregated)
-            {
-                var aggregated = CandleAggregator.AggregateAll(allOneMinute.Value!, asset, targetTf);
-                foreach (var candle in aggregated)
-                    _candleBuffer.Add(candle);
-
-                _logger.LogInformation("Aggregated {Count} {TF} candles for {Symbol}",
-                    aggregated.Count, targetTf.Value, asset.Symbol);
-            }
-        }
-    }
-
     private async Task OnCandleClosedAsync(Candle candle)
     {
         _candleBuffer.Add(candle);
@@ -143,25 +123,9 @@ public sealed class MarketDataWorker : BackgroundService
         _publisher.PublishCandleUpdate(candle.ToCandleDto());
         WriteCandleAsync(candle);
 
-        // Aggregate 1m candle into higher timeframes at boundaries
-        foreach (var targetTf in TimeFrame.Aggregated)
-        {
-            if (!CandleAggregator.CompletesTimeFrame(candle, targetTf))
-                continue;
-
-            var minutesNeeded = targetTf.TotalSeconds / 60;
-            var recentResult = _candleBuffer.GetLast(candle.Asset, TimeFrame.OneMinute, minutesNeeded);
-            if (recentResult.IsFailure) continue;
-
-            var aggregated = CandleAggregator.Aggregate(recentResult.Value!, candle.Asset, targetTf);
-            if (aggregated is null) continue;
-
-            _candleBuffer.Add(aggregated);
-            WriteCandleAsync(aggregated);
-
-            if (targetTf == TimeFrame.FiveMinute)
-                await RunSignalPipelineAsync(aggregated);
-        }
+        // Trigger signal pipeline every 5 minutes (at :00, :05, :10, etc.)
+        if (candle.CloseTime.Minute % 5 == 0)
+            await RunSignalPipelineAsync(candle);
 
         foreach (var engine in _tradingEngines)
             await engine.CheckPositionsAsync(candle);
@@ -199,54 +163,56 @@ public sealed class MarketDataWorker : BackgroundService
         });
     }
 
-    private async Task RunSignalPipelineAsync(Candle fiveMinCandle)
+    private async Task RunSignalPipelineAsync(Candle candle)
     {
-        if (!_candleBuffer.IsWarmedUp(fiveMinCandle.Asset, TimeFrame.FiveMinute, minimumCandles: MinFiveMinuteCandles))
+        if (!_candleBuffer.IsWarmedUp(candle.Asset, TimeFrame.OneMinute, minimumCandles: MinOneMinuteCandles))
         {
-            _logger.LogDebug("Buffer not warmed up yet for {Symbol}/5m", fiveMinCandle.Asset.Symbol);
+            _logger.LogDebug("Buffer not warmed up yet for {Symbol}/1m", candle.Asset.Symbol);
             return;
         }
 
-        var candlesResult = _candleBuffer.GetAll(fiveMinCandle.Asset, TimeFrame.FiveMinute);
+        var candlesResult = _candleBuffer.GetAll(candle.Asset, TimeFrame.OneMinute);
         if (candlesResult.IsFailure) return;
 
+        var oneMinCandles = candlesResult.Value!;
+
         var indicatorResult = _indicatorCalculator.Calculate(
-            fiveMinCandle.Asset, TimeFrame.FiveMinute, candlesResult.Value!);
+            candle.Asset, TimeFrame.OneMinute, oneMinCandles);
 
         if (indicatorResult.IsFailure)
         {
-            _logger.LogWarning("Indicator calc failed for {Symbol}/5m: {Error}",
-                fiveMinCandle.Asset.Symbol, indicatorResult.Error!.Message);
+            _logger.LogWarning("Indicator calc failed for {Symbol}/1m: {Error}",
+                candle.Asset.Symbol, indicatorResult.Error!.Message);
             return;
         }
 
         var indicators = indicatorResult.Value!;
         _logger.LogInformation(
-            "{Symbol}/5m — RSI:{Rsi:F1} MACD:{Macd:F6} BB({Lower:F2}/{Upper:F2}) ATR:{Atr:F6} Bulls:{Bulls}/5",
-            fiveMinCandle.Asset.Symbol,
+            "{Symbol}/1m — RSI:{Rsi:F1} MACD:{Macd:F6} BB({Lower:F2}/{Upper:F2}) ATR:{Atr:F6} Bulls:{Bulls}/5",
+            candle.Asset.Symbol,
             indicators.Rsi.Value,
             indicators.Macd.Histogram,
             indicators.BollingerBands.Lower, indicators.BollingerBands.Upper,
             indicators.Atr.Value,
             indicators.BullishCount());
 
-        await TryGenerateAndDispatchSignalAsync(fiveMinCandle, candlesResult.Value!, indicators);
+        await TryGenerateAndDispatchSignalAsync(candle, oneMinCandles, indicators);
     }
 
     private async Task TryGenerateAndDispatchSignalAsync(
         Candle candle,
-        IReadOnlyList<Candle> fiveMinCandles,
+        IReadOnlyList<Candle> oneMinCandles,
         Domain.Indicators.TechnicalIndicators indicators)
     {
-        // Compute Z-score from 1m candles to determine preliminary direction (mean reversion)
-        var oneMinuteResult = _candleBuffer.GetAll(candle.Asset, TimeFrame.OneMinute);
-        if (oneMinuteResult.IsFailure) return;
+        var zScore = ZScoreCalculator.Compute(oneMinCandles);
 
-        var oneMinuteCandles = oneMinuteResult.Value!;
-        var zScore = ZScoreCalculator.Compute(oneMinuteCandles);
-
-        // Mean reversion: positive Z = overbought = bet Down; negative Z = oversold = bet Up
-        var direction = zScore > 0 ? "Down" : "Up";
+        // Only DOWN signals — mean reversion works for overbought, not oversold
+        if (zScore <= 0)
+        {
+            _logger.LogDebug("Z-Score {Z:F2} <= 0 for {Symbol}, skipping (UP signals disabled)", zScore, candle.Asset.Symbol);
+            return;
+        }
+        var direction = "Down";
 
         var baseAsset = candle.Asset.Symbol.Replace("USDT", "");
 
@@ -279,8 +245,9 @@ public sealed class MarketDataWorker : BackgroundService
         if (direction == "Down")
             marketPrice = 1m - marketPrice;
 
+        // Signal uses TimeFrame.FiveMinute for DB record since signals fire every 5 minutes
         var signalResult = _signalGenerator.Generate(
-            candle.Asset, candle.TimeFrame, oneMinuteCandles,
+            candle.Asset, TimeFrame.FiveMinute, oneMinCandles,
             marketPrice, indicators);
 
         if (signalResult.IsSuccess)
