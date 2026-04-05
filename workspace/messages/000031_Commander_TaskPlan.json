@@ -1,0 +1,12 @@
+{
+  "id": "584e836697084855ba276b3e5c0e18af",
+  "sequence": 31,
+  "timestamp": "2026-04-02T08:19:21.4537885+00:00",
+  "from": "commander",
+  "to": "architect",
+  "type": "taskPlan",
+  "subject": "Signal DB tablosu \u002B rejection reason \u002B docs g\u00FCncelleme plan\u0131",
+  "body": "## G\u00F6rev\n1. Sinyalleri DB\u0027ye kaydet (\u015Fu an sadece in-memory). Signal tablosu olu\u015Ftur.\n2. Her sinyal kayd\u0131nda: engine\u0027in kabul/red durumu ve red sebebi (explanation) olsun\n3. Guide/docs HTML sayfalar\u0131nda sinyal \u00FCretme ve reddetme ile ilgili maddeler yoksa ekle\n\n## Mevcut Durum\n- Sinyaller \u0060LiveFeedService\u0060 i\u00E7inde in-memory tutuluyor (son 20)\n- \u0060MarketDataWorker.cs:179\u0060 \u2192 \u0060_signalGenerator.GenerateV2()\u0060 ile \u00FCretiliyor\n- \u0060MarketDataWorker.cs:195-212\u0060 \u2192 her engine\u0027e \u0060OpenPositionAsync(sig)\u0060 g\u00F6nderiliyor, engine reddedebilir\n- DB\u0027de Signal tablosu YOK\n- \u0060SignalDto\u0060 mevcut: SignalId, Symbol, Interval, Direction, FairValue, MarketPrice, Edge, KellyFraction, Regime, Rsi, MacdHistogram, BullishCount, GeneratedAt\n\n## \u0130stenenler\n1. **Signal entity \u002B DB tablosu**: T\u00FCm sinyal bilgileri \u002B her engine i\u00E7in kabul/red \u002B red sebebi\n2. **SignalOutcome veya SignalEngineResult**: Hangi engine kabul etti, hangisi reddetti, neden\n3. **Migration**: EF Core auto-migration zaten var, entity eklemek yeterli\n4. **Guide/Docs HTML sayfalar\u0131**: Sinyal \u00FCretme s\u00FCreci, hangi durumlarda sinyal \u00FCretilir/\u00FCretilmez, hangi durumlarda engine reddeder \u2014 bunlar\u0131 dok\u00FCmante et\n\n## K\u0131s\u0131tlamalar\n- Mevcut \u00E7al\u0131\u015Fan kodu bozmadan ekle\n- Onion architecture\u0027a uygun ol (Domain \u2192 Application \u2192 Infrastructure)\n- COMMIT ATILMAYACAK\n\nDetayl\u0131 plan yaz: hangi dosyalar olu\u015Fturulacak/de\u011Fi\u015Ftirilecek, entity yap\u0131s\u0131, migration stratejisi, docs i\u00E7eri\u011Fi.",
+  "inReplyTo": null,
+  "metadata": null
+}

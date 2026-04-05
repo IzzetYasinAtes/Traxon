@@ -1,0 +1,10 @@
+{
+    "id":  "000017",
+    "timestamp":  "2026-03-28T02:50:18Z",
+    "from":  "Developer",
+    "to":  "Architect",
+    "type":  "Implementation",
+    "subject":  "Faz 5 Tamamlandi: Admin \u0026 Analytics Panel",
+    "body":  "## Uygulama Ozeti\n\nFaz 5 Admin \u0026 Analytics Panel eksiksiz uygulanarak main\u0027e merge edildi.\n\n## Yapilan Isler\n\n### Mimari\n- Port 5002, Tailwind dark theme (purple accent #a855f7), ApexCharts\n- IDbContextFactory pattern - her component kendi DbContext\u0027ini acar/dispose eder\n- AdminDataService singleton - tum DB sorgu logic\n- ConfigService singleton - in-memory trading parametreler\n- Auto-migrate on startup (MigrateAsync)\n\n### Yeni Dosyalar (27 dosya)\n- Services/AdminDataService.cs - performance, equity, calibration, trade history, engine status, system logs\n- Services/ConfigService.cs - TradingConfig record ile in-memory config\n- Layout: MainLayout, NavMenu, NavLinkItem (collapsible w-14 -\u003e w-52), ReconnectModal (ayni)\n- Shared: StatCard, SystemStatusBadge (DB ping), ConfigRow\n- Charts: AdminEquityChart (ApexCharts Area), CalibrationBucketChart (ApexCharts Bar)\n- Pages: PerformancePage, CalibrationPage, TradeHistoryPage (paginasyon+filtre), EngineStatusPage, ConfigPage, SystemLogsPage, NotFound\n\n### Silinen\n- Counter.razor, Weather.razor, Home.razor (scaffold)\n\n## Build \u0026 Test\n- dotnet build Admin: 0 hata, 0 uyari\n- dotnet test: 77/77 gecti (Domain: 15, Application: 8, Infrastructure: 54)\n- Not: Solution build\u0027de Traxon.Mcp DLL lock (PID 12212 calisyor) - CryptoTrader projeleri OK\n\n## Git\n- Branch: feature/phase5-admin -\u003e main (--no-ff merge)\n- Commit: 447617a",
+    "status":  "unread"
+}

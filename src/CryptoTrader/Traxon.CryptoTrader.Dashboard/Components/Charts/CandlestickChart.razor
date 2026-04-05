@@ -34,7 +34,7 @@
         await conn.OpenAsync();
 
         await using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT TOP 200 OpenTime, [Open], High, Low, [Close] FROM Candles WHERE Symbol = @sym AND [Interval] = @tf ORDER BY OpenTime DESC";
+        cmd.CommandText = "SELECT OpenTime, [Open], High, Low, [Close] FROM Candles WHERE Symbol = @sym AND [Interval] = @tf ORDER BY OpenTime ASC";
         cmd.Parameters.Add(new SqlParameter("@sym", Symbol));
         cmd.Parameters.Add(new SqlParameter("@tf", Interval));
 
@@ -52,8 +52,6 @@
                 close = (double)reader.GetDecimal(4)
             });
         }
-
-        items.Reverse();
 
         if (items.Count > 0)
         {

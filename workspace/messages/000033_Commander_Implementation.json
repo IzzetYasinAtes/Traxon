@@ -1,0 +1,12 @@
+{
+  "id": "e83c0fd0a1d14b4f8918d31e4be2e3c7",
+  "sequence": 33,
+  "timestamp": "2026-04-02T08:29:48.7797171+00:00",
+  "from": "commander",
+  "to": "developer",
+  "type": "implementation",
+  "subject": "UI: Sinyal Ge\u00E7mi\u015Fi sayfas\u0131 - COMMIT ATMA",
+  "body": "Signal kay\u0131tlar\u0131n\u0131 g\u00F6steren UI sayfas\u0131 laz\u0131m. COMMIT ATMA.\n\n## Yap\u0131lacaklar\n\n### 1. AdminDataService\u0027e sinyal sorgular\u0131 ekle\n\u0060src/CryptoTrader/Traxon.CryptoTrader.Dashboard/Services/AdminDataService.cs\u0060\n\n- \u0060GetSignalHistoryAsync(filter)\u0060 \u2192 SignalRecords \u002B Include(EngineResults) \u2192 son sinyaller, sayfal\u0131\n- \u0060GetSignalCountAsync(filter)\u0060 \u2192 toplam say\u0131\n- AdminSignalRow record: Id, Symbol, TimeFrame, Direction, FairValue, Edge, KellyFraction, Regime, SignalScore, GeneratedAt, List\u003CAdminSignalEngineRow\u003E EngineResults\n- AdminSignalEngineRow record: EngineName, Accepted, RejectionReason, TradeId\n- AdminSignalFilter record: Symbol?, Direction?, DateFrom?, DateTo?, Page, PageSize\n\n### 2. Sinyal Ge\u00E7mi\u015Fi sayfas\u0131\n**YEN\u0130: \u0060src/CryptoTrader/Traxon.CryptoTrader.Dashboard/Components/Pages/SignalHistoryPage.razor\u0060**\n- Route: \u0060/signals\u0060\n- TradeHistoryPage ile ayn\u0131 stil ve layout pattern\n- Filtreler: Sembol, Y\u00F6n (Up/Down/T\u00FCm\u00FC)\n- Tablo s\u00FCtunlar\u0131: Sembol | Zaman Dilimi | Y\u00F6n | Adil De\u011Fer | Kenar | Kelly | Rejim | Skor | Motorlar | Zaman\n- \u0022Motorlar\u0022 s\u00FCtununda her engine i\u00E7in: kabul ise ye\u015Fil \u2713, red ise k\u0131rm\u0131z\u0131 \u2717 \u002B red sebebi tooltip veya yan\u0131nda k\u00FC\u00E7\u00FCk yaz\u0131yla\n- Sayfalama (TradeHistoryPage ile ayn\u0131 pattern)\n\n### 3. NavMenu\u0027ye link ekle\n\u0060src/CryptoTrader/Traxon.CryptoTrader.Dashboard/Components/Layout/NavMenu.razor\u0060\n- \u0130\u015Flemler sat\u0131r\u0131ndan sonra ekle: \u0060\u003CNavLinkItem Href=\u0022/signals\u0022 Icon=\u0022\uD83D\uDCE1\u0022 Label=\u0022Sinyaller\u0022 /\u003E\u0060\n\n### 4. Build\n\u0060dotnet build Traxon.slnx\u0060 \u2014 0 hata\n\n## KURALLAR\n- COMMIT ATMA\n- Mevcut dosyalar\u0131 bozmadan ekle/de\u011Fi\u015Ftir\n- TradeHistoryPage.razor\u0027\u0131n stil ve pattern\u0027\u0131n\u0131 takip et",
+  "inReplyTo": null,
+  "metadata": null
+}

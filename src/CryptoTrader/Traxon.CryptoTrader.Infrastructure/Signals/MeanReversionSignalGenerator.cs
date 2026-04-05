@@ -83,11 +83,10 @@ public sealed class MeanReversionSignalGenerator : ISignalGenerator
         // Layer 1: Z-Score mean reversion
         var zScore = ZScoreCalculator.Compute(candles);
 
+        // Only DOWN signals — UP signals disabled (16.7% win rate in live testing)
         SignalDirection direction;
         if (zScore > ZScoreThreshold)
             direction = SignalDirection.Down;
-        else if (zScore < -ZScoreThreshold)
-            direction = SignalDirection.Up;
         else
             return Result<Signal>.Failure(Error.InsufficientConfirmation);
 
