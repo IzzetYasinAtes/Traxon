@@ -29,4 +29,16 @@ public interface ISignalGenerator
         decimal marketPrice,
         TechnicalIndicators precomputedIndicators);
 
+    /// <summary>
+    /// Worker tarafindan belirlenen direction ile sinyal uretir.
+    /// Direction worker'da regime+Z-Score/momentum ile hesaplanir, generator sadece validate eder.
+    /// </summary>
+    Result<Signal> Generate(
+        Asset asset,
+        TimeFrame timeFrame,
+        IReadOnlyList<Candle> candles,
+        decimal marketPrice,
+        TechnicalIndicators precomputedIndicators,
+        SignalDirection direction);
+
 }

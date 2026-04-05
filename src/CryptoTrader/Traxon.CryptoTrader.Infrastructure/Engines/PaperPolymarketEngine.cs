@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Traxon.CryptoTrader.Application.Abstractions;
+using Traxon.CryptoTrader.Domain.Assets;
 using Traxon.CryptoTrader.Domain.Common;
 using Traxon.CryptoTrader.Domain.Market;
 using Traxon.CryptoTrader.Domain.Trading;
@@ -49,12 +50,12 @@ public sealed class PaperPolymarketEngine : ITradingEngine
         ITradeLogger tradeLogger,
         ILogger<PaperPolymarketEngine> logger)
     {
-        _client      = client;
-        _discovery   = discovery;
-        _options     = options.Value;
-        _tradeLogger = tradeLogger;
-        _logger      = logger;
-        _portfolio   = new Portfolio(EngineName, InitialBalance);
+        _client       = client;
+        _discovery    = discovery;
+        _options      = options.Value;
+        _tradeLogger  = tradeLogger;
+        _logger       = logger;
+        _portfolio    = new Portfolio(EngineName, InitialBalance);
     }
 
     /// <summary>
@@ -261,8 +262,8 @@ public sealed class PaperPolymarketEngine : ITradingEngine
         => Task.FromResult(Result<Portfolio>.Success(_portfolio));
 
     /// <summary>
-    /// Açık pozisyonları kontrol eder. Polymarket market'i resolve olduysa
-    /// (fiyat >= 0.95 veya <= 0.05) trade'i kapatır — LivePoly ile birebir aynı mantık.
+    /// Açık pozisyonları kontrol eder. Polymarket market'i resolve olduysa trade'i kapatır.
+    /// Gamma API'den ResolvedPrice gelene kadar bekler — LivePoly ile birebir aynı mantık.
     /// </summary>
     public async Task CheckPositionsAsync(Candle candle, CancellationToken ct = default)
     {
@@ -272,7 +273,7 @@ public sealed class PaperPolymarketEngine : ITradingEngine
 
         var tradesToClose = new List<(Guid tradeId, decimal exitPrice, TradeOutcome outcome, decimal pnl)>();
 
-        // Fetch ALL markets (including closed) once for all trades
+        // Gamma API'den tüm marketleri al (closed dahil)
         var discoverResult = await _discovery.DiscoverAllMarketsAsync(ct);
         if (discoverResult.IsFailure)
         {
@@ -286,63 +287,30 @@ public sealed class PaperPolymarketEngine : ITradingEngine
         {
             try
             {
-                // Match by exact token ID to find the specific market this trade was opened on
                 _tradeToTokenId.TryGetValue(tradeId, out var tokenId);
                 if (string.IsNullOrEmpty(tokenId)) continue;
 
-                var market = allMarkets
-                    .FirstOrDefault(m => m.RelevantTokenId == tokenId);
+                var market = allMarkets.FirstOrDefault(m => m.RelevantTokenId == tokenId);
+                if (market is null || !market.ResolvedPrice.HasValue) continue;
 
-                if (market is null) continue;
+                var resolvedPrice = market.ResolvedPrice.Value;
+                var tradeShares = trade.PositionSize / trade.EntryPrice;
+                var tradeFee = tradeShares * FeeRate * trade.EntryPrice * (1m - trade.EntryPrice);
 
-                // Market resolved (closed with outcome price)
-                if (market.ResolvedPrice.HasValue)
+                if (resolvedPrice >= 0.99m)
                 {
-                    // Fee hesapla: shares * 0.072 * p * (1-p) — alırken ödendi
-                    var tradeShares = trade.PositionSize / trade.EntryPrice;
-                    var tradeFee = tradeShares * FeeRate * trade.EntryPrice * (1m - trade.EntryPrice);
-
-                    if (market.ResolvedPrice.Value >= 0.99m)
-                    {
-                        // WIN — payout: shares * $1.00
-                        var payout = tradeShares * 1.0m;
-                        var pnl = payout - trade.PositionSize - tradeFee;
-                        tradesToClose.Add((tradeId, 1.0m, TradeOutcome.Win, pnl));
-                    }
-                    else
-                    {
-                        // LOSS — payout: $0, kaybedilen: yatırım + fee
-                        var pnl = -(trade.PositionSize + tradeFee);
-                        tradesToClose.Add((tradeId, 0.0m, TradeOutcome.Loss, pnl));
-                    }
-
-                    _logger.LogInformation(
-                        "[PaperPoly] Market RESOLVED for {Asset} {Direction}: ResolvedPrice={Price}",
-                        trade.Asset.Symbol, trade.Direction, market.ResolvedPrice.Value);
-                    continue;
+                    var pnl = (tradeShares * 1.0m) - trade.PositionSize - tradeFee;
+                    tradesToClose.Add((tradeId, resolvedPrice, TradeOutcome.Win, pnl));
+                }
+                else
+                {
+                    var pnl = -(trade.PositionSize + tradeFee);
+                    tradesToClose.Add((tradeId, resolvedPrice, TradeOutcome.Loss, pnl));
                 }
 
-                // Market still open — use midpoint price
-                var midpointResult = await _client.GetMidpointAsync(market.RelevantTokenId, ct);
-                if (midpointResult.IsFailure) continue;
-
-                var currentPrice = midpointResult.Value;
-
-                if (currentPrice >= 0.95m)
-                {
-                    var s = trade.PositionSize / trade.EntryPrice;
-                    var f = s * FeeRate * trade.EntryPrice * (1m - trade.EntryPrice);
-                    var pnl = (s * 1.0m) - trade.PositionSize - f;
-                    tradesToClose.Add((tradeId, 1.0m, TradeOutcome.Win, pnl));
-                }
-                else if (currentPrice <= 0.05m)
-                {
-                    var s = trade.PositionSize / trade.EntryPrice;
-                    var f = s * FeeRate * trade.EntryPrice * (1m - trade.EntryPrice);
-                    var pnl = -(trade.PositionSize + f);
-                    tradesToClose.Add((tradeId, 0.0m, TradeOutcome.Loss, pnl));
-                }
-                // 0.05 < price < 0.95 → not resolved yet, WAIT
+                _logger.LogInformation(
+                    "[PaperPoly] Market RESOLVED via GammaAPI for {Asset} {Direction}: ResolvedPrice={Price}",
+                    trade.Asset.Symbol, trade.Direction, resolvedPrice);
             }
             catch (Exception ex)
             {
@@ -350,7 +318,7 @@ public sealed class PaperPolymarketEngine : ITradingEngine
             }
         }
 
-        // Resolve edilen trade'leri kapat — LivePoly satır 252-267
+        // ── Close resolved trades ──
         foreach (var (tradeId, exitPrice, outcome, pnl) in tradesToClose)
         {
             if (_openTrades.TryRemove(tradeId, out var trade))

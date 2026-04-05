@@ -98,6 +98,142 @@ public sealed class AdaptiveSignalGenerator : ISignalGenerator
         return GenerateCore(asset, timeFrame, candles, marketPrice, precomputedIndicators);
     }
 
+    public Result<Signal> Generate(
+        Asset asset,
+        TimeFrame timeFrame,
+        IReadOnlyList<Candle> candles,
+        decimal marketPrice,
+        TechnicalIndicators precomputedIndicators,
+        SignalDirection direction)
+    {
+        if (candles.Count < MinCandlesForSignal)
+            return Result<Signal>.Failure(Error.NotEnoughCandles);
+
+        return GenerateWithDirection(asset, timeFrame, candles, marketPrice, precomputedIndicators, direction);
+    }
+
+    /// <summary>
+    /// Signal generation with pre-determined direction from worker.
+    /// Skips Layer 1 (regime) and Layer 2 (direction) — only does validation, confirmation, sizing.
+    /// </summary>
+    private Result<Signal> GenerateWithDirection(
+        Asset asset,
+        TimeFrame timeFrame,
+        IReadOnlyList<Candle> candles,
+        decimal marketPrice,
+        TechnicalIndicators indicators,
+        SignalDirection direction)
+    {
+        if (marketPrice < MinMarketPrice || marketPrice > MaxMarketPrice)
+            return Result<Signal>.Failure(Error.InvalidMarketPrice);
+
+        // Compute regime info for logging and indicator confirmation logic
+        var hurst = HurstCalculator.Compute(candles, 120);
+        var isMeanReverting = hurst < HurstMeanRevertingMax;
+        var regimeLabel = isMeanReverting ? "MeanReverting" : "Trending";
+
+        var zScore     = ZScoreCalculator.Compute(candles);
+        var takerRatio = TakerRatioCalculator.Compute(candles, 5);
+
+        // Compute confidence based on regime (same logic, but direction is already decided)
+        var confidence = 0m;
+        if (isMeanReverting)
+        {
+            confidence = Math.Min(Math.Abs(zScore) / 3.0m, 1.0m);
+            if (direction == SignalDirection.Up)
+                confidence *= UpConfidenceMultiplier;
+        }
+        else
+        {
+            if (direction == SignalDirection.Up)
+                confidence = Math.Min((takerRatio - 0.50m) * 4m, 1.0m);
+            else
+                confidence = Math.Min((0.50m - takerRatio) * 4m, 1.0m);
+        }
+
+        confidence = Math.Max(confidence, 0.01m); // Floor to avoid zero
+
+        // ── LAYER 3: Confirmation Filters ──
+
+        // Volume filter: skip dead markets
+        var volumeRatio = ComputeVolumeRatio(candles, 5, 20);
+        if (volumeRatio < MinVolumeRatio)
+        {
+            _logger.LogDebug("Dead market for {Symbol}: volume ratio {VR:F2} < {Min:F2}",
+                asset.Symbol, volumeRatio, MinVolumeRatio);
+            return Result<Signal>.Failure(Error.InsufficientConfirmation);
+        }
+
+        // Indicator confirmation
+        var bullishCount = indicators.BullishCount();
+        var bearishCount = indicators.BearishCount();
+
+        bool indicatorConfirmed;
+        if (isMeanReverting)
+        {
+            indicatorConfirmed = (direction == SignalDirection.Down && bullishCount >= IndicatorConfirmThreshold)
+                              || (direction == SignalDirection.Up && bearishCount >= IndicatorConfirmThreshold);
+        }
+        else
+        {
+            indicatorConfirmed = (direction == SignalDirection.Up && bullishCount >= IndicatorConfirmThreshold)
+                              || (direction == SignalDirection.Down && bearishCount >= IndicatorConfirmThreshold);
+        }
+
+        if (!indicatorConfirmed)
+            confidence *= UnconfirmedConfidenceReduction;
+
+        // ── LAYER 4: Fair Value and Position Sizing ──
+        decimal fairValue;
+        if (direction == SignalDirection.Down)
+            fairValue = 0.50m - (confidence * ConfidenceToFairValueScale);
+        else
+            fairValue = 0.50m + (confidence * ConfidenceToFairValueScale);
+
+        fairValue = Math.Clamp(fairValue, 0.01m, 0.99m);
+
+        var edge = Math.Abs(fairValue - marketPrice);
+        if (edge < MinEdge)
+        {
+            _logger.LogDebug("Edge too small for {Symbol}: {Edge:F3} < {Min:F2}", asset.Symbol, edge, MinEdge);
+            return Result<Signal>.Failure(Error.InvalidEdge);
+        }
+
+        var volShort = _indicatorCalculator.CalculateParkinsonVolatility(candles, RegimeShortPeriod);
+        var volLong  = candles.Count >= RegimeLongPeriod
+            ? _indicatorCalculator.CalculateParkinsonVolatility(candles, RegimeLongPeriod)
+            : volShort;
+
+        var volRegime = (volLong > 0 && volShort > HighVolMultiplier * volLong)
+            ? MarketRegime.HighVolatility
+            : MarketRegime.LowVolatility;
+
+        var isLowVol = volRegime == MarketRegime.LowVolatility;
+
+        var sizeResult = _positionSizer.Calculate(fairValue, marketPrice, 20m, isLowVol);
+        if (!sizeResult.MeetsMinimumEdge)
+            return Result<Signal>.Failure(Error.InvalidEdge);
+
+        var signal = new Signal(
+            asset:         asset,
+            timeFrame:     timeFrame,
+            direction:     direction,
+            fairValue:     fairValue,
+            marketPrice:   marketPrice,
+            kellyFraction: sizeResult.KellyFraction,
+            muEstimate:    zScore,
+            sigmaEstimate: 0m,
+            regime:        volRegime,
+            indicators:    indicators);
+
+        _logger.LogInformation(
+            "Signal: {Symbol} {Direction} Regime:{Regime} H:{Hurst:F3} Z:{Z:F2} Taker:{Taker:F3} Conf:{Conf:F2} FV:{FV:F3} Market:{Market:F3} Edge:{Edge:F3} Confirmed:{Confirmed}",
+            asset.Symbol, direction, regimeLabel, hurst, zScore,
+            takerRatio, confidence, fairValue, marketPrice, edge, indicatorConfirmed);
+
+        return Result<Signal>.Success(signal);
+    }
+
     private Result<Signal> GenerateCore(
         Asset asset,
         TimeFrame timeFrame,

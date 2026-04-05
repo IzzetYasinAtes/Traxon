@@ -44,9 +44,17 @@ public sealed class GammaApiClient : IGammaApiClient
         {
             var now          = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             var currentTs    = now - (now % 300);          // current 5-min window start
-            var nextTs       = currentTs + 300;            // next 5-min window start
-            var prevTs       = currentTs - 300;            // previous 5-min window (may be closed)
-            var windowTimestamps = new[] { prevTs, currentTs, nextTs };
+            // Cover 4 windows back (20 min) to catch delayed oracle resolutions,
+            // plus current and next for opening new trades.
+            var windowTimestamps = new[]
+            {
+                currentTs - 1200,  // 4 windows back (20 min)
+                currentTs - 900,   // 3 windows back (15 min)
+                currentTs - 600,   // 2 windows back (10 min)
+                currentTs - 300,   // 1 window back (5 min)
+                currentTs,         // current window
+                currentTs + 300    // next window
+            };
 
             var markets = new List<PolymarketMarket>();
 
@@ -94,8 +102,16 @@ public sealed class GammaApiClient : IGammaApiClient
                 }
             }
 
-            _logger.LogInformation("Discovered {Count} 5-min crypto markets from Gamma events endpoint", markets.Count);
-            return Result<IReadOnlyList<PolymarketMarket>>.Success(markets.AsReadOnly());
+            // Deduplicate: multiple window timestamps may return the same market.
+            // Key on ConditionId + Direction to keep one entry per direction per market.
+            var deduplicated = markets
+                .GroupBy(m => (m.ConditionId, m.Direction))
+                .Select(g => g.First())
+                .ToList();
+
+            _logger.LogInformation("Discovered {Count} 5-min crypto markets from Gamma events endpoint (raw: {Raw})",
+                deduplicated.Count, markets.Count);
+            return Result<IReadOnlyList<PolymarketMarket>>.Success(deduplicated.AsReadOnly());
         }
         catch (Exception ex)
         {

@@ -13,11 +13,19 @@ public sealed class MarketDiscoveryService : IMarketDiscoveryService
     private readonly PolymarketOptions            _options;
     private readonly ILogger<MarketDiscoveryService> _logger;
 
-    // Cache — aynı 5 saniye içindeki çağrılar aynı sonucu döndürür
+    // Cache for DiscoverMarketsAsync (trade opening) — 5 second dedup
     private IReadOnlyList<PolymarketMarket>? _cachedAll;
     private DateTime _cacheTime = DateTime.MinValue;
     private static readonly TimeSpan CacheDuration = TimeSpan.FromSeconds(5);
     private readonly SemaphoreSlim _cacheLock = new(1, 1);
+
+    // Separate cache for DiscoverAllMarketsAsync (position checking) — 1 second
+    // Short enough to catch oracle resolutions promptly, long enough to dedup
+    // multiple engine calls within the same candle cycle
+    private IReadOnlyList<PolymarketMarket>? _cachedAllPositions;
+    private DateTime _cacheTimePositions = DateTime.MinValue;
+    private static readonly TimeSpan CacheDurationPositions = TimeSpan.FromSeconds(1);
+    private readonly SemaphoreSlim _cacheLockPositions = new(1, 1);
 
     public MarketDiscoveryService(
         IGammaApiClient gammaClient,
@@ -82,10 +90,33 @@ public sealed class MarketDiscoveryService : IMarketDiscoveryService
 
     /// <summary>
     /// Tüm marketleri döndürür (kapanmış dahil). CheckPositionsAsync için kullanılır.
+    /// Uses a separate 1-second cache to detect oracle resolutions promptly.
     /// </summary>
     public async Task<Result<IReadOnlyList<PolymarketMarket>>> DiscoverAllMarketsAsync(
         CancellationToken ct = default)
     {
-        return await FetchAndCacheAsync(ct);
+        await _cacheLockPositions.WaitAsync(ct);
+        try
+        {
+            if (_cachedAllPositions is not null && DateTime.UtcNow - _cacheTimePositions < CacheDurationPositions)
+                return Result<IReadOnlyList<PolymarketMarket>>.Success(_cachedAllPositions);
+
+            var result = await _gammaClient.GetActiveCryptoMarketsAsync(ct);
+            if (result.IsFailure)
+                return result;
+
+            _cachedAllPositions = result.Value!
+                .Where(m => !string.IsNullOrEmpty(m.Direction)
+                         && !string.IsNullOrEmpty(m.UnderlyingAsset))
+                .ToList()
+                .AsReadOnly();
+            _cacheTimePositions = DateTime.UtcNow;
+
+            return Result<IReadOnlyList<PolymarketMarket>>.Success(_cachedAllPositions);
+        }
+        finally
+        {
+            _cacheLockPositions.Release();
+        }
     }
 }

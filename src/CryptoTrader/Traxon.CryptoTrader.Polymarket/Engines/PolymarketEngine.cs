@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Traxon.CryptoTrader.Application.Abstractions;
+using Traxon.CryptoTrader.Domain.Assets;
 using Traxon.CryptoTrader.Domain.Common;
 using Traxon.CryptoTrader.Domain.Market;
 using Traxon.CryptoTrader.Domain.Trading;
@@ -19,10 +20,10 @@ public sealed class PolymarketEngine : ITradingEngine, IAsyncDisposable
     private readonly ITradeLogger               _tradeLogger;
     private readonly ILogger<PolymarketEngine>  _logger;
 
-    private readonly ConcurrentDictionary<Guid, Trade>  _openTrades         = new();
-    private readonly ConcurrentDictionary<Guid, string> _tradeToOrderId    = new();
-    private readonly ConcurrentDictionary<Guid, string> _tradeToTokenId    = new();
-    private readonly ConcurrentDictionary<Guid, Guid>   _tradeToPositionMap = new();
+    private readonly ConcurrentDictionary<Guid, Trade>     _openTrades         = new();
+    private readonly ConcurrentDictionary<Guid, string>    _tradeToOrderId    = new();
+    private readonly ConcurrentDictionary<Guid, string>    _tradeToTokenId    = new();
+    private readonly ConcurrentDictionary<Guid, Guid>      _tradeToPositionMap = new();
     private readonly SemaphoreSlim                       _lock              = new(1, 1);
     private readonly SemaphoreSlim                       _initLock          = new(1, 1);
     private volatile bool                                _initialized;
@@ -286,8 +287,8 @@ public sealed class PolymarketEngine : ITradingEngine, IAsyncDisposable
         => Task.FromResult(Result<Portfolio>.Success(_portfolio));
 
     /// <summary>
-    /// Açık pozisyonları kontrol eder. Polymarket market'i resolve olduysa
-    /// (fiyat >= 0.95 veya <= 0.05) trade'i kapatır.
+    /// Açık pozisyonları kontrol eder. Polymarket market'i resolve olduysa trade'i kapatır.
+    /// Gamma API'den ResolvedPrice gelene kadar bekler — Chainlink oracle resolution.
     /// </summary>
     public async Task CheckPositionsAsync(Candle candle, CancellationToken ct = default)
     {
@@ -297,7 +298,7 @@ public sealed class PolymarketEngine : ITradingEngine, IAsyncDisposable
 
         var tradesToClose = new List<(Guid tradeId, decimal exitPrice, TradeOutcome outcome, decimal pnl)>();
 
-        // Fetch ALL markets (including closed) once for all trades
+        // Gamma API'den tüm marketleri al (closed dahil)
         var discoverResult = await _discovery.DiscoverAllMarketsAsync(ct);
         if (discoverResult.IsFailure)
         {
@@ -311,58 +312,30 @@ public sealed class PolymarketEngine : ITradingEngine, IAsyncDisposable
         {
             try
             {
-                // Match by exact token ID to find the specific market this trade was opened on
                 _tradeToTokenId.TryGetValue(tradeId, out var tokenId);
                 if (string.IsNullOrEmpty(tokenId)) continue;
 
-                var market = allMarkets
-                    .FirstOrDefault(m => m.RelevantTokenId == tokenId);
+                var market = allMarkets.FirstOrDefault(m => m.RelevantTokenId == tokenId);
+                if (market is null || !market.ResolvedPrice.HasValue) continue;
 
-                if (market is null) continue;
-
-                // Market resolved (closed with outcome price)
-                // Fee hesapla: shares * 0.072 * p * (1-p)
+                var resolvedPrice = market.ResolvedPrice.Value;
                 var tradeShares = trade.PositionSize / trade.EntryPrice;
                 var tradeFee = tradeShares * FeeRate * trade.EntryPrice * (1m - trade.EntryPrice);
 
-                if (market.ResolvedPrice.HasValue)
-                {
-                    if (market.ResolvedPrice.Value >= 0.99m)
-                    {
-                        // WIN — payout: shares * $1.00
-                        var pnl = (tradeShares * 1.0m) - trade.PositionSize - tradeFee;
-                        tradesToClose.Add((tradeId, 1.0m, TradeOutcome.Win, pnl));
-                    }
-                    else
-                    {
-                        // LOSS — payout: $0
-                        var pnl = -(trade.PositionSize + tradeFee);
-                        tradesToClose.Add((tradeId, 0.0m, TradeOutcome.Loss, pnl));
-                    }
-
-                    _logger.LogInformation(
-                        "[LivePoly] Market RESOLVED for {Asset} {Direction}: ResolvedPrice={Price}",
-                        trade.Asset.Symbol, trade.Direction, market.ResolvedPrice.Value);
-                    continue;
-                }
-
-                // Market still open — use midpoint price
-                var midpointResult = await _client.GetMidpointAsync(market.RelevantTokenId, ct);
-                if (midpointResult.IsFailure) continue;
-
-                var currentPrice = midpointResult.Value;
-
-                if (currentPrice >= 0.95m)
+                if (resolvedPrice >= 0.99m)
                 {
                     var pnl = (tradeShares * 1.0m) - trade.PositionSize - tradeFee;
-                    tradesToClose.Add((tradeId, 1.0m, TradeOutcome.Win, pnl));
+                    tradesToClose.Add((tradeId, resolvedPrice, TradeOutcome.Win, pnl));
                 }
-                else if (currentPrice <= 0.05m)
+                else
                 {
                     var pnl = -(trade.PositionSize + tradeFee);
-                    tradesToClose.Add((tradeId, 0.0m, TradeOutcome.Loss, pnl));
+                    tradesToClose.Add((tradeId, resolvedPrice, TradeOutcome.Loss, pnl));
                 }
-                // 0.05 < price < 0.95 → not resolved yet, WAIT
+
+                _logger.LogInformation(
+                    "[LivePoly] Market RESOLVED via GammaAPI for {Asset} {Direction}: ResolvedPrice={Price}",
+                    trade.Asset.Symbol, trade.Direction, resolvedPrice);
             }
             catch (Exception ex)
             {
@@ -370,6 +343,7 @@ public sealed class PolymarketEngine : ITradingEngine, IAsyncDisposable
             }
         }
 
+        // ── Close resolved trades ──
         foreach (var (tradeId, exitPrice, outcome, pnl) in tradesToClose)
         {
             if (_openTrades.TryRemove(tradeId, out var trade))
