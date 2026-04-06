@@ -80,10 +80,11 @@ public sealed class PolymarketEngine : ITradingEngine, IAsyncDisposable
                     ? (int)Math.Round(snapshot.WinRate.Value * snapshot.TradeCount)
                     : 0;
                 var lossCount = snapshot.TradeCount - winCount;
-                _portfolio.Restore(snapshot.Balance, snapshot.TotalPnL, winCount, lossCount);
+                var unencumberedBalance = InitialBalance + snapshot.TotalPnL;
+                _portfolio.Restore(unencumberedBalance, snapshot.TotalPnL, winCount, lossCount);
                 _logger.LogInformation(
-                    "[LivePoly] Portfolio restored: Balance:{Balance:F2} PnL:{PnL:F2} W:{Win} L:{Loss}",
-                    snapshot.Balance, snapshot.TotalPnL, winCount, lossCount);
+                    "[LivePoly] Portfolio restored: Balance:{Balance:F2} (unencumbered) PnL:{PnL:F2} W:{Win} L:{Loss}",
+                    unencumberedBalance, snapshot.TotalPnL, winCount, lossCount);
             }
 
             var openTrades = await _tradeLogger.GetOpenTradesAsync(EngineName, ct);

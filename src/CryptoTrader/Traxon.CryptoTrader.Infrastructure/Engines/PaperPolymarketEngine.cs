@@ -76,10 +76,14 @@ public sealed class PaperPolymarketEngine : ITradingEngine
                     ? (int)Math.Round(snapshot.WinRate.Value * snapshot.TradeCount)
                     : 0;
                 var lossCount = snapshot.TradeCount - winCount;
-                _portfolio.Restore(snapshot.Balance, snapshot.TotalPnL, winCount, lossCount);
+                // Use unencumbered balance: InitialBalance + realized PnL.
+                // snapshot.Balance already had open position exposure deducted,
+                // so using it directly causes double-deduction when OpenPosition is called below.
+                var unencumberedBalance = InitialBalance + snapshot.TotalPnL;
+                _portfolio.Restore(unencumberedBalance, snapshot.TotalPnL, winCount, lossCount);
                 _logger.LogInformation(
-                    "[PaperPoly] Portfolio restored: Balance:{Balance:F2} PnL:{PnL:F2} W:{Win} L:{Loss}",
-                    snapshot.Balance, snapshot.TotalPnL, winCount, lossCount);
+                    "[PaperPoly] Portfolio restored: Balance:{Balance:F2} (unencumbered) PnL:{PnL:F2} W:{Win} L:{Loss}",
+                    unencumberedBalance, snapshot.TotalPnL, winCount, lossCount);
             }
 
             var openTrades = await _tradeLogger.GetOpenTradesAsync(EngineName, ct);
