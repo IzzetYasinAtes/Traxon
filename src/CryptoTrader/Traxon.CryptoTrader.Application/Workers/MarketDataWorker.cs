@@ -128,7 +128,7 @@ public sealed class MarketDataWorker : BackgroundService
         // Binance 1m candle CloseTime = OpenTime + 1 minute, so the candle closing a
         // 5-minute window has OpenTime at :04, :09, :14, … :59 (i.e. (minute+1) % 5 == 0).
         // This ensures signals fire exactly when the 5-min window ends (:05, :10, … :00 UTC).
-        if ((candle.OpenTime.Minute + 1) % 5 == 0 && candle.OpenTime.Second == 0)
+        if ((candle.OpenTime.Minute + 2) % 5 == 0 && candle.OpenTime.Second == 0)
             await RunSignalPipelineAsync(candle);
 
         foreach (var engine in _tradingEngines)
@@ -208,47 +208,34 @@ public sealed class MarketDataWorker : BackgroundService
         IReadOnlyList<Candle> oneMinCandles,
         Domain.Indicators.TechnicalIndicators indicators)
     {
-        // ── Regime Detection + Direction (moved from AdaptiveSignalGenerator) ──
-        var zScore     = ZScoreCalculator.Compute(oneMinCandles);
-        var hurst      = HurstCalculator.Compute(oneMinCandles, 120);
-        var takerRatio = TakerRatioCalculator.Compute(oneMinCandles, 5);
+        // ── Window Delta Strategy ──
+        // We fire at T=240s (candle OpenTime=:03/:08/:13 closes at :04/:09/:14)
+        // Window open candle is 3 positions back: OpenTime=:00/:05/:10
+        if (oneMinCandles.Count < 5) return;
 
-        // Random walk regime — skip entirely
-        if (hurst >= 0.45m && hurst <= 0.55m)
+        var windowOpenPrice = oneMinCandles[^4].Open;
+        var currentPrice = oneMinCandles[^1].Close;
+        if (windowOpenPrice <= 0) return;
+
+        var windowDelta = (currentPrice - windowOpenPrice) / windowOpenPrice;
+        var absDelta = Math.Abs(windowDelta);
+
+        // Minimum 2 bps movement to trade
+        if (absDelta < 0.0002m)
         {
-            _logger.LogDebug("Random walk (H={H:F3}) for {Symbol}, skipping", hurst, candle.Asset.Symbol);
+            _logger.LogDebug("Window delta too small for {Symbol}: {Delta:P4}", candle.Asset.Symbol, windowDelta);
             return;
         }
 
-        string? direction = null;
-        if (hurst < 0.45m) // Mean reverting
-        {
-            if (zScore > 1.6m)       direction = "Down";
-            else if (zScore < -2.0m)  direction = "Up";
-        }
-        else // Trending (H > 0.55)
-        {
-            var recentMomentum = oneMinCandles.Count >= 4
-                ? (oneMinCandles[^1].Close - oneMinCandles[^4].Close) / oneMinCandles[^4].Close
-                : 0m;
-            if (recentMomentum > 0 && takerRatio > 0.55m)      direction = "Up";
-            else if (recentMomentum < 0 && takerRatio < 0.45m)  direction = "Down";
-        }
+        string direction = windowDelta > 0 ? "Up" : "Down";
 
-        if (direction is null)
-        {
-            _logger.LogDebug("No direction for {Symbol}: H={H:F3} Z={Z:F2} Taker={T:F3}",
-                candle.Asset.Symbol, hurst, zScore, takerRatio);
-            return;
-        }
-
-        // ── Market Discovery + Midpoint (direction is now authoritative) ──
+        // ── Market Discovery + Midpoint ──
         var baseAsset = candle.Asset.Symbol.Replace("USDT", "");
 
         var discoverResult = await _discovery.DiscoverMarketsAsync();
         if (discoverResult.IsFailure)
         {
-            _logger.LogWarning("Polymarket market discovery failed for {Symbol}, skipping signal", candle.Asset.Symbol);
+            _logger.LogWarning("Polymarket discovery failed for {Symbol}", candle.Asset.Symbol);
             return;
         }
 
@@ -257,41 +244,41 @@ public sealed class MarketDataWorker : BackgroundService
                               && m.Direction == direction);
         if (market is null)
         {
-            _logger.LogDebug("No Polymarket market for {Symbol} {Direction}, skipping signal", candle.Asset.Symbol, direction);
+            _logger.LogDebug("No Polymarket market for {Symbol} {Direction}", candle.Asset.Symbol, direction);
             return;
         }
 
         var midResult = await _polyClient.GetMidpointAsync(market.RelevantTokenId);
         if (midResult.IsFailure)
         {
-            _logger.LogWarning("Polymarket midpoint failed for {Symbol}, skipping signal", candle.Asset.Symbol);
+            _logger.LogWarning("Polymarket midpoint failed for {Symbol}", candle.Asset.Symbol);
             return;
         }
 
         var marketPrice = midResult.Value;
 
-        // FairValue = P(Up). Down token midpoint = P(Down). Convert to same basis.
+        // Convert to same basis: P(Up). Down token midpoint → 1 - midpoint
         if (direction == "Down")
             marketPrice = 1m - marketPrice;
 
-        // Convert string direction to enum for the generator
         var signalDirection = direction == "Up" ? SignalDirection.Up : SignalDirection.Down;
 
-        // Signal uses TimeFrame.FiveMinute for DB record since signals fire every 5 minutes
-        // Pass direction explicitly so the generator validates/sizes without re-determining direction
+        _logger.LogInformation(
+            "{Symbol} WindowDelta:{Delta:P4} Dir:{Dir} MktPrice:{Price:F4}",
+            candle.Asset.Symbol, windowDelta, direction, marketPrice);
+
         var signalResult = _signalGenerator.Generate(
             candle.Asset, TimeFrame.FiveMinute, oneMinCandles,
-            marketPrice, indicators, signalDirection);
+            marketPrice, indicators, signalDirection, windowDelta);
 
         if (signalResult.IsSuccess)
         {
             var sig = signalResult.Value!;
             _logger.LogInformation(
                 ">>> SIGNAL: {Symbol}/5m {Direction} | FV:{FV:F3} Market:{Market:F3} Edge:{Edge:F3} " +
-                "Kelly:{Kelly:F4} Regime:{Regime} Bulls:{Bulls}/5",
+                "Kelly:{Kelly:F4} Delta:{Delta:P4} Regime:{Regime}",
                 sig.Asset.Symbol, sig.Direction,
-                sig.FairValue, sig.MarketPrice, sig.Edge, sig.KellyFraction, sig.Regime,
-                sig.Indicators.BullishCount());
+                sig.FairValue, sig.MarketPrice, sig.Edge, sig.KellyFraction, windowDelta, sig.Regime);
 
             _publisher.PublishSignalGenerated(sig.ToDto());
             await DispatchToEnginesAsync(sig);

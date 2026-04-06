@@ -41,4 +41,16 @@ public interface ISignalGenerator
         TechnicalIndicators precomputedIndicators,
         SignalDirection direction);
 
+    /// <summary>
+    /// Window delta-based signal: direction from worker, confidence from delta magnitude.
+    /// </summary>
+    Result<Signal> Generate(
+        Asset asset,
+        TimeFrame timeFrame,
+        IReadOnlyList<Candle> candles,
+        decimal marketPrice,
+        TechnicalIndicators precomputedIndicators,
+        SignalDirection direction,
+        decimal windowDelta);
+
 }

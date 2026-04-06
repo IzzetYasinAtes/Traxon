@@ -112,6 +112,101 @@ public sealed class AdaptiveSignalGenerator : ISignalGenerator
         return GenerateWithDirection(asset, timeFrame, candles, marketPrice, precomputedIndicators, direction);
     }
 
+    public Result<Signal> Generate(
+        Asset asset,
+        TimeFrame timeFrame,
+        IReadOnlyList<Candle> candles,
+        decimal marketPrice,
+        TechnicalIndicators precomputedIndicators,
+        SignalDirection direction,
+        decimal windowDelta)
+    {
+        if (candles.Count < MinCandlesForSignal)
+            return Result<Signal>.Failure(Error.NotEnoughCandles);
+
+        return GenerateFromWindowDelta(asset, timeFrame, candles, marketPrice, precomputedIndicators, direction, windowDelta);
+    }
+
+    /// <summary>
+    /// Window delta-based signal generation. Uses price movement during the 5-min window
+    /// as the primary signal instead of Hurst/Z-Score.
+    /// </summary>
+    private Result<Signal> GenerateFromWindowDelta(
+        Asset asset,
+        TimeFrame timeFrame,
+        IReadOnlyList<Candle> candles,
+        decimal marketPrice,
+        TechnicalIndicators indicators,
+        SignalDirection direction,
+        decimal windowDelta)
+    {
+        if (marketPrice < MinMarketPrice || marketPrice > MaxMarketPrice)
+            return Result<Signal>.Failure(Error.InvalidMarketPrice);
+
+        // Confidence from window delta magnitude
+        var confidence = Math.Clamp(0.50m + Math.Abs(windowDelta) * 50m, 0.52m, 0.95m);
+
+        // Volume filter: skip dead markets
+        var volumeRatio = ComputeVolumeRatio(candles, 5, 20);
+        if (volumeRatio < MinVolumeRatio)
+        {
+            _logger.LogDebug("Dead market for {Symbol}: volume ratio {VR:F2} < {Min:F2}",
+                asset.Symbol, volumeRatio, MinVolumeRatio);
+            return Result<Signal>.Failure(Error.InsufficientConfirmation);
+        }
+
+        // Fair value: P(Up) basis
+        decimal fairValue;
+        if (direction == SignalDirection.Up)
+            fairValue = confidence;
+        else
+            fairValue = 1m - confidence;
+
+        fairValue = Math.Clamp(fairValue, 0.01m, 0.99m);
+
+        var edge = Math.Abs(fairValue - marketPrice);
+        const decimal windowMinEdge = 0.03m;
+        if (edge < windowMinEdge)
+        {
+            _logger.LogDebug("Edge too small for {Symbol}: {Edge:F3} < {Min:F2}", asset.Symbol, edge, windowMinEdge);
+            return Result<Signal>.Failure(Error.InvalidEdge);
+        }
+
+        // Parkinson volatility regime for sizing
+        var volShort = _indicatorCalculator.CalculateParkinsonVolatility(candles, RegimeShortPeriod);
+        var volLong  = candles.Count >= RegimeLongPeriod
+            ? _indicatorCalculator.CalculateParkinsonVolatility(candles, RegimeLongPeriod)
+            : volShort;
+
+        var volRegime = (volLong > 0 && volShort > HighVolMultiplier * volLong)
+            ? MarketRegime.HighVolatility
+            : MarketRegime.LowVolatility;
+
+        var isLowVol = volRegime == MarketRegime.LowVolatility;
+
+        var sizeResult = _positionSizer.Calculate(fairValue, marketPrice, 20m, isLowVol);
+        if (!sizeResult.MeetsMinimumEdge)
+            return Result<Signal>.Failure(Error.InvalidEdge);
+
+        var signal = new Signal(
+            asset:         asset,
+            timeFrame:     timeFrame,
+            direction:     direction,
+            fairValue:     fairValue,
+            marketPrice:   marketPrice,
+            kellyFraction: sizeResult.KellyFraction,
+            muEstimate:    windowDelta,
+            sigmaEstimate: 0m,
+            regime:        volRegime,
+            indicators:    indicators);
+
+        _logger.LogInformation(
+            "WindowDelta Signal: {Symbol} {Direction} Delta:{Delta:P4} Conf:{Conf:F2} FV:{FV:F3} Market:{Market:F3} Edge:{Edge:F3} Regime:{Regime}",
+            asset.Symbol, direction, windowDelta, confidence, fairValue, marketPrice, edge, volRegime);
+
+        return Result<Signal>.Success(signal);
+    }
+
     /// <summary>
     /// Signal generation with pre-determined direction from worker.
     /// Skips Layer 1 (regime) and Layer 2 (direction) — only does validation, confirmation, sizing.
