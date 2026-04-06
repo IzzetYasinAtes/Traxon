@@ -133,7 +133,10 @@ public sealed class PolymarketEngine : ITradingEngine, IAsyncDisposable
         await _lock.WaitAsync(ct);
         try
         {
-            if (_openTrades.Values.Any(t => t.Asset == signal.Asset && (DateTime.UtcNow - t.OpenedAt) < TimeSpan.FromMinutes(5)))
+            // Polymarket 5-min window boundary: epoch % 300 == 0
+            var unixNow = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            var currentWindowStart = DateTimeOffset.FromUnixTimeSeconds(unixNow - (unixNow % 300)).UtcDateTime;
+            if (_openTrades.Values.Any(t => t.Asset == signal.Asset && t.OpenedAt >= currentWindowStart))
                 return Result<Trade>.Failure(Error.DuplicatePosition);
 
             // Fast pre-check: Polymarket sadece belirli asset'ler için market açar
