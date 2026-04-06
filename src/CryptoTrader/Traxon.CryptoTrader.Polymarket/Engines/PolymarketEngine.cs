@@ -91,6 +91,17 @@ public sealed class PolymarketEngine : ITradingEngine, IAsyncDisposable
             {
                 _openTrades[trade.Id] = trade;
 
+                // Restore token ID from EntryReason ("...OrderId:XXX" or "...Token:XXX")
+                var reason = trade.EntryReason ?? "";
+                var tokenPrefix = "Token:";
+                var tokenIdx = reason.IndexOf(tokenPrefix, StringComparison.Ordinal);
+                if (tokenIdx >= 0)
+                {
+                    var tokenId = reason[(tokenIdx + tokenPrefix.Length)..].Trim();
+                    if (!string.IsNullOrEmpty(tokenId))
+                        _tradeToTokenId[trade.Id] = tokenId;
+                }
+
                 var position = new Position(
                     asset:        trade.Asset,
                     timeFrame:    trade.TimeFrame,
