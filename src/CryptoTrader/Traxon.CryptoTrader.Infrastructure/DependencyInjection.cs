@@ -34,7 +34,7 @@ public static class DependencyInjection
         services.AddSingleton<IIndicatorCalculator, IndicatorCalculator>();
         services.AddSingleton<IFairValueCalculator, FairValueCalculator>();
         services.AddSingleton<IPositionSizer, PositionSizer>();
-        services.AddSingleton<ISignalGenerator, Signals.MeanReversionSignalGenerator>();
+        services.AddSingleton<ISignalGenerator, Signals.AdaptiveSignalGenerator>();
 
         // DataProtection + Secure Settings
         services.AddDataProtection()

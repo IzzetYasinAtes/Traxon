@@ -5,6 +5,7 @@ using Traxon.CryptoTrader.Application.DTOs;
 using Traxon.CryptoTrader.Application.Mappings;
 using Traxon.CryptoTrader.Domain.Assets;
 using Traxon.CryptoTrader.Domain.Market;
+using Traxon.CryptoTrader.Domain.Trading;
 
 namespace Traxon.CryptoTrader.Application.Workers;
 
@@ -123,8 +124,11 @@ public sealed class MarketDataWorker : BackgroundService
         _publisher.PublishCandleUpdate(candle.ToCandleDto());
         WriteCandleAsync(candle);
 
-        // Trigger signal pipeline every 5 minutes (at :00, :05, :10, etc.)
-        if (candle.CloseTime.Minute % 5 == 0)
+        // Trigger signal pipeline every 5 minutes (at Polymarket window boundaries).
+        // Binance 1m candle CloseTime = OpenTime + 1 minute, so the candle closing a
+        // 5-minute window has OpenTime at :04, :09, :14, … :59 (i.e. (minute+1) % 5 == 0).
+        // This ensures signals fire exactly when the 5-min window ends (:05, :10, … :00 UTC).
+        if ((candle.OpenTime.Minute + 1) % 5 == 0 && candle.OpenTime.Second == 0)
             await RunSignalPipelineAsync(candle);
 
         foreach (var engine in _tradingEngines)
@@ -204,16 +208,41 @@ public sealed class MarketDataWorker : BackgroundService
         IReadOnlyList<Candle> oneMinCandles,
         Domain.Indicators.TechnicalIndicators indicators)
     {
-        var zScore = ZScoreCalculator.Compute(oneMinCandles);
+        // ── Regime Detection + Direction (moved from AdaptiveSignalGenerator) ──
+        var zScore     = ZScoreCalculator.Compute(oneMinCandles);
+        var hurst      = HurstCalculator.Compute(oneMinCandles, 120);
+        var takerRatio = TakerRatioCalculator.Compute(oneMinCandles, 5);
 
-        // Only DOWN signals — mean reversion works for overbought, not oversold
-        if (zScore <= 0)
+        // Random walk regime — skip entirely
+        if (hurst >= 0.45m && hurst <= 0.55m)
         {
-            _logger.LogDebug("Z-Score {Z:F2} <= 0 for {Symbol}, skipping (UP signals disabled)", zScore, candle.Asset.Symbol);
+            _logger.LogDebug("Random walk (H={H:F3}) for {Symbol}, skipping", hurst, candle.Asset.Symbol);
             return;
         }
-        var direction = "Down";
 
+        string? direction = null;
+        if (hurst < 0.45m) // Mean reverting
+        {
+            if (zScore > 1.6m)       direction = "Down";
+            else if (zScore < -2.0m)  direction = "Up";
+        }
+        else // Trending (H > 0.55)
+        {
+            var recentMomentum = oneMinCandles.Count >= 4
+                ? (oneMinCandles[^1].Close - oneMinCandles[^4].Close) / oneMinCandles[^4].Close
+                : 0m;
+            if (recentMomentum > 0 && takerRatio > 0.55m)      direction = "Up";
+            else if (recentMomentum < 0 && takerRatio < 0.45m)  direction = "Down";
+        }
+
+        if (direction is null)
+        {
+            _logger.LogDebug("No direction for {Symbol}: H={H:F3} Z={Z:F2} Taker={T:F3}",
+                candle.Asset.Symbol, hurst, zScore, takerRatio);
+            return;
+        }
+
+        // ── Market Discovery + Midpoint (direction is now authoritative) ──
         var baseAsset = candle.Asset.Symbol.Replace("USDT", "");
 
         var discoverResult = await _discovery.DiscoverMarketsAsync();
@@ -245,10 +274,14 @@ public sealed class MarketDataWorker : BackgroundService
         if (direction == "Down")
             marketPrice = 1m - marketPrice;
 
+        // Convert string direction to enum for the generator
+        var signalDirection = direction == "Up" ? SignalDirection.Up : SignalDirection.Down;
+
         // Signal uses TimeFrame.FiveMinute for DB record since signals fire every 5 minutes
+        // Pass direction explicitly so the generator validates/sizes without re-determining direction
         var signalResult = _signalGenerator.Generate(
             candle.Asset, TimeFrame.FiveMinute, oneMinCandles,
-            marketPrice, indicators);
+            marketPrice, indicators, signalDirection);
 
         if (signalResult.IsSuccess)
         {
