@@ -37,80 +37,47 @@ public sealed class GammaApiClient : IGammaApiClient
         _logger     = logger;
     }
 
-    public async Task<Result<IReadOnlyList<PolymarketMarket>>> GetActiveCryptoMarketsAsync(
+    public Task<Result<IReadOnlyList<PolymarketMarket>>> GetActiveCryptoMarketsAsync(
         CancellationToken ct = default)
+        => GetCryptoMarketsWithLookbackAsync(20, ct);
+
+    public async Task<Result<IReadOnlyList<PolymarketMarket>>> GetCryptoMarketsWithLookbackAsync(
+        int lookbackMinutes, CancellationToken ct = default)
     {
         try
         {
-            var now          = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-            var currentTs    = now - (now % 300);          // current 5-min window start
-            // Cover 4 windows back (20 min) to catch delayed oracle resolutions,
-            // plus current and next for opening new trades.
-            var windowTimestamps = new[]
-            {
-                currentTs - 1200,  // 4 windows back (20 min)
-                currentTs - 900,   // 3 windows back (15 min)
-                currentTs - 600,   // 2 windows back (10 min)
-                currentTs - 300,   // 1 window back (5 min)
-                currentTs,         // current window
-                currentTs + 300    // next window
-            };
+            var now       = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            var currentTs = now - (now % 300);
 
-            var markets = new List<PolymarketMarket>();
+            var windowCount = lookbackMinutes / 5;
+            var windowTimestamps = new List<long>(windowCount + 2);
+            for (var i = windowCount; i >= 0; i--)
+                windowTimestamps.Add(currentTs - i * 300);
+            windowTimestamps.Add(currentTs + 300); // next window
 
+            var allMarkets = new List<PolymarketMarket>();
+            var semaphore  = new SemaphoreSlim(15); // max 15 concurrent HTTP calls
+
+            var tasks = new List<Task<List<PolymarketMarket>>>();
             foreach (var (asset, slug) in AssetToSlug)
             {
                 foreach (var windowTs in windowTimestamps)
                 {
-                    var eventSlug = $"{slug}-updown-5m-{windowTs}";
-                    var url       = $"{_options.GammaApiUrl}/events?slug={eventSlug}";
-
-                    try
-                    {
-                        var response = await _httpClient.GetAsync(url, ct);
-
-                        if (!response.IsSuccessStatusCode)
-                        {
-                            _logger.LogDebug("Gamma events endpoint returned {Status} for {Slug}",
-                                response.StatusCode, eventSlug);
-                            continue;
-                        }
-
-                        var json = await response.Content.ReadAsStringAsync(ct);
-                        using var doc = JsonDocument.Parse(json);
-
-                        if (doc.RootElement.ValueKind != JsonValueKind.Array)
-                            continue;
-
-                        foreach (var eventEl in doc.RootElement.EnumerateArray())
-                        {
-                            if (!eventEl.TryGetProperty("markets", out var marketsArr)
-                                || marketsArr.ValueKind != JsonValueKind.Array)
-                                continue;
-
-                            foreach (var marketEl in marketsArr.EnumerateArray())
-                            {
-                                var parsed = ParseEventMarket(marketEl, asset);
-                                markets.AddRange(parsed);
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Failed to fetch event {Slug}", eventSlug);
-                    }
+                    tasks.Add(FetchSingleWindowAsync(asset, slug, windowTs, semaphore, ct));
                 }
             }
 
-            // Deduplicate: multiple window timestamps may return the same market.
-            // Key on ConditionId + Direction to keep one entry per direction per market.
-            var deduplicated = markets
+            var results = await Task.WhenAll(tasks);
+            foreach (var batch in results)
+                allMarkets.AddRange(batch);
+
+            var deduplicated = allMarkets
                 .GroupBy(m => (m.ConditionId, m.Direction))
                 .Select(g => g.First())
                 .ToList();
 
-            _logger.LogInformation("Discovered {Count} 5-min crypto markets from Gamma events endpoint (raw: {Raw})",
-                deduplicated.Count, markets.Count);
+            _logger.LogDebug("Discovered {Count} markets (lookback {Lookback}min, raw {Raw})",
+                deduplicated.Count, lookbackMinutes, allMarkets.Count);
             return Result<IReadOnlyList<PolymarketMarket>>.Success(deduplicated.AsReadOnly());
         }
         catch (Exception ex)
@@ -119,6 +86,44 @@ public sealed class GammaApiClient : IGammaApiClient
             return Result<IReadOnlyList<PolymarketMarket>>.Failure(
                 new Error("Gamma.UnexpectedError", ex.Message));
         }
+    }
+
+    private async Task<List<PolymarketMarket>> FetchSingleWindowAsync(
+        string asset, string slug, long windowTs, SemaphoreSlim semaphore, CancellationToken ct)
+    {
+        var results = new List<PolymarketMarket>();
+        await semaphore.WaitAsync(ct);
+        try
+        {
+            var eventSlug = $"{slug}-updown-5m-{windowTs}";
+            var url       = $"{_options.GammaApiUrl}/events?slug={eventSlug}";
+
+            var response = await _httpClient.GetAsync(url, ct);
+            if (!response.IsSuccessStatusCode) return results;
+
+            var json = await response.Content.ReadAsStringAsync(ct);
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.ValueKind != JsonValueKind.Array) return results;
+
+            foreach (var eventEl in doc.RootElement.EnumerateArray())
+            {
+                if (!eventEl.TryGetProperty("markets", out var marketsArr)
+                    || marketsArr.ValueKind != JsonValueKind.Array)
+                    continue;
+
+                foreach (var marketEl in marketsArr.EnumerateArray())
+                    results.AddRange(ParseEventMarket(marketEl, asset));
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to fetch window {Slug}-{Ts}", slug, windowTs);
+        }
+        finally
+        {
+            semaphore.Release();
+        }
+        return results;
     }
 
     /// <summary>

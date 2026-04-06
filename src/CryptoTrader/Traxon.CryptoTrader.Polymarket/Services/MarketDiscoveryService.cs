@@ -19,12 +19,12 @@ public sealed class MarketDiscoveryService : IMarketDiscoveryService
     private static readonly TimeSpan CacheDuration = TimeSpan.FromSeconds(5);
     private readonly SemaphoreSlim _cacheLock = new(1, 1);
 
-    // Separate cache for DiscoverAllMarketsAsync (position checking) — 1 second
-    // Short enough to catch oracle resolutions promptly, long enough to dedup
-    // multiple engine calls within the same candle cycle
+    // Separate cache for DiscoverAllMarketsAsync (position checking) — 30 seconds
+    // Extended lookback (180 min) makes this expensive, so cache longer.
+    // Resolved prices don't change, so 30s freshness is fine.
     private IReadOnlyList<PolymarketMarket>? _cachedAllPositions;
     private DateTime _cacheTimePositions = DateTime.MinValue;
-    private static readonly TimeSpan CacheDurationPositions = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan CacheDurationPositions = TimeSpan.FromSeconds(30);
     private readonly SemaphoreSlim _cacheLockPositions = new(1, 1);
 
     public MarketDiscoveryService(
@@ -101,7 +101,7 @@ public sealed class MarketDiscoveryService : IMarketDiscoveryService
             if (_cachedAllPositions is not null && DateTime.UtcNow - _cacheTimePositions < CacheDurationPositions)
                 return Result<IReadOnlyList<PolymarketMarket>>.Success(_cachedAllPositions);
 
-            var result = await _gammaClient.GetActiveCryptoMarketsAsync(ct);
+            var result = await _gammaClient.GetCryptoMarketsWithLookbackAsync(180, ct);
             if (result.IsFailure)
                 return result;
 
