@@ -327,17 +327,6 @@ public sealed class PolymarketEngine : ITradingEngine, IAsyncDisposable
         {
             try
             {
-                // Timeout: if trade open > 30 min, Gamma resolution was missed — force close as Loss
-                if ((DateTime.UtcNow - trade.OpenedAt) > TimeSpan.FromMinutes(30))
-                {
-                    var timeoutFee = (trade.PositionSize / trade.EntryPrice) * FeeRate * trade.EntryPrice * (1m - trade.EntryPrice);
-                    tradesToClose.Add((tradeId, 0m, TradeOutcome.Loss, -(trade.PositionSize + timeoutFee)));
-                    _logger.LogWarning(
-                        "[LivePoly] Trade TIMEOUT (>30min): {Asset} {Direction} opened {Opened}",
-                        trade.Asset.Symbol, trade.Direction, trade.OpenedAt);
-                    continue;
-                }
-
                 _tradeToTokenId.TryGetValue(tradeId, out var tokenId);
                 if (string.IsNullOrEmpty(tokenId)) continue;
 

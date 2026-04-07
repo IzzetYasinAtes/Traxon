@@ -124,11 +124,10 @@ public sealed class MarketDataWorker : BackgroundService
         _publisher.PublishCandleUpdate(candle.ToCandleDto());
         WriteCandleAsync(candle);
 
-        // Trigger signal pipeline every 5 minutes (at Polymarket window boundaries).
-        // Binance 1m candle CloseTime = OpenTime + 1 minute, so the candle closing a
-        // 5-minute window has OpenTime at :04, :09, :14, … :59 (i.e. (minute+1) % 5 == 0).
-        // This ensures signals fire exactly when the 5-min window ends (:05, :10, … :00 UTC).
-        if ((candle.OpenTime.Minute + 2) % 5 == 0 && candle.OpenTime.Second == 0)
+        // Fires at window boundary (:05, :10, etc.). We analyze the PREVIOUS completed
+        // 5-min window and enter the NEW window immediately at T=0.
+        // Candle OpenTime=:04 closes at :05 → (4+1)%5==0 triggers signal pipeline.
+        if ((candle.OpenTime.Minute + 1) % 5 == 0 && candle.OpenTime.Second == 0)
             await RunSignalPipelineAsync(candle);
 
         foreach (var engine in _tradingEngines)
@@ -208,12 +207,13 @@ public sealed class MarketDataWorker : BackgroundService
         IReadOnlyList<Candle> oneMinCandles,
         Domain.Indicators.TechnicalIndicators indicators)
     {
-        // ── Window Delta Strategy ──
-        // We fire at T=240s (candle OpenTime=:03/:08/:13 closes at :04/:09/:14)
-        // Window open candle is 3 positions back: OpenTime=:00/:05/:10
-        if (oneMinCandles.Count < 5) return;
+        // ── Previous Window Delta Strategy ──
+        // Trigger fires at window boundary (candle OpenTime=:04 closes at :05).
+        // We analyze the COMPLETED previous 5-min window and enter the NEW window at T=0.
+        // Previous window = 5 candles: [^5]=:00, [^4]=:01, [^3]=:02, [^2]=:03, [^1]=:04
+        if (oneMinCandles.Count < 6) return;
 
-        var windowOpenPrice = oneMinCandles[^4].Open;
+        var windowOpenPrice = oneMinCandles[^5].Open;
         var currentPrice = oneMinCandles[^1].Close;
         if (windowOpenPrice <= 0) return;
 
@@ -230,10 +230,9 @@ public sealed class MarketDataWorker : BackgroundService
         string direction = windowDelta > 0 ? "Up" : "Down";
 
         // 10-minute trend filter: skip signals against the longer trend
-        if (oneMinCandles.Count >= 11)
+        if (oneMinCandles.Count >= 12)
         {
             var trend10m = (oneMinCandles[^1].Close - oneMinCandles[^11].Close) / oneMinCandles[^11].Close;
-            // If window says Up but 10m trend is Down (or vice versa), skip
             if ((windowDelta > 0 && trend10m < -0.0003m) || (windowDelta < 0 && trend10m > 0.0003m))
             {
                 _logger.LogDebug("Trend filter: {Symbol} delta={Delta:P4} vs trend10m={Trend:P4}, skipping",
@@ -242,14 +241,13 @@ public sealed class MarketDataWorker : BackgroundService
             }
         }
 
-        // Delta acceleration: require momentum to be building, not fading
-        if (oneMinCandles.Count >= 5)
+        // Delta acceleration: compare first half vs second half of previous window
+        if (oneMinCandles.Count >= 6)
         {
-            var earlyDelta = (oneMinCandles[^3].Close - oneMinCandles[^4].Open) / oneMinCandles[^4].Open;
+            var earlyDelta = (oneMinCandles[^4].Close - oneMinCandles[^5].Open) / oneMinCandles[^5].Open;
             var lateDelta = (oneMinCandles[^1].Close - oneMinCandles[^2].Open) / oneMinCandles[^2].Open;
             var acceleration = Math.Abs(lateDelta) - Math.Abs(earlyDelta);
 
-            // If momentum is fading (deceleration), skip
             if (acceleration < -0.0001m)
             {
                 _logger.LogDebug("Deceleration filter: {Symbol} early={Early:P4} late={Late:P4}, skipping",
@@ -258,21 +256,20 @@ public sealed class MarketDataWorker : BackgroundService
             }
         }
 
-        // Volume surge: high volume confirms the move
+        // Volume surge confirmation
         decimal volumeBoost = 0m;
-        if (oneMinCandles.Count >= 8)
+        if (oneMinCandles.Count >= 9)
         {
             var recentVol = (oneMinCandles[^1].Volume + oneMinCandles[^2].Volume + oneMinCandles[^3].Volume) / 3m;
             var priorVol = (oneMinCandles[^4].Volume + oneMinCandles[^5].Volume + oneMinCandles[^6].Volume) / 3m;
             if (priorVol > 0)
             {
                 var volRatio = recentVol / priorVol;
-                if (volRatio > 1.5m) volumeBoost = 0.05m;      // Strong confirmation
-                else if (volRatio < 0.7m) volumeBoost = -0.03m;  // Low conviction
+                if (volRatio > 1.5m) volumeBoost = 0.05m;
+                else if (volRatio < 0.7m) volumeBoost = -0.03m;
             }
         }
 
-        // Adjust delta by volume conviction (generator uses delta for confidence)
         var adjustedDelta = windowDelta + (windowDelta > 0 ? volumeBoost : -volumeBoost);
 
         // ── Market Discovery + Midpoint ──
@@ -303,13 +300,10 @@ public sealed class MarketDataWorker : BackgroundService
 
         var marketPrice = midResult.Value;
 
-        // Convert to same basis: P(Up). Down token midpoint → 1 - midpoint
         if (direction == "Down")
             marketPrice = 1m - marketPrice;
 
-        // Max entry price filter: tokens > 0.65 have bad risk/reward
-        // At 0.65: win +$0.54, lose -$0.65 → need 55% win rate just to break even
-        // At 0.80: win +$0.25, lose -$0.80 → need 76% win rate to break even
+        // Max entry price filter
         var tokenPrice = direction == "Up" ? marketPrice : (1m - marketPrice);
         if (tokenPrice > 0.65m)
         {
@@ -321,8 +315,8 @@ public sealed class MarketDataWorker : BackgroundService
         var signalDirection = direction == "Up" ? SignalDirection.Up : SignalDirection.Down;
 
         _logger.LogInformation(
-            "{Symbol} WindowDelta:{Delta:P4} AdjDelta:{AdjDelta:P4} Dir:{Dir} MktPrice:{Price:F4}",
-            candle.Asset.Symbol, windowDelta, adjustedDelta, direction, marketPrice);
+            "{Symbol} PrevWindowDelta:{Delta:P4} Dir:{Dir} MktPrice:{Price:F4} Entry:T=0",
+            candle.Asset.Symbol, windowDelta, direction, marketPrice);
 
         var signalResult = _signalGenerator.Generate(
             candle.Asset, TimeFrame.FiveMinute, oneMinCandles,
