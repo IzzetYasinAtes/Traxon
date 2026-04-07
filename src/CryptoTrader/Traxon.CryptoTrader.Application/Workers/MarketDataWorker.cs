@@ -332,6 +332,10 @@ public sealed class MarketDataWorker : BackgroundService
                 sig.FairValue, sig.MarketPrice, sig.Edge, sig.KellyFraction, windowDelta, sig.Regime);
 
             _publisher.PublishSignalGenerated(sig.ToDto());
+
+            // Wait 2 seconds after signal for market to fully open.
+            // Binance candle closes at :XX:59, but Polymarket market opens at :XX+1:00.
+            await Task.Delay(2000);
             await DispatchToEnginesAsync(sig);
         }
         else
