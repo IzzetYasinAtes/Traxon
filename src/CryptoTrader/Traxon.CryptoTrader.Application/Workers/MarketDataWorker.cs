@@ -207,31 +207,114 @@ public sealed class MarketDataWorker : BackgroundService
         IReadOnlyList<Candle> oneMinCandles,
         Domain.Indicators.TechnicalIndicators indicators)
     {
-        // ── Previous Window Delta Strategy ──
-        // Trigger fires at window boundary (candle OpenTime=:04 closes at :05).
-        // We analyze the COMPLETED previous 5-min window and enter the NEW window at T=0.
-        // Previous window = 5 candles: [^5]=:00, [^4]=:01, [^3]=:02, [^2]=:03, [^1]=:04
-        if (oneMinCandles.Count < 6) return;
+        if (oneMinCandles.Count < 15) return;
 
-        var windowOpenPrice = oneMinCandles[^5].Open;
-        var currentPrice = oneMinCandles[^1].Close;
-        if (windowOpenPrice <= 0) return;
+        // ══════════════════════════════════════════════════
+        // MULTI-SIGNAL WEIGHTED SCORE ALGORITHM
+        // Each signal contributes to a direction score.
+        // Positive = UP, Negative = DOWN.
+        // ══════════════════════════════════════════════════
 
-        var windowDelta = (currentPrice - windowOpenPrice) / windowOpenPrice;
-        var absDelta = Math.Abs(windowDelta);
+        var directionScore = 0m;
+        var signalCount = 0;
 
-        // Minimum 2 bps movement to trade
-        if (absDelta < 0.0002m)
+        // ── SIGNAL 1: BTC Lead-Lag (for altcoins only) ──
+        // BTC moves first, altcoins follow with 1-5 min lag.
+        // If BTC moved but this asset hasn't → bet this asset follows BTC.
+        var baseAsset = candle.Asset.Symbol.Replace("USDT", "");
+        if (baseAsset != "BTC")
         {
-            _logger.LogDebug("Window delta too small for {Symbol}: {Delta:P4}", candle.Asset.Symbol, windowDelta);
-            return;
+            var btcAsset = Asset.Tradeable.FirstOrDefault(a => a.Symbol == "BTCUSDT");
+            if (btcAsset is not null)
+            {
+                var btcResult = _candleBuffer.GetAll(btcAsset, TimeFrame.OneMinute);
+                if (btcResult.IsSuccess && btcResult.Value!.Count >= 5)
+                {
+                    var btcCandles = btcResult.Value!;
+                    var btcReturn2m = (btcCandles[^1].Close - btcCandles[^3].Close) / btcCandles[^3].Close;
+                    var assetReturn2m = (oneMinCandles[^1].Close - oneMinCandles[^3].Close) / oneMinCandles[^3].Close;
+                    var lagSignal = btcReturn2m - assetReturn2m;
+
+                    if (Math.Abs(lagSignal) > 0.0008m) // 8 bps divergence
+                    {
+                        directionScore += lagSignal > 0 ? 3.0m : -3.0m;
+                        signalCount++;
+                    }
+                }
+            }
         }
 
-        string direction = windowDelta > 0 ? "Up" : "Down";
+        // ── SIGNAL 2: Volume Surge + Direction ──
+        // High volume in recent candles vs prior = conviction.
+        if (oneMinCandles.Count >= 10)
+        {
+            var recentVol = (oneMinCandles[^1].Volume + oneMinCandles[^2].Volume + oneMinCandles[^3].Volume) / 3m;
+            var priorVol = 0m;
+            for (int i = oneMinCandles.Count - 10; i < oneMinCandles.Count - 3; i++)
+                priorVol += oneMinCandles[i].Volume;
+            priorVol /= 7m;
+
+            if (priorVol > 0)
+            {
+                var volRatio = recentVol / priorVol;
+                if (volRatio > 1.3m)
+                {
+                    var recentDir = oneMinCandles[^1].Close > oneMinCandles[^3].Close ? 1m : -1m;
+                    directionScore += recentDir * 2.0m;
+                    signalCount++;
+                }
+            }
+        }
+
+        // ── SIGNAL 3: Micro-Momentum (last 2 candles) ──
+        {
+            var mom1 = oneMinCandles[^1].Close - oneMinCandles[^1].Open;
+            var mom2 = oneMinCandles[^2].Close - oneMinCandles[^2].Open;
+            if (Math.Sign(mom1) == Math.Sign(mom2) && mom1 != 0 && mom2 != 0)
+            {
+                var dir = mom1 > 0 ? 1m : -1m;
+                directionScore += dir * 1.5m;
+                signalCount++;
+
+                // Acceleration bonus
+                if (Math.Abs(mom1) > Math.Abs(mom2))
+                {
+                    directionScore += dir * 1.0m;
+                }
+            }
+        }
+
+        // ── SIGNAL 4: Previous Window Delta ──
+        if (oneMinCandles.Count >= 6)
+        {
+            var windowDelta = (oneMinCandles[^1].Close - oneMinCandles[^5].Open) / oneMinCandles[^5].Open;
+            if (Math.Abs(windowDelta) > 0.0003m)
+            {
+                directionScore += windowDelta > 0 ? 1.5m : -1.5m;
+                signalCount++;
+            }
+        }
+
+        // ── SIGNAL 5: Z-Score Mean Reversion Override ──
+        // At extreme Z-scores, momentum reverses.
+        var zScore = ZScoreCalculator.Compute(oneMinCandles);
+        if (Math.Abs(zScore) > 2.5m)
+        {
+            // Strong reversion: override other signals
+            directionScore = zScore > 0 ? -3.0m : 3.0m;
+            signalCount = 1; // Reset — this overrides
+        }
+
+        // ── DECISION ──
+        if (signalCount == 0) return;
+
+        var confidence = Math.Min(Math.Abs(directionScore) / 8.0m, 1.0m);
+        if (confidence < 0.20m) return; // Not enough signal
+
+        string direction = directionScore > 0 ? "Up" : "Down";
+        var effectiveDelta = directionScore / 10.0m; // Normalize for generator
 
         // ── Market Discovery + Midpoint ──
-        var baseAsset = candle.Asset.Symbol.Replace("USDT", "");
-
         var discoverResult = await _discovery.DiscoverMarketsAsync();
         if (discoverResult.IsFailure)
         {
@@ -256,40 +339,35 @@ public sealed class MarketDataWorker : BackgroundService
         }
 
         var marketPrice = midResult.Value;
-
         if (direction == "Down")
             marketPrice = 1m - marketPrice;
 
         var signalDirection = direction == "Up" ? SignalDirection.Up : SignalDirection.Down;
 
         _logger.LogInformation(
-            "{Symbol} PrevWindowDelta:{Delta:P4} Dir:{Dir} MktPrice:{Price:F4} Entry:T=0",
-            candle.Asset.Symbol, windowDelta, direction, marketPrice);
+            "{Symbol} Score:{Score:F1} Dir:{Dir} Conf:{Conf:F2} Signals:{SigCnt} MktPrice:{Price:F4}",
+            candle.Asset.Symbol, directionScore, direction, confidence, signalCount, marketPrice);
 
         var signalResult = _signalGenerator.Generate(
             candle.Asset, TimeFrame.FiveMinute, oneMinCandles,
-            marketPrice, indicators, signalDirection, windowDelta);
+            marketPrice, indicators, signalDirection, effectiveDelta);
 
         if (signalResult.IsSuccess)
         {
             var sig = signalResult.Value!;
             _logger.LogInformation(
-                ">>> SIGNAL: {Symbol}/5m {Direction} | FV:{FV:F3} Market:{Market:F3} Edge:{Edge:F3} " +
-                "Kelly:{Kelly:F4} Delta:{Delta:P4} Regime:{Regime}",
-                sig.Asset.Symbol, sig.Direction,
-                sig.FairValue, sig.MarketPrice, sig.Edge, sig.KellyFraction, windowDelta, sig.Regime);
+                ">>> SIGNAL: {Symbol}/5m {Direction} | FV:{FV:F3} Market:{Market:F3} Edge:{Edge:F3} Score:{Score:F1}",
+                sig.Asset.Symbol, sig.Direction, sig.FairValue, sig.MarketPrice, sig.Edge, directionScore);
 
             _publisher.PublishSignalGenerated(sig.ToDto());
 
-            // Wait 2 seconds after signal for market to fully open.
-            // Binance candle closes at :XX:59, but Polymarket market opens at :XX+1:00.
+            // Wait 2 seconds for market to open (Golden Rule 2)
             await Task.Delay(2000);
             await DispatchToEnginesAsync(sig);
         }
         else
         {
-            _logger.LogDebug("No signal: {Symbol}/5m — {Reason}",
-                candle.Asset.Symbol, signalResult.Error!.Code);
+            _logger.LogDebug("No signal: {Symbol}/5m — {Reason}", candle.Asset.Symbol, signalResult.Error!.Code);
         }
     }
 
