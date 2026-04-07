@@ -134,7 +134,8 @@ public sealed class PaperPolymarketEngine : ITradingEngine
         try
         {
             // Polymarket 5-min window boundary: epoch % 300 == 0
-            var unixNow = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            // +3s buffer handles T=0 entry where signal fires at :59.9 (candle boundary)
+            var unixNow = DateTimeOffset.UtcNow.ToUnixTimeSeconds() + 3;
             var currentWindowStart = DateTimeOffset.FromUnixTimeSeconds(unixNow - (unixNow % 300)).UtcDateTime;
             if (_openTrades.Values.Any(t => t.Asset == signal.Asset && t.OpenedAt >= currentWindowStart))
                 return Result<Trade>.Failure(Error.DuplicatePosition);
