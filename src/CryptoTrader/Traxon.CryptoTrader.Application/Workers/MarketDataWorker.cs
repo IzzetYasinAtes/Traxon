@@ -213,14 +213,6 @@ public sealed class MarketDataWorker : BackgroundService
         // Window open candle is 3 positions back: OpenTime=:00/:05/:10
         if (oneMinCandles.Count < 5) return;
 
-        // Time-of-day filter: skip 01:00-07:00 UTC (thin order books, erratic moves)
-        var utcHour = DateTime.UtcNow.Hour;
-        if (utcHour >= 1 && utcHour < 7)
-        {
-            _logger.LogDebug("Off-hours filter: {Hour}:xx UTC, skipping {Symbol}", utcHour, candle.Asset.Symbol);
-            return;
-        }
-
         var windowOpenPrice = oneMinCandles[^4].Open;
         var currentPrice = oneMinCandles[^1].Close;
         if (windowOpenPrice <= 0) return;
