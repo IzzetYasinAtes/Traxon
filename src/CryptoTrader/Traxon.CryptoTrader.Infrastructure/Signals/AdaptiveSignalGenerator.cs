@@ -165,7 +165,7 @@ public sealed class AdaptiveSignalGenerator : ISignalGenerator
         fairValue = Math.Clamp(fairValue, 0.01m, 0.99m);
 
         var edge = Math.Abs(fairValue - marketPrice);
-        const decimal windowMinEdge = 0.03m;
+        const decimal windowMinEdge = 0.01m;
         if (edge < windowMinEdge)
         {
             _logger.LogDebug("Edge too small for {Symbol}: {Edge:F3} < {Min:F2}", asset.Symbol, edge, windowMinEdge);

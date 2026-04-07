@@ -73,7 +73,9 @@ public sealed class GammaApiClient : IGammaApiClient
 
             var deduplicated = allMarkets
                 .GroupBy(m => (m.ConditionId, m.Direction))
-                .Select(g => g.First())
+                .Select(g => g.OrderByDescending(m => m.Closed)
+                               .ThenByDescending(m => m.ResolvedPrice.HasValue)
+                               .First())
                 .ToList();
 
             _logger.LogDebug("Discovered {Count} markets (lookback {Lookback}min, raw {Raw})",

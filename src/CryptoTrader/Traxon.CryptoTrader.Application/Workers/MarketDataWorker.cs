@@ -220,57 +220,14 @@ public sealed class MarketDataWorker : BackgroundService
         var windowDelta = (currentPrice - windowOpenPrice) / windowOpenPrice;
         var absDelta = Math.Abs(windowDelta);
 
-        // Minimum 8 bps movement to trade
-        if (absDelta < 0.0008m)
+        // Minimum 2 bps movement to trade
+        if (absDelta < 0.0002m)
         {
             _logger.LogDebug("Window delta too small for {Symbol}: {Delta:P4}", candle.Asset.Symbol, windowDelta);
             return;
         }
 
         string direction = windowDelta > 0 ? "Up" : "Down";
-
-        // 10-minute trend filter: skip signals against the longer trend
-        if (oneMinCandles.Count >= 12)
-        {
-            var trend10m = (oneMinCandles[^1].Close - oneMinCandles[^11].Close) / oneMinCandles[^11].Close;
-            if ((windowDelta > 0 && trend10m < -0.0003m) || (windowDelta < 0 && trend10m > 0.0003m))
-            {
-                _logger.LogDebug("Trend filter: {Symbol} delta={Delta:P4} vs trend10m={Trend:P4}, skipping",
-                    candle.Asset.Symbol, windowDelta, trend10m);
-                return;
-            }
-        }
-
-        // Delta acceleration: compare first half vs second half of previous window
-        if (oneMinCandles.Count >= 6)
-        {
-            var earlyDelta = (oneMinCandles[^4].Close - oneMinCandles[^5].Open) / oneMinCandles[^5].Open;
-            var lateDelta = (oneMinCandles[^1].Close - oneMinCandles[^2].Open) / oneMinCandles[^2].Open;
-            var acceleration = Math.Abs(lateDelta) - Math.Abs(earlyDelta);
-
-            if (acceleration < -0.0001m)
-            {
-                _logger.LogDebug("Deceleration filter: {Symbol} early={Early:P4} late={Late:P4}, skipping",
-                    candle.Asset.Symbol, earlyDelta, lateDelta);
-                return;
-            }
-        }
-
-        // Volume surge confirmation
-        decimal volumeBoost = 0m;
-        if (oneMinCandles.Count >= 9)
-        {
-            var recentVol = (oneMinCandles[^1].Volume + oneMinCandles[^2].Volume + oneMinCandles[^3].Volume) / 3m;
-            var priorVol = (oneMinCandles[^4].Volume + oneMinCandles[^5].Volume + oneMinCandles[^6].Volume) / 3m;
-            if (priorVol > 0)
-            {
-                var volRatio = recentVol / priorVol;
-                if (volRatio > 1.5m) volumeBoost = 0.05m;
-                else if (volRatio < 0.7m) volumeBoost = -0.03m;
-            }
-        }
-
-        var adjustedDelta = windowDelta + (windowDelta > 0 ? volumeBoost : -volumeBoost);
 
         // ── Market Discovery + Midpoint ──
         var baseAsset = candle.Asset.Symbol.Replace("USDT", "");
@@ -303,15 +260,6 @@ public sealed class MarketDataWorker : BackgroundService
         if (direction == "Down")
             marketPrice = 1m - marketPrice;
 
-        // Max entry price filter
-        var tokenPrice = direction == "Up" ? marketPrice : (1m - marketPrice);
-        if (tokenPrice > 0.65m)
-        {
-            _logger.LogDebug("Price filter: {Symbol} {Direction} token={Price:F4} > 0.65, skipping",
-                candle.Asset.Symbol, direction, tokenPrice);
-            return;
-        }
-
         var signalDirection = direction == "Up" ? SignalDirection.Up : SignalDirection.Down;
 
         _logger.LogInformation(
@@ -320,7 +268,7 @@ public sealed class MarketDataWorker : BackgroundService
 
         var signalResult = _signalGenerator.Generate(
             candle.Asset, TimeFrame.FiveMinute, oneMinCandles,
-            marketPrice, indicators, signalDirection, adjustedDelta);
+            marketPrice, indicators, signalDirection, windowDelta);
 
         if (signalResult.IsSuccess)
         {
