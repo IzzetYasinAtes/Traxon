@@ -47,8 +47,9 @@ public sealed class Portfolio : AggregateRoot<Guid>
     {
         if (position.PositionSize > MaxPositionSize)
             return Result<Position>.Failure(Error.PortfolioInsufficient);
-        if (TotalExposure + position.PositionSize > MaxExposure)
-            return Result<Position>.Failure(Error.PortfolioInsufficient);
+        // MaxExposure check removed — Balance check alone is sufficient.
+        // Old %90 limit was blocking trades when many positions were open
+        // waiting for Gamma API resolution (10-15min), causing 100+ rejections.
         if (Balance < position.PositionSize)
             return Result<Position>.Failure(Error.PortfolioInsufficient);
 
