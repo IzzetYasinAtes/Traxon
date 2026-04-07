@@ -213,6 +213,14 @@ public sealed class MarketDataWorker : BackgroundService
         // Window open candle is 3 positions back: OpenTime=:00/:05/:10
         if (oneMinCandles.Count < 5) return;
 
+        // Time-of-day filter: skip 01:00-07:00 UTC (thin order books, erratic moves)
+        var utcHour = DateTime.UtcNow.Hour;
+        if (utcHour >= 1 && utcHour < 7)
+        {
+            _logger.LogDebug("Off-hours filter: {Hour}:xx UTC, skipping {Symbol}", utcHour, candle.Asset.Symbol);
+            return;
+        }
+
         var windowOpenPrice = oneMinCandles[^4].Open;
         var currentPrice = oneMinCandles[^1].Close;
         if (windowOpenPrice <= 0) return;
@@ -306,6 +314,17 @@ public sealed class MarketDataWorker : BackgroundService
         // Convert to same basis: P(Up). Down token midpoint → 1 - midpoint
         if (direction == "Down")
             marketPrice = 1m - marketPrice;
+
+        // Max entry price filter: tokens > 0.65 have bad risk/reward
+        // At 0.65: win +$0.54, lose -$0.65 → need 55% win rate just to break even
+        // At 0.80: win +$0.25, lose -$0.80 → need 76% win rate to break even
+        var tokenPrice = direction == "Up" ? marketPrice : (1m - marketPrice);
+        if (tokenPrice > 0.65m)
+        {
+            _logger.LogDebug("Price filter: {Symbol} {Direction} token={Price:F4} > 0.65, skipping",
+                candle.Asset.Symbol, direction, tokenPrice);
+            return;
+        }
 
         var signalDirection = direction == "Up" ? SignalDirection.Up : SignalDirection.Down;
 
