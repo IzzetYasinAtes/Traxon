@@ -235,11 +235,14 @@ public sealed class MarketDataWorker : BackgroundService
                     var assetReturn2m = (oneMinCandles[^1].Close - oneMinCandles[^3].Close) / oneMinCandles[^3].Close;
                     var lagSignal = btcReturn2m - assetReturn2m;
 
-                    if (Math.Abs(lagSignal) > 0.0008m) // 8 bps divergence
+                    if (lagSignal > 0.0008m)
                     {
-                        directionScore += lagSignal > 0 ? 3.0m : -3.0m;
+                        // BTC up, altcoin hasn't followed → strong UP signal
+                        directionScore += 3.0m;
                         signalCount++;
                     }
+                    // BTC lead-lag intentionally NOT used for DOWN — research shows
+                    // crypto drops don't propagate reliably across altcoins
                 }
             }
         }
@@ -298,11 +301,31 @@ public sealed class MarketDataWorker : BackgroundService
         // ── SIGNAL 5: Z-Score Mean Reversion Override ──
         // At extreme Z-scores, momentum reverses.
         var zScore = ZScoreCalculator.Compute(oneMinCandles);
-        if (Math.Abs(zScore) > 2.5m)
+        if (Math.Abs(zScore) > 2.0m)
         {
             // Strong reversion: override other signals
             directionScore = zScore > 0 ? -3.0m : 3.0m;
             signalCount = 1; // Reset — this overrides
+        }
+
+        // ── SIGNAL 6: Mean Reversion DOWN (asymmetric) ──
+        // For DOWN: if price rose sharply in recent candles, bet on reversal DOWN
+        // This replaces BTC lead-lag for the DOWN direction
+        if (oneMinCandles.Count >= 10)
+        {
+            var recentReturn5 = (oneMinCandles[^1].Close - oneMinCandles[^6].Close) / oneMinCandles[^6].Close;
+            // If price rose > 0.15% in last 5 candles, mean reversion DOWN is likely
+            if (recentReturn5 > 0.0015m)
+            {
+                directionScore -= 2.5m; // Push toward DOWN
+                signalCount++;
+            }
+            // If price dropped > 0.15% in last 5 candles, mean reversion UP
+            else if (recentReturn5 < -0.0015m)
+            {
+                directionScore += 2.0m; // Push toward UP (weaker — UP already has lead-lag)
+                signalCount++;
+            }
         }
 
         // ── DECISION ──
