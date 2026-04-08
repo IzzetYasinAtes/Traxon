@@ -207,56 +207,94 @@ public sealed class MarketDataWorker : BackgroundService
         IReadOnlyList<Candle> oneMinCandles,
         Domain.Indicators.TechnicalIndicators indicators)
     {
-        if (oneMinCandles.Count < 20) return;
+        if (oneMinCandles.Count < 250) return; // Need enough for rolling autocorrelation + SMAs
 
         // ======================================================
-        // ENSEMBLE WEIGHTED SCORING ALGORITHM
-        // Each feature produces a score in [-1, +1]
-        // Positive = UP, Negative = DOWN
-        // Weighted sum -> CompositeScore -> Direction + Confidence
+        // LOOP 13: AUTOCORRELATION + OFI DELTA + MULTI-TF FILTER
         // ======================================================
 
-        // -- SCORE 1: Order Flow Imbalance (OFI) -- weight 0.30
-        var takerBuy5 = 0m; var totalVol5 = 0m;
-        for (int i = oneMinCandles.Count - 5; i < oneMinCandles.Count; i++)
+        // === STEP 1: Compute rolling 5-minute returns ===
+        // Each "5m return" = cumulative return over 5 consecutive 1m candles
+        var fiveMinReturns = new List<decimal>();
+        for (int end = oneMinCandles.Count - 5; end >= 5; end -= 5)
         {
-            takerBuy5 += oneMinCandles[i].TakerBuyBaseVolume;
-            totalVol5 += oneMinCandles[i].Volume;
+            var open = oneMinCandles[end].Open;
+            var close = oneMinCandles[end + 4].Close;
+            if (open > 0)
+                fiveMinReturns.Add((close - open) / open);
+            if (fiveMinReturns.Count >= 100) break;
         }
-        var ofi5 = totalVol5 > 0 ? (2m * takerBuy5 / totalVol5 - 1m) : 0m;
-        var scoreOFI = Math.Clamp(ofi5 * 5m, -1m, 1m);
+        fiveMinReturns.Reverse(); // oldest first
 
-        // -- SCORE 2: Volume-Weighted Price Change (VWPC) -- weight 0.15
-        var vwpcSum = 0m; var volSum = 0m;
-        for (int i = oneMinCandles.Count - 5; i < oneMinCandles.Count; i++)
+        // === STEP 2: Compute rolling autocorrelation (lag-1) ===
+        // This tells us: does this asset mean-revert or follow momentum at 5m scale?
+        var autocorr = 0m;
+        if (fiveMinReturns.Count >= 20)
         {
-            vwpcSum += (oneMinCandles[i].Close - oneMinCandles[i].Open) * oneMinCandles[i].Volume;
-            volSum += oneMinCandles[i].Volume;
+            var n = fiveMinReturns.Count - 1;
+            var meanR = fiveMinReturns.Take(n).Average();
+            var meanR1 = fiveMinReturns.Skip(1).Average();
+            var covSum = 0m; var var0Sum = 0m; var var1Sum = 0m;
+            for (int i = 0; i < n; i++)
+            {
+                var r0 = fiveMinReturns[i] - meanR;
+                var r1 = fiveMinReturns[i + 1] - meanR1;
+                covSum += r0 * r1;
+                var0Sum += r0 * r0;
+                var1Sum += r1 * r1;
+            }
+            var denom = (decimal)Math.Sqrt((double)(var0Sum * var1Sum));
+            autocorr = denom > 0 ? covSum / denom : 0m;
         }
-        var vwpc = volSum > 0 ? vwpcSum / volSum : 0m;
-        var avgPrice = oneMinCandles[^1].Close;
-        var vwpcNorm = avgPrice > 0 ? vwpc / avgPrice * 200m : 0m;
-        var scoreVWPC = Math.Clamp(vwpcNorm, -1m, 1m);
 
-        // -- SCORE 3: Shadow Imbalance -- weight 0.05
-        var shadowSum = 0m;
-        for (int i = oneMinCandles.Count - 3; i < oneMinCandles.Count; i++)
-        {
-            var c = oneMinCandles[i];
-            var upper = c.High - Math.Max(c.Open, c.Close);
-            var lower = Math.Min(c.Open, c.Close) - c.Low;
-            var range = c.High - c.Low;
-            shadowSum += range > 0 ? (lower - upper) / range : 0m;
-        }
-        var scoreShadow = Math.Clamp(shadowSum / 3m * 2m, -1m, 1m);
-
-        // -- SCORE 4: Short Momentum (3-bar return) -- weight 0.10
-        var mom3 = oneMinCandles[^4].Close > 0
-            ? (oneMinCandles[^1].Close - oneMinCandles[^4].Close) / oneMinCandles[^4].Close
+        // Previous 5-minute return (what just happened)
+        var prev5mReturn = oneMinCandles[^5].Open > 0
+            ? (oneMinCandles[^1].Close - oneMinCandles[^5].Open) / oneMinCandles[^5].Open
             : 0m;
-        var scoreMomentum = Math.Clamp(mom3 * 300m, -1m, 1m);
 
-        // -- SCORE 5: BTC Cross-Asset Lead (altcoins only) -- weight 0.15
+        // Autocorrelation-based direction prediction
+        decimal scoreAutocorr;
+        if (Math.Abs(autocorr) < 0.03m)
+        {
+            // Random walk regime for this asset — autocorrelation too weak
+            scoreAutocorr = 0m;
+        }
+        else if (autocorr < 0)
+        {
+            // Mean reverting: FADE the previous move
+            scoreAutocorr = -Math.Sign(prev5mReturn) * Math.Clamp(Math.Abs(prev5mReturn) * 200m, 0m, 1m);
+        }
+        else
+        {
+            // Momentum: FOLLOW the previous move
+            scoreAutocorr = Math.Sign(prev5mReturn) * Math.Clamp(Math.Abs(prev5mReturn) * 200m, 0m, 1m);
+        }
+
+        // Only trade when previous move was significant
+        if (Math.Abs(prev5mReturn) < 0.0010m) // minimum 0.10% move
+            scoreAutocorr *= 0.3m; // heavily discount weak moves
+
+        // === STEP 3: OFI Delta (CHANGE in order flow, not level) ===
+        var ofiRecent = 0m; var volRecent = 0m;
+        for (int i = oneMinCandles.Count - 2; i < oneMinCandles.Count; i++)
+        {
+            ofiRecent += oneMinCandles[i].TakerBuyBaseVolume;
+            volRecent += oneMinCandles[i].Volume;
+        }
+        var ofiRecentRatio = volRecent > 0 ? ofiRecent / volRecent : 0.5m;
+
+        var ofiBaseline = 0m; var volBaseline = 0m;
+        for (int i = oneMinCandles.Count - 7; i < oneMinCandles.Count - 2; i++)
+        {
+            ofiBaseline += oneMinCandles[i].TakerBuyBaseVolume;
+            volBaseline += oneMinCandles[i].Volume;
+        }
+        var ofiBaselineRatio = volBaseline > 0 ? ofiBaseline / volBaseline : 0.5m;
+
+        var ofiDelta = ofiRecentRatio - ofiBaselineRatio;
+        var scoreOFIDelta = Math.Clamp(ofiDelta * 15m, -1m, 1m);
+
+        // === STEP 4: BTC Cross-Asset Lead (altcoins only) ===
         var scoreBtcLead = 0m;
         var baseAsset = candle.Asset.Symbol.Replace("USDT", "");
         if (baseAsset != "BTC")
@@ -265,84 +303,98 @@ public sealed class MarketDataWorker : BackgroundService
             if (btcAsset is not null)
             {
                 var btcResult = _candleBuffer.GetAll(btcAsset, TimeFrame.OneMinute);
-                if (btcResult.IsSuccess && btcResult.Value!.Count >= 5)
+                if (btcResult.IsSuccess && btcResult.Value!.Count >= 7)
                 {
                     var btc = btcResult.Value!;
-                    var btcBuy3 = btc[^1].TakerBuyBaseVolume + btc[^2].TakerBuyBaseVolume + btc[^3].TakerBuyBaseVolume;
-                    var btcTot3 = btc[^1].Volume + btc[^2].Volume + btc[^3].Volume;
-                    var btcOFI = btcTot3 > 0 ? (2m * btcBuy3 / btcTot3 - 1m) : 0m;
+                    // BTC OFI delta
+                    var btcOfiRecent = (btc[^1].TakerBuyBaseVolume + btc[^2].TakerBuyBaseVolume);
+                    var btcVolRecent = (btc[^1].Volume + btc[^2].Volume);
+                    var btcOfiR = btcVolRecent > 0 ? btcOfiRecent / btcVolRecent : 0.5m;
 
-                    var altBuy3 = oneMinCandles[^1].TakerBuyBaseVolume + oneMinCandles[^2].TakerBuyBaseVolume + oneMinCandles[^3].TakerBuyBaseVolume;
-                    var altTot3 = oneMinCandles[^1].Volume + oneMinCandles[^2].Volume + oneMinCandles[^3].Volume;
-                    var altOFI = altTot3 > 0 ? (2m * altBuy3 / altTot3 - 1m) : 0m;
+                    var btcOfiBase = 0m; var btcVolBase = 0m;
+                    for (int i = btc.Count - 7; i < btc.Count - 2; i++)
+                    { btcOfiBase += btc[i].TakerBuyBaseVolume; btcVolBase += btc[i].Volume; }
+                    var btcOfiBaseR = btcVolBase > 0 ? btcOfiBase / btcVolBase : 0.5m;
 
-                    var crossLead = btcOFI - altOFI;
-                    scoreBtcLead = Math.Clamp(crossLead * 5m, -1m, 1m);
+                    var btcOfiDelta = btcOfiR - btcOfiBaseR;
+                    var altOfiDelta = ofiDelta;
+                    var crossDelta = btcOfiDelta - altOfiDelta;
+                    scoreBtcLead = Math.Clamp(crossDelta * 10m, -1m, 1m);
                 }
             }
         }
 
-        // -- SCORE 6: Mean Reversion (Z-Score, 30-bar window) -- weight 0.15
-        var zScore = ZScoreCalculator.Compute(oneMinCandles);
-        var scoreMeanRev = Math.Clamp(-zScore / 2.5m, -1m, 1m);
+        // === STEP 5: VWAP Z-Score Mean Reversion ===
+        var vwapSum = 0m; var vwapVolSum = 0m;
+        var vwapLookback = Math.Min(60, oneMinCandles.Count);
+        for (int i = oneMinCandles.Count - vwapLookback; i < oneMinCandles.Count; i++)
+        {
+            vwapSum += oneMinCandles[i].Close * oneMinCandles[i].Volume;
+            vwapVolSum += oneMinCandles[i].Volume;
+        }
+        var vwap = vwapVolSum > 0 ? vwapSum / vwapVolSum : oneMinCandles[^1].Close;
 
-        // -- SCORE 7: Trade Intensity -- weight 0.10
-        var recentTradeCount = 0m;
-        for (int i = oneMinCandles.Count - 3; i < oneMinCandles.Count; i++)
-            recentTradeCount += oneMinCandles[i].TradeCount;
-        recentTradeCount /= 3m;
-        var medianTradeCount = 0m;
-        var tcLookback = Math.Min(20, oneMinCandles.Count);
-        for (int i = oneMinCandles.Count - tcLookback; i < oneMinCandles.Count; i++)
-            medianTradeCount += oneMinCandles[i].TradeCount;
-        medianTradeCount /= tcLookback;
-        var tradeIntensity = medianTradeCount > 0 ? recentTradeCount / medianTradeCount : 1m;
-        var scoreTradeIntensity = Math.Clamp((tradeIntensity - 1m) * Math.Sign(scoreOFI) * 2m, -1m, 1m);
+        var vwapVarSum = 0m;
+        for (int i = oneMinCandles.Count - vwapLookback; i < oneMinCandles.Count; i++)
+        {
+            var diff = oneMinCandles[i].Close - vwap;
+            vwapVarSum += diff * diff * oneMinCandles[i].Volume;
+        }
+        var vwapStd = vwapVolSum > 0 ? (decimal)Math.Sqrt((double)(vwapVarSum / vwapVolSum)) : 1m;
+        var vwapZ = vwapStd > 0.000001m ? (oneMinCandles[^1].Close - vwap) / vwapStd : 0m;
+        var scoreVWAP = Math.Clamp(-vwapZ / 2.5m, -1m, 1m); // fade extreme deviations
 
         // ======================================================
-        // COMPOSITE SCORE -- weighted sum
+        // COMPOSITE SCORE
         // ======================================================
-        const decimal wOFI = 0.30m;
-        const decimal wVWPC = 0.15m;
-        const decimal wShadow = 0.05m;
-        const decimal wMomentum = 0.10m;
+        const decimal wAutocorr = 0.40m;
+        const decimal wOFIDelta = 0.30m;
         const decimal wBtcLead = 0.15m;
-        const decimal wMeanRev = 0.15m;
-        const decimal wTradeInt = 0.10m;
+        const decimal wVWAP = 0.15m;
 
         decimal compositeScore;
         if (baseAsset == "BTC")
         {
-            compositeScore = (wOFI + wBtcLead / 2m) * scoreOFI
-                           + wVWPC * scoreVWPC
-                           + wShadow * scoreShadow
-                           + (wMomentum + wBtcLead / 2m) * scoreMomentum
-                           + wMeanRev * scoreMeanRev
-                           + wTradeInt * scoreTradeIntensity;
+            // BTC: redistribute BTC lead weight
+            compositeScore = (wAutocorr + wBtcLead / 2m) * scoreAutocorr
+                           + (wOFIDelta + wBtcLead / 2m) * scoreOFIDelta
+                           + wVWAP * scoreVWAP;
         }
         else
         {
-            compositeScore = wOFI * scoreOFI
-                           + wVWPC * scoreVWPC
-                           + wShadow * scoreShadow
-                           + wMomentum * scoreMomentum
+            compositeScore = wAutocorr * scoreAutocorr
+                           + wOFIDelta * scoreOFIDelta
                            + wBtcLead * scoreBtcLead
-                           + wMeanRev * scoreMeanRev
-                           + wTradeInt * scoreTradeIntensity;
+                           + wVWAP * scoreVWAP;
         }
 
-        // Agreement bonus
-        decimal[] signals = baseAsset == "BTC"
-            ? new[] { scoreOFI, scoreVWPC, scoreShadow, scoreMomentum, scoreMeanRev, scoreTradeIntensity }
-            : new[] { scoreOFI, scoreVWPC, scoreShadow, scoreMomentum, scoreBtcLead, scoreMeanRev, scoreTradeIntensity };
-        var agreeCount = signals.Count(s => Math.Sign(s) == Math.Sign(compositeScore));
-        if (agreeCount >= signals.Length - 1)
-            compositeScore *= 1.15m;
+        // === MULTI-TIMEFRAME ALIGNMENT FILTER ===
+        var currentClose = oneMinCandles[^1].Close;
+        var sma5 = oneMinCandles.Skip(oneMinCandles.Count - 5).Average(c => c.Close);
+        var sma15 = oneMinCandles.Skip(oneMinCandles.Count - 15).Average(c => c.Close);
+        var sma60 = oneMinCandles.Skip(oneMinCandles.Count - 60).Average(c => c.Close);
+        var sma240 = oneMinCandles.Count >= 240
+            ? oneMinCandles.Skip(oneMinCandles.Count - 240).Average(c => c.Close)
+            : sma60;
 
-        // Minimum threshold
-        if (Math.Abs(compositeScore) < 0.08m)
+        var compositeSign = Math.Sign(compositeScore);
+        var alignCount = 0;
+        if (Math.Sign(currentClose - sma5) == compositeSign) alignCount++;
+        if (Math.Sign(currentClose - sma15) == compositeSign) alignCount++;
+        if (Math.Sign(currentClose - sma60) == compositeSign) alignCount++;
+        if (Math.Sign(currentClose - sma240) == compositeSign) alignCount++;
+
+        // Require 3/4 multi-timeframe alignment
+        if (alignCount < 3)
         {
-            _logger.LogDebug("{Symbol} composite score too weak: {Score:F3}", candle.Asset.Symbol, compositeScore);
+            _logger.LogDebug("{Symbol} MTF misaligned: {Align}/4, score:{Score:F3}", candle.Asset.Symbol, alignCount, compositeScore);
+            return;
+        }
+
+        // Minimum composite threshold
+        if (Math.Abs(compositeScore) < 0.12m)
+        {
+            _logger.LogDebug("{Symbol} score too weak: {Score:F3}", candle.Asset.Symbol, compositeScore);
             return;
         }
 
@@ -350,10 +402,11 @@ public sealed class MarketDataWorker : BackgroundService
         var effectiveDelta = compositeScore / 4.0m;
 
         _logger.LogInformation(
-            "{Symbol} ENSEMBLE | OFI:{OFI:F2} VWPC:{VWPC:F2} Shd:{Shd:F2} Mom:{Mom:F2} BTC:{BTC:F2} MR:{MR:F2} TI:{TI:F2} | Score:{Score:F3} Dir:{Dir}",
-            candle.Asset.Symbol, scoreOFI, scoreVWPC, scoreShadow, scoreMomentum, scoreBtcLead, scoreMeanRev, scoreTradeIntensity, compositeScore, direction);
+            "{Symbol} L13 | AC:{AC:F2}(r={R:F3}) OFI:{OFI:F2} BTC:{BTC:F2} VWAP:{VW:F2} | Score:{S:F3} MTF:{MTF}/4 Dir:{D} Prev5m:{P:P3}",
+            candle.Asset.Symbol, scoreAutocorr, autocorr, scoreOFIDelta, scoreBtcLead, scoreVWAP,
+            compositeScore, alignCount, direction, prev5mReturn);
 
-        // -- Market Discovery + Midpoint --
+        // === Market Discovery + Midpoint ===
         var discoverResult = await _discovery.DiscoverMarketsAsync();
         if (discoverResult.IsFailure)
         {
