@@ -124,9 +124,6 @@ public sealed class MarketDataWorker : BackgroundService
         _publisher.PublishCandleUpdate(candle.ToCandleDto());
         WriteCandleAsync(candle);
 
-        // Fires at window boundary (:05, :10, etc.). We analyze the PREVIOUS completed
-        // 5-min window and enter the NEW window immediately at T=0.
-        // Candle OpenTime=:04 closes at :05 -> (4+1)%5==0 triggers signal pipeline.
         if ((candle.OpenTime.Minute + 1) % 5 == 0 && candle.OpenTime.Second == 0)
             await RunSignalPipelineAsync(candle);
 
@@ -190,14 +187,6 @@ public sealed class MarketDataWorker : BackgroundService
         }
 
         var indicators = indicatorResult.Value!;
-        _logger.LogInformation(
-            "{Symbol}/1m — RSI:{Rsi:F1} MACD:{Macd:F6} BB({Lower:F2}/{Upper:F2}) ATR:{Atr:F6} Bulls:{Bulls}/5",
-            candle.Asset.Symbol,
-            indicators.Rsi.Value,
-            indicators.Macd.Histogram,
-            indicators.BollingerBands.Lower, indicators.BollingerBands.Upper,
-            indicators.Atr.Value,
-            indicators.BullishCount());
 
         await TryGenerateAndDispatchSignalAsync(candle, oneMinCandles, indicators);
     }
@@ -207,14 +196,17 @@ public sealed class MarketDataWorker : BackgroundService
         IReadOnlyList<Candle> oneMinCandles,
         Domain.Indicators.TechnicalIndicators indicators)
     {
-        if (oneMinCandles.Count < 250) return; // Need enough for rolling autocorrelation + SMAs
+        if (oneMinCandles.Count < 250) return;
 
         // ======================================================
-        // LOOP 13: AUTOCORRELATION + OFI DELTA + MULTI-TF FILTER
+        // LOOP 14: AUTOCORRELATION + OFI DELTA + CONVERGENCE
+        //          + RSI MULTIPLIER + ADAPTIVE THRESHOLD
+        //          + VOLUME CONFIRMATION + DOJI FILTER
         // ======================================================
 
-        // === STEP 1: Compute rolling 5-minute returns ===
-        // Each "5m return" = cumulative return over 5 consecutive 1m candles
+        var baseAsset = candle.Asset.Symbol.Replace("USDT", "");
+
+        // === STEP 1: EWMA Autocorrelation (lambda=0.90, 50-window) ===
         var fiveMinReturns = new List<decimal>();
         for (int end = oneMinCandles.Count - 5; end >= 5; end -= 5)
         {
@@ -222,109 +214,126 @@ public sealed class MarketDataWorker : BackgroundService
             var close = oneMinCandles[end + 4].Close;
             if (open > 0)
                 fiveMinReturns.Add((close - open) / open);
-            if (fiveMinReturns.Count >= 100) break;
+            if (fiveMinReturns.Count >= 50) break;
         }
-        fiveMinReturns.Reverse(); // oldest first
+        fiveMinReturns.Reverse();
 
-        // === STEP 2: Compute rolling autocorrelation (lag-1) ===
-        // This tells us: does this asset mean-revert or follow momentum at 5m scale?
         var autocorr = 0m;
-        if (fiveMinReturns.Count >= 20)
+        if (fiveMinReturns.Count >= 15)
         {
             var n = fiveMinReturns.Count - 1;
             var meanR = fiveMinReturns.Take(n).Average();
             var meanR1 = fiveMinReturns.Skip(1).Average();
-            var covSum = 0m; var var0Sum = 0m; var var1Sum = 0m;
+            decimal ewmaCov = 0, ewmaVar0 = 0, ewmaVar1 = 0;
+            const decimal lambda = 0.90m;
             for (int i = 0; i < n; i++)
             {
+                var weight = (decimal)Math.Pow((double)lambda, n - 1 - i);
                 var r0 = fiveMinReturns[i] - meanR;
                 var r1 = fiveMinReturns[i + 1] - meanR1;
-                covSum += r0 * r1;
-                var0Sum += r0 * r0;
-                var1Sum += r1 * r1;
+                ewmaCov += weight * r0 * r1;
+                ewmaVar0 += weight * r0 * r0;
+                ewmaVar1 += weight * r1 * r1;
             }
-            var denom = (decimal)Math.Sqrt((double)(var0Sum * var1Sum));
-            autocorr = denom > 0 ? covSum / denom : 0m;
+            var denom = (decimal)Math.Sqrt((double)(ewmaVar0 * ewmaVar1));
+            autocorr = denom > 0 ? ewmaCov / denom : 0m;
         }
 
-        // Previous 5-minute return (what just happened)
+        // Per-asset minimum autocorrelation gate
+        var minAutocorr = (baseAsset == "SOL" || baseAsset == "ETH") ? 0.08m : 0.03m;
+
         var prev5mReturn = oneMinCandles[^5].Open > 0
             ? (oneMinCandles[^1].Close - oneMinCandles[^5].Open) / oneMinCandles[^5].Open
             : 0m;
 
-        // Autocorrelation-based direction prediction
         decimal scoreAutocorr;
-        if (Math.Abs(autocorr) < 0.03m)
+        if (Math.Abs(autocorr) < minAutocorr)
         {
-            // Random walk regime for this asset — autocorrelation too weak
             scoreAutocorr = 0m;
         }
         else if (autocorr < 0)
         {
-            // Mean reverting: FADE the previous move
             scoreAutocorr = -Math.Sign(prev5mReturn) * Math.Clamp(Math.Abs(prev5mReturn) * 200m, 0m, 1m);
         }
         else
         {
-            // Momentum: FOLLOW the previous move
             scoreAutocorr = Math.Sign(prev5mReturn) * Math.Clamp(Math.Abs(prev5mReturn) * 200m, 0m, 1m);
         }
 
-        // Only trade when previous move was significant
-        if (Math.Abs(prev5mReturn) < 0.0010m) // minimum 0.10% move
-            scoreAutocorr *= 0.3m; // heavily discount weak moves
+        if (Math.Abs(prev5mReturn) < 0.0010m)
+            scoreAutocorr *= 0.3m;
 
-        // === STEP 3: OFI Delta (CHANGE in order flow, not level) ===
-        var ofiRecent = 0m; var volRecent = 0m;
-        for (int i = oneMinCandles.Count - 2; i < oneMinCandles.Count; i++)
+        // === STEP 2: Volume confirmation for mean reversion ===
+        var volRecent5 = 0m;
+        for (int i = oneMinCandles.Count - 5; i < oneMinCandles.Count; i++)
+            volRecent5 += oneMinCandles[i].Volume;
+        volRecent5 /= 5m;
+
+        var volAvg20 = 0m;
+        for (int i = oneMinCandles.Count - 20; i < oneMinCandles.Count; i++)
+            volAvg20 += oneMinCandles[i].Volume;
+        volAvg20 /= 20m;
+
+        var volRatio = volAvg20 > 0 ? volRecent5 / volAvg20 : 1m;
+
+        if (autocorr < 0) // mean reversion regime
         {
-            ofiRecent += oneMinCandles[i].TakerBuyBaseVolume;
-            volRecent += oneMinCandles[i].Volume;
+            if (volRatio > 2.0m)
+                scoreAutocorr *= 1.3m; // exhaustion confirmed
+            else if (volRatio < 0.8m)
+                scoreAutocorr *= 0.6m; // low vol = weak setup
         }
-        var ofiRecentRatio = volRecent > 0 ? ofiRecent / volRecent : 0.5m;
+
+        // === STEP 3: OFI Delta (time-weighted) ===
+        var w1 = 0.67m; var w2 = 0.33m;
+        var ofiRecent = w1 * oneMinCandles[^1].TakerBuyBaseVolume + w2 * oneMinCandles[^2].TakerBuyBaseVolume;
+        var volRecentOfi = w1 * oneMinCandles[^1].Volume + w2 * oneMinCandles[^2].Volume;
+        var ofiRecentRatio = volRecentOfi > 0 ? ofiRecent / volRecentOfi : 0.5m;
 
         var ofiBaseline = 0m; var volBaseline = 0m;
-        for (int i = oneMinCandles.Count - 7; i < oneMinCandles.Count - 2; i++)
+        for (int i = 0; i < 5; i++)
         {
-            ofiBaseline += oneMinCandles[i].TakerBuyBaseVolume;
-            volBaseline += oneMinCandles[i].Volume;
+            var w = (decimal)Math.Pow(0.8, i);
+            var idx = oneMinCandles.Count - 3 - i;
+            ofiBaseline += w * oneMinCandles[idx].TakerBuyBaseVolume;
+            volBaseline += w * oneMinCandles[idx].Volume;
         }
         var ofiBaselineRatio = volBaseline > 0 ? ofiBaseline / volBaseline : 0.5m;
 
         var ofiDelta = ofiRecentRatio - ofiBaselineRatio;
         var scoreOFIDelta = Math.Clamp(ofiDelta * 15m, -1m, 1m);
 
-        // === STEP 4: BTC Cross-Asset Lead (altcoins only) ===
+        // === STEP 4: BTC Cross-Asset Lead (per-asset lag, disabled for ETH) ===
         var scoreBtcLead = 0m;
-        var baseAsset = candle.Asset.Symbol.Replace("USDT", "");
-        if (baseAsset != "BTC")
+        if (baseAsset != "BTC" && baseAsset != "ETH") // ETH too correlated, BTC lead useless
         {
+            int btcLag = baseAsset switch { "DOGE" => 2, _ => 1 };
             var btcAsset = Asset.Tradeable.FirstOrDefault(a => a.Symbol == "BTCUSDT");
             if (btcAsset is not null)
             {
                 var btcResult = _candleBuffer.GetAll(btcAsset, TimeFrame.OneMinute);
-                if (btcResult.IsSuccess && btcResult.Value!.Count >= 7)
+                if (btcResult.IsSuccess && btcResult.Value!.Count >= 7 + btcLag)
                 {
                     var btc = btcResult.Value!;
-                    // BTC OFI delta
-                    var btcOfiRecent = (btc[^1].TakerBuyBaseVolume + btc[^2].TakerBuyBaseVolume);
-                    var btcVolRecent = (btc[^1].Volume + btc[^2].Volume);
-                    var btcOfiR = btcVolRecent > 0 ? btcOfiRecent / btcVolRecent : 0.5m;
+                    var btcOfiR = (btc[^(1 + btcLag)].TakerBuyBaseVolume + btc[^(2 + btcLag)].TakerBuyBaseVolume);
+                    var btcVolR = (btc[^(1 + btcLag)].Volume + btc[^(2 + btcLag)].Volume);
+                    var btcRatio = btcVolR > 0 ? btcOfiR / btcVolR : 0.5m;
 
-                    var btcOfiBase = 0m; var btcVolBase = 0m;
-                    for (int i = btc.Count - 7; i < btc.Count - 2; i++)
-                    { btcOfiBase += btc[i].TakerBuyBaseVolume; btcVolBase += btc[i].Volume; }
-                    var btcOfiBaseR = btcVolBase > 0 ? btcOfiBase / btcVolBase : 0.5m;
+                    var btcOfiB = 0m; var btcVolB = 0m;
+                    for (int i = 0; i < 5; i++)
+                    {
+                        var idx = btc.Count - 3 - btcLag - i;
+                        if (idx >= 0) { btcOfiB += btc[idx].TakerBuyBaseVolume; btcVolB += btc[idx].Volume; }
+                    }
+                    var btcBaseR = btcVolB > 0 ? btcOfiB / btcVolB : 0.5m;
 
-                    var btcOfiDelta = btcOfiR - btcOfiBaseR;
-                    var altOfiDelta = ofiDelta;
-                    var crossDelta = btcOfiDelta - altOfiDelta;
+                    var crossDelta = (btcRatio - btcBaseR) - ofiDelta;
                     scoreBtcLead = Math.Clamp(crossDelta * 10m, -1m, 1m);
                 }
             }
         }
 
-        // === STEP 5: VWAP Z-Score Mean Reversion ===
+        // === STEP 5: VWAP Z-Score ===
         var vwapSum = 0m; var vwapVolSum = 0m;
         var vwapLookback = Math.Min(60, oneMinCandles.Count);
         for (int i = oneMinCandles.Count - vwapLookback; i < oneMinCandles.Count; i++)
@@ -333,7 +342,6 @@ public sealed class MarketDataWorker : BackgroundService
             vwapVolSum += oneMinCandles[i].Volume;
         }
         var vwap = vwapVolSum > 0 ? vwapSum / vwapVolSum : oneMinCandles[^1].Close;
-
         var vwapVarSum = 0m;
         for (int i = oneMinCandles.Count - vwapLookback; i < oneMinCandles.Count; i++)
         {
@@ -342,7 +350,7 @@ public sealed class MarketDataWorker : BackgroundService
         }
         var vwapStd = vwapVolSum > 0 ? (decimal)Math.Sqrt((double)(vwapVarSum / vwapVolSum)) : 1m;
         var vwapZ = vwapStd > 0.000001m ? (oneMinCandles[^1].Close - vwap) / vwapStd : 0m;
-        var scoreVWAP = Math.Clamp(-vwapZ / 2.5m, -1m, 1m); // fade extreme deviations
+        var scoreVWAP = Math.Clamp(-vwapZ / 2.5m, -1m, 1m);
 
         // ======================================================
         // COMPOSITE SCORE
@@ -353,9 +361,8 @@ public sealed class MarketDataWorker : BackgroundService
         const decimal wVWAP = 0.15m;
 
         decimal compositeScore;
-        if (baseAsset == "BTC")
+        if (baseAsset == "BTC" || baseAsset == "ETH")
         {
-            // BTC: redistribute BTC lead weight
             compositeScore = (wAutocorr + wBtcLead / 2m) * scoreAutocorr
                            + (wOFIDelta + wBtcLead / 2m) * scoreOFIDelta
                            + wVWAP * scoreVWAP;
@@ -367,6 +374,57 @@ public sealed class MarketDataWorker : BackgroundService
                            + wBtcLead * scoreBtcLead
                            + wVWAP * scoreVWAP;
         }
+
+        // === RSI(14) CONTINUOUS MULTIPLIER ===
+        var rsi = indicators.Rsi.Value;
+        if (compositeScore > 0) // UP signal
+        {
+            if (rsi < 25) compositeScore *= 1.25m;      // RSI oversold confirms UP
+            else if (rsi > 35 && rsi < 65) compositeScore *= 0.85m; // neutral RSI = weak
+        }
+        else if (compositeScore < 0) // DOWN signal
+        {
+            if (rsi > 75) compositeScore *= 1.25m;      // RSI overbought confirms DOWN
+            else if (rsi > 35 && rsi < 65) compositeScore *= 0.85m; // neutral RSI = weak
+        }
+
+        // === DOJI FILTER (last candle indecision) ===
+        var lastCandle = oneMinCandles[^1];
+        var bodyRatio = (lastCandle.High - lastCandle.Low) > 0
+            ? Math.Abs(lastCandle.Close - lastCandle.Open) / (lastCandle.High - lastCandle.Low)
+            : 0m;
+        if (bodyRatio < 0.20m)
+            compositeScore *= 0.5m; // doji = indecision, heavy discount
+
+        // Strong candle confirmation
+        if (bodyRatio > 0.60m)
+        {
+            bool isBullish = lastCandle.Close > lastCandle.Open;
+            bool confirms = (compositeScore > 0 && isBullish) || (compositeScore < 0 && !isBullish);
+            compositeScore *= confirms ? 1.15m : 0.75m;
+        }
+
+        // === CONVERGENCE SCORING (AC + RSI + BB + VWAP agree) ===
+        int convergence = 0;
+        if (autocorr < -0.05m && Math.Abs(prev5mReturn) > 0.0015m) convergence++;
+        if ((compositeScore > 0 && rsi < 30) || (compositeScore < 0 && rsi > 70)) convergence++;
+
+        var bbRange = indicators.BollingerBands.Upper - indicators.BollingerBands.Lower;
+        var bbPos = bbRange > 0
+            ? (oneMinCandles[^1].Close - indicators.BollingerBands.Lower) / bbRange
+            : 0.5m;
+        if ((compositeScore > 0 && bbPos < 0.10m) || (compositeScore < 0 && bbPos > 0.90m)) convergence++;
+        if (Math.Abs(vwapZ) > 1.5m) convergence++;
+
+        var convergenceMultiplier = convergence switch
+        {
+            0 => 0.60m,
+            1 => 0.85m,
+            2 => 1.0m,
+            3 => 1.30m,
+            _ => 1.50m
+        };
+        compositeScore *= convergenceMultiplier;
 
         // === MULTI-TIMEFRAME ALIGNMENT FILTER ===
         var currentClose = oneMinCandles[^1].Close;
@@ -384,17 +442,20 @@ public sealed class MarketDataWorker : BackgroundService
         if (Math.Sign(currentClose - sma60) == compositeSign) alignCount++;
         if (Math.Sign(currentClose - sma240) == compositeSign) alignCount++;
 
-        // Require 3/4 multi-timeframe alignment
         if (alignCount < 3)
         {
-            _logger.LogDebug("{Symbol} MTF misaligned: {Align}/4, score:{Score:F3}", candle.Asset.Symbol, alignCount, compositeScore);
+            _logger.LogDebug("{Symbol} MTF misaligned: {Align}/4", candle.Asset.Symbol, alignCount);
             return;
         }
 
-        // Minimum composite threshold
-        if (Math.Abs(compositeScore) < 0.12m)
+        // === ADAPTIVE THRESHOLD PER ASSET ===
+        var atrPct = indicators.Atr.Value / oneMinCandles[^1].Close;
+        var adaptiveThreshold = Math.Clamp(0.08m + atrPct * 30m, 0.08m, 0.25m);
+
+        if (Math.Abs(compositeScore) < adaptiveThreshold)
         {
-            _logger.LogDebug("{Symbol} score too weak: {Score:F3}", candle.Asset.Symbol, compositeScore);
+            _logger.LogDebug("{Symbol} below adaptive threshold: {Score:F3} < {Thresh:F3}",
+                candle.Asset.Symbol, Math.Abs(compositeScore), adaptiveThreshold);
             return;
         }
 
@@ -402,37 +463,24 @@ public sealed class MarketDataWorker : BackgroundService
         var effectiveDelta = compositeScore / 4.0m;
 
         _logger.LogInformation(
-            "{Symbol} L13 | AC:{AC:F2}(r={R:F3}) OFI:{OFI:F2} BTC:{BTC:F2} VWAP:{VW:F2} | Score:{S:F3} MTF:{MTF}/4 Dir:{D} Prev5m:{P:P3}",
+            "{Symbol} L14 | AC:{AC:F2}(r={R:F3}) OFI:{OFI:F2} BTC:{BTC:F2} VW:{VW:F2} RSI:{RSI:F0} Conv:{CV} MTF:{MTF}/4 | Score:{S:F3} Thr:{T:F3} Dir:{D}",
             candle.Asset.Symbol, scoreAutocorr, autocorr, scoreOFIDelta, scoreBtcLead, scoreVWAP,
-            compositeScore, alignCount, direction, prev5mReturn);
+            rsi, convergence, alignCount, compositeScore, adaptiveThreshold, direction);
 
-        // === Market Discovery + Midpoint ===
+        // === Market Discovery + Entry ===
         var discoverResult = await _discovery.DiscoverMarketsAsync();
-        if (discoverResult.IsFailure)
-        {
-            _logger.LogWarning("Polymarket discovery failed for {Symbol}", candle.Asset.Symbol);
-            return;
-        }
+        if (discoverResult.IsFailure) return;
 
         var market = discoverResult.Value!
             .FirstOrDefault(m => m.UnderlyingAsset.Equals(baseAsset, StringComparison.OrdinalIgnoreCase)
                               && m.Direction == direction);
-        if (market is null)
-        {
-            _logger.LogDebug("No Polymarket market for {Symbol} {Direction}", candle.Asset.Symbol, direction);
-            return;
-        }
+        if (market is null) return;
 
         var midResult = await _polyClient.GetMidpointAsync(market.RelevantTokenId);
-        if (midResult.IsFailure)
-        {
-            _logger.LogWarning("Polymarket midpoint failed for {Symbol}", candle.Asset.Symbol);
-            return;
-        }
+        if (midResult.IsFailure) return;
 
         var marketPrice = midResult.Value;
-        if (direction == "Down")
-            marketPrice = 1m - marketPrice;
+        if (direction == "Down") marketPrice = 1m - marketPrice;
 
         var signalDirection = direction == "Up" ? SignalDirection.Up : SignalDirection.Down;
 
@@ -444,16 +492,12 @@ public sealed class MarketDataWorker : BackgroundService
         {
             var sig = signalResult.Value!;
             _logger.LogInformation(
-                ">>> SIGNAL: {Symbol}/5m {Direction} | FV:{FV:F3} Market:{Market:F3} Edge:{Edge:F3} Score:{Score:F3}",
-                sig.Asset.Symbol, sig.Direction, sig.FairValue, sig.MarketPrice, sig.Edge, compositeScore);
+                ">>> SIGNAL: {Symbol}/5m {Direction} | FV:{FV:F3} Market:{Market:F3} Edge:{Edge:F3} Score:{Score:F3} Conv:{Conv}",
+                sig.Asset.Symbol, sig.Direction, sig.FairValue, sig.MarketPrice, sig.Edge, compositeScore, convergence);
 
             _publisher.PublishSignalGenerated(sig.ToDto());
-            await Task.Delay(2000); // Golden Rule 2: T=0+2s entry
+            await Task.Delay(2000);
             await DispatchToEnginesAsync(sig);
-        }
-        else
-        {
-            _logger.LogDebug("No signal: {Symbol}/5m -- {Reason}", candle.Asset.Symbol, signalResult.Error!.Code);
         }
     }
 
@@ -464,16 +508,14 @@ public sealed class MarketDataWorker : BackgroundService
             var openResult = await engine.OpenPositionAsync(sig);
             if (openResult.IsFailure)
             {
-                _logger.LogDebug(
-                    "[{Engine}] OpenPosition skipped: {Reason}",
+                _logger.LogDebug("[{Engine}] OpenPosition skipped: {Reason}",
                     engine.EngineName, openResult.Error!.Code);
                 return (engine.EngineName, false, (string?)openResult.Error!.Code, (Guid?)null);
             }
             else if (openResult.Value is not null)
             {
                 var trade = openResult.Value;
-                _logger.LogInformation(
-                    "Trade opened: {Engine} {Symbol} {Direction} size:{Size:F2}",
+                _logger.LogInformation("Trade opened: {Engine} {Symbol} {Direction} size:{Size:F2}",
                     engine.EngineName, sig.Asset.Symbol, sig.Direction, trade.PositionSize);
                 _publisher.PublishTradeOpened(trade.ToDto());
                 return (engine.EngineName, true, (string?)null, (Guid?)trade.Id);
