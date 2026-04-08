@@ -42,7 +42,7 @@ public interface ISignalGenerator
         SignalDirection direction);
 
     /// <summary>
-    /// Window delta-based signal: direction from worker, confidence from delta magnitude.
+    /// Ensemble scoring: direction + effectiveDelta from worker composite score.
     /// </summary>
     Result<Signal> Generate(
         Asset asset,
@@ -51,6 +51,6 @@ public interface ISignalGenerator
         decimal marketPrice,
         TechnicalIndicators precomputedIndicators,
         SignalDirection direction,
-        decimal windowDelta);
+        decimal effectiveDelta);
 
 }

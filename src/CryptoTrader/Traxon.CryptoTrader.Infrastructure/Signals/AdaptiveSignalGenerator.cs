@@ -119,41 +119,32 @@ public sealed class AdaptiveSignalGenerator : ISignalGenerator
         decimal marketPrice,
         TechnicalIndicators precomputedIndicators,
         SignalDirection direction,
-        decimal windowDelta)
+        decimal effectiveDelta)
     {
         if (candles.Count < MinCandlesForSignal)
             return Result<Signal>.Failure(Error.NotEnoughCandles);
 
-        return GenerateFromWindowDelta(asset, timeFrame, candles, marketPrice, precomputedIndicators, direction, windowDelta);
+        return GenerateFromEnsemble(asset, timeFrame, candles, marketPrice, precomputedIndicators, direction, effectiveDelta);
     }
 
     /// <summary>
-    /// Window delta-based signal generation. Uses price movement during the 5-min window
-    /// as the primary signal instead of Hurst/Z-Score.
+    /// Ensemble scoring signal generation. Direction + delta from worker's composite score.
+    /// No regime gate — confidence from delta magnitude.
     /// </summary>
-    private Result<Signal> GenerateFromWindowDelta(
+    private Result<Signal> GenerateFromEnsemble(
         Asset asset,
         TimeFrame timeFrame,
         IReadOnlyList<Candle> candles,
         decimal marketPrice,
         TechnicalIndicators indicators,
         SignalDirection direction,
-        decimal windowDelta)
+        decimal effectiveDelta)
     {
         if (marketPrice < MinMarketPrice || marketPrice > MaxMarketPrice)
             return Result<Signal>.Failure(Error.InvalidMarketPrice);
 
-        // Confidence from window delta magnitude
-        var confidence = Math.Clamp(0.50m + Math.Abs(windowDelta) * 50m, 0.52m, 0.95m);
-
-        // Volume filter: skip dead markets
-        var volumeRatio = ComputeVolumeRatio(candles, 5, 20);
-        if (volumeRatio < MinVolumeRatio)
-        {
-            _logger.LogDebug("Dead market for {Symbol}: volume ratio {VR:F2} < {Min:F2}",
-                asset.Symbol, volumeRatio, MinVolumeRatio);
-            return Result<Signal>.Failure(Error.InsufficientConfirmation);
-        }
+        // Confidence from composite score magnitude
+        var confidence = Math.Clamp(0.50m + Math.Abs(effectiveDelta) * 8m, 0.52m, 0.90m);
 
         // Fair value: P(Up) basis
         decimal fairValue;
@@ -165,10 +156,9 @@ public sealed class AdaptiveSignalGenerator : ISignalGenerator
         fairValue = Math.Clamp(fairValue, 0.01m, 0.99m);
 
         var edge = Math.Abs(fairValue - marketPrice);
-        const decimal windowMinEdge = 0.01m;
-        if (edge < windowMinEdge)
+        if (edge < 0.01m)
         {
-            _logger.LogDebug("Edge too small for {Symbol}: {Edge:F3} < {Min:F2}", asset.Symbol, edge, windowMinEdge);
+            _logger.LogDebug("Edge too small for {Symbol}: {Edge:F3}", asset.Symbol, edge);
             return Result<Signal>.Failure(Error.InvalidEdge);
         }
 
@@ -184,7 +174,7 @@ public sealed class AdaptiveSignalGenerator : ISignalGenerator
 
         var isLowVol = volRegime == MarketRegime.LowVolatility;
 
-        var sizeResult = _positionSizer.Calculate(fairValue, marketPrice, 20m, isLowVol);
+        var sizeResult = _positionSizer.Calculate(fairValue, marketPrice, 30m, isLowVol);
         if (!sizeResult.MeetsMinimumEdge)
             return Result<Signal>.Failure(Error.InvalidEdge);
 
@@ -195,14 +185,14 @@ public sealed class AdaptiveSignalGenerator : ISignalGenerator
             fairValue:     fairValue,
             marketPrice:   marketPrice,
             kellyFraction: sizeResult.KellyFraction,
-            muEstimate:    windowDelta,
+            muEstimate:    effectiveDelta,
             sigmaEstimate: 0m,
             regime:        volRegime,
             indicators:    indicators);
 
         _logger.LogInformation(
-            "WindowDelta Signal: {Symbol} {Direction} Delta:{Delta:P4} Conf:{Conf:F2} FV:{FV:F3} Market:{Market:F3} Edge:{Edge:F3} Regime:{Regime}",
-            asset.Symbol, direction, windowDelta, confidence, fairValue, marketPrice, edge, volRegime);
+            "EnsembleSignal: {Symbol} {Direction} Delta:{Delta:F4} Conf:{Conf:F2} FV:{FV:F3} Market:{Market:F3} Edge:{Edge:F3}",
+            asset.Symbol, direction, effectiveDelta, confidence, fairValue, marketPrice, edge);
 
         return Result<Signal>.Success(signal);
     }

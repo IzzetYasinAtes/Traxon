@@ -22,12 +22,8 @@ public static class TakerRatioCalculator
 
         for (var i = startIdx; i < candles.Count; i++)
         {
-            var candle = candles[i];
-            totalVolume += candle.Volume;
-
-            // Bullish candle (close >= open) → classify volume as buy
-            if (candle.IsBullish)
-                buyVolume += candle.Volume;
+            totalVolume += candles[i].Volume;
+            buyVolume += candles[i].TakerBuyBaseVolume;
         }
 
         if (totalVolume <= 0m)
