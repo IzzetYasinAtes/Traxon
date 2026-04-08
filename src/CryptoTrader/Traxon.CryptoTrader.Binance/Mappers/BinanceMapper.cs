@@ -37,7 +37,8 @@ internal static class BinanceMapper
             volume: k.Volume,
             quoteVolume: k.QuoteVolume,
             tradeCount: (int)k.TradeCount,
-            isClosed: k.Final);
+            isClosed: k.Final,
+            takerBuyBaseVolume: k.TakerBuyBaseVolume);
     }
 
     /// <summary>Maps a REST kline (IBinanceKline) to a Candle.</summary>
@@ -56,6 +57,7 @@ internal static class BinanceMapper
             volume: kline.Volume,
             quoteVolume: kline.QuoteVolume,
             tradeCount: (int)kline.TradeCount,
-            isClosed: true);
+            isClosed: true,
+            takerBuyBaseVolume: kline.TakerBuyBaseVolume);
     }
 }

@@ -15,6 +15,7 @@ public sealed class Candle : Entity<long>
     public decimal Close { get; }
     public decimal Volume { get; }
     public decimal QuoteVolume { get; }
+    public decimal TakerBuyBaseVolume { get; }
     public int TradeCount { get; }
     public bool IsClosed { get; }
 
@@ -38,7 +39,8 @@ public sealed class Candle : Entity<long>
         decimal volume,
         decimal quoteVolume,
         int tradeCount,
-        bool isClosed)
+        bool isClosed,
+        decimal takerBuyBaseVolume = 0m)
     {
         Id = id;
         Asset = asset;
@@ -51,6 +53,7 @@ public sealed class Candle : Entity<long>
         Close = close;
         Volume = volume;
         QuoteVolume = quoteVolume;
+        TakerBuyBaseVolume = takerBuyBaseVolume;
         TradeCount = tradeCount;
         IsClosed = isClosed;
     }

@@ -63,6 +63,11 @@ public sealed class CandleEntityConfiguration : IEntityTypeConfiguration<Candle>
             .HasColumnType("decimal(18,8)")
             .IsRequired();
 
+        builder.Property(c => c.TakerBuyBaseVolume)
+            .HasColumnType("decimal(18,8)")
+            .HasDefaultValue(0m)
+            .IsRequired();
+
         builder.Property(c => c.TradeCount)
             .IsRequired();
 
