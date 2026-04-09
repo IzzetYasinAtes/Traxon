@@ -72,4 +72,19 @@ EKLENEN/DEGISTIRILEN:
 6. **effectiveDelta = compositeScore / 3.0** (onceki /4.0) — daha guclu FairValue farki
 
 ## Loop15 Sonuclari
-_(Loop devam ediyor, sonuclar loop bitiminde eklenecek)_
+
+| Metrik | Deger |
+|--------|-------|
+| Kapali Islem | 175 |
+| Win/Loss | 91W / 84L |
+| Win Rate | **%52** |
+| Net PnL | **+$2.16** |
+| Baslangic Bakiye | $30.00 |
+| Ort Win | +$0.98 |
+| Ort Loss | -$1.04 |
+
+### Onemli Bulgular
+1. Basitlik yaklasimi (2 feature) onceki karmasik loop'lardan daha iyi performans gosterdi
+2. %52 win rate, breakeven (%53) sinirinda — fee asimetrisi (win +$0.98 vs loss -$1.04) kar yiyor
+3. Dashboard'da InitialBalance hesaplama bug'i tespit edildi ve duzeltildi
+4. HYPE %38 ile en kotu performans gosteren coin
