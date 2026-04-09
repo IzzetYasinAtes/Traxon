@@ -206,19 +206,45 @@ public sealed class SqlTradeLogger : ITradeLogger
     {
         try
         {
+            await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+            var engineName = portfolio.Engine;
+
+            // Query REAL values from DB instead of in-memory Portfolio state
+            var closedTrades = await db.Trades
+                .Where(t => t.Engine == engineName && t.Status == TradeStatus.Closed)
+                .ToListAsync(ct);
+
+            var openTrades = await db.Trades
+                .Where(t => t.Engine == engineName && t.Status == TradeStatus.Open)
+                .ToListAsync(ct);
+
+            var wins = closedTrades.Count(t => t.Outcome == TradeOutcome.Win);
+            var losses = closedTrades.Count(t => t.Outcome == TradeOutcome.Loss);
+            var totalPnL = closedTrades.Sum(t => t.PnL ?? 0m);
+            var openExposure = openTrades.Sum(t => t.PositionSize);
+            var openCount = openTrades.Count;
+            var tradeCount = wins + losses;
+            var winRate = tradeCount > 0 ? (decimal)wins / tradeCount : 0m;
+            var balance = portfolio.InitialBalance + totalPnL - openExposure;
+
+            _logger.LogDebug(
+                "Snapshot [DB-truth]: {Engine} Balance:{Balance:F2} PnL:{PnL:F2} Open:{Open} Closed:{Closed} (mem had {MemOpen} open)",
+                engineName, balance, totalPnL, openCount, tradeCount,
+                portfolio.OpenPositions.Count);
+
             var snapshot = new PortfolioSnapshot
             {
-                Engine            = portfolio.Engine,
+                Engine            = engineName,
                 Timestamp         = DateTime.UtcNow,
-                Balance           = portfolio.Balance,
-                OpenPositionCount = portfolio.OpenPositions.Count,
-                TotalExposure     = portfolio.TotalExposure,
-                TotalPnL          = portfolio.TotalPnL,
-                WinRate           = portfolio.TotalTradeCount > 0 ? (decimal?)portfolio.WinRate : null,
-                TradeCount        = portfolio.TotalTradeCount
+                Balance           = balance,
+                OpenPositionCount = openCount,
+                TotalExposure     = openExposure,
+                TotalPnL          = totalPnL,
+                WinRate           = tradeCount > 0 ? winRate : null,
+                TradeCount        = tradeCount
             };
 
-            await using var db = await _dbFactory.CreateDbContextAsync(ct);
             db.PortfolioSnapshots.Add(snapshot);
             await db.SaveChangesAsync(ct);
         }
