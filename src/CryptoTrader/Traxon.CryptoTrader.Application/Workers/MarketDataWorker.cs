@@ -200,7 +200,7 @@ public sealed class MarketDataWorker : BackgroundService
         if (oneMinCandles.Count < 60) return;
 
         // ======================================================
-        // LOOP 19: OFI DELTA (1v3) + VWAP Z-SCORE + VOLATILITY GATE
+        // LOOP 21: OFI DELTA + VWAP Z + OBI + OBI MOMENTUM + OI CHANGE + FUNDING + VOL GATE
         // Simpler, faster OFI. No UP bias. Volatility gate skips flat markets.
         // ======================================================
 
@@ -267,11 +267,14 @@ public sealed class MarketDataWorker : BackgroundService
         var obi = _futuresData.GetOrderBookImbalance(candle.Asset.Symbol);
         var scoreOBI = Math.Clamp(obi * 2.0m, -1m, 1m);
 
-        // === COMPOSITE SCORE (3 features) ===
-        const decimal wOFI = 0.40m;
-        const decimal wVWAP = 0.20m;
+        // === COMPOSITE SCORE (4 features) ===
+        const decimal wOFI = 0.35m;
+        const decimal wVWAP = 0.10m;
         const decimal wOBI = 0.40m;
-        var compositeScore = wOFI * scoreOFI + wVWAP * scoreVWAP + wOBI * scoreOBI;
+        const decimal wOBIMom = 0.15m;
+        var obiMomentum = _futuresData.GetOrderBookMomentum(candle.Asset.Symbol);
+        var scoreOBIMom = Math.Clamp(obiMomentum * 8m, -1m, 1m);
+        var compositeScore = wOFI * scoreOFI + wVWAP * scoreVWAP + wOBI * scoreOBI + wOBIMom * scoreOBIMom;
 
         // === Funding Rate Contrarian Filter (multiplicative) ===
         var fundingRate = _futuresData.GetFundingRate(candle.Asset.Symbol);
@@ -282,6 +285,13 @@ public sealed class MarketDataWorker : BackgroundService
             else
                 compositeScore *= 0.85m; // same as crowded side = discount
         }
+
+        // Open Interest change: increasing OI = conviction, decreasing = closing positions
+        var oiChange = _futuresData.GetOpenInterestChange(candle.Asset.Symbol);
+        if (oiChange > 0.01m)
+            compositeScore *= 1.10m; // OI increasing >1% = conviction
+        else if (oiChange < -0.01m)
+            compositeScore *= 0.90m; // OI decreasing >1% = position closing
 
         // Volatility gate: expanding vol = boost, contracting = discount
         if (volExpansion > 1.5m)
@@ -309,8 +319,8 @@ public sealed class MarketDataWorker : BackgroundService
         var effectiveDelta = compositeScore / 3.0m;
 
         _logger.LogInformation(
-            "{Symbol} L20 | OFI:{OFI:F3} VWAP:{VW:F3} OBI:{OBI:F3} FR:{FR:F6} VolExp:{VE:F2} | Score:{S:F3} Dir:{D}",
-            candle.Asset.Symbol, scoreOFI, scoreVWAP, scoreOBI, fundingRate, volExpansion, compositeScore, direction);
+            "{Symbol} L21 | OFI:{OFI:F3} VW:{VW:F3} OBI:{OBI:F3} OBIMom:{OM:F3} OI%:{OI:F3} FR:{FR:F6} VE:{VE:F2} | Score:{S:F3} Dir:{D}",
+            candle.Asset.Symbol, scoreOFI, scoreVWAP, scoreOBI, scoreOBIMom, oiChange, fundingRate, volExpansion, compositeScore, direction);
 
         // === Market Discovery + Entry ===
         var discoverResult = await _discovery.DiscoverMarketsAsync();
