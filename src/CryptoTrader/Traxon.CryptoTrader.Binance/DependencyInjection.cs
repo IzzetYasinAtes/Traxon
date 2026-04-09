@@ -32,6 +32,7 @@ public static class DependencyInjection
         }
 
         services.AddSingleton<IMarketDataProvider, BinanceMarketDataProvider>();
+        services.AddSingleton<IFuturesDataProvider, BinanceFuturesDataProvider>();
 
         return services;
     }

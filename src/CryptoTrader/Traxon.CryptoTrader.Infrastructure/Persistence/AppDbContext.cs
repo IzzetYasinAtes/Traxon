@@ -15,6 +15,7 @@ public sealed class AppDbContext : DbContext
     public DbSet<SignalRecord>       SignalRecords       { get; set; } = null!;
     public DbSet<SignalEngineResult> SignalEngineResults  { get; set; } = null!;
     public DbSet<SecureSetting>      SecureSettings       { get; set; } = null!;
+    public DbSet<FuturesSnapshot>    FuturesSnapshots     { get; set; } = null!;
 
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
@@ -26,5 +27,6 @@ public sealed class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new SignalRecordEntityConfiguration());
         modelBuilder.ApplyConfiguration(new SignalEngineResultEntityConfiguration());
         modelBuilder.ApplyConfiguration(new SecureSettingEntityConfiguration());
+        modelBuilder.ApplyConfiguration(new FuturesSnapshotEntityConfiguration());
     }
 }

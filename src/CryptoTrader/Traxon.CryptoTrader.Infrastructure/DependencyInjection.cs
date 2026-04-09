@@ -60,6 +60,7 @@ public static class DependencyInjection
         // Persistence
         services.AddSingleton<ITradeLogger, SqlTradeLogger>();
         services.AddSingleton<ICandleWriter, SqlCandleWriter>();
+        services.AddSingleton<IFuturesSnapshotWriter, SqlFuturesSnapshotWriter>();
 
         // Buffer warmup — DB'deki mumları startup'ta buffer'a yükler (MarketDataWorker'dan önce çalışır)
         services.AddSingleton<IHostedService, BufferWarmupService>();

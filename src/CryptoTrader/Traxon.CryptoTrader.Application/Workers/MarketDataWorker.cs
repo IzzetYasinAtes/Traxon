@@ -21,6 +21,7 @@ public sealed class MarketDataWorker : BackgroundService
     private readonly ITradeLogger                _tradeLogger;
     private readonly IPolymarketClient           _polyClient;
     private readonly IMarketDiscoveryService     _discovery;
+    private readonly IFuturesDataProvider        _futuresData;
     private readonly ILogger<MarketDataWorker>   _logger;
 
     private const int BackfillDays = 3;
@@ -38,6 +39,7 @@ public sealed class MarketDataWorker : BackgroundService
         ITradeLogger tradeLogger,
         IPolymarketClient polyClient,
         IMarketDiscoveryService discovery,
+        IFuturesDataProvider futuresData,
         ILogger<MarketDataWorker> logger)
     {
         _marketDataProvider  = marketDataProvider;
@@ -50,6 +52,7 @@ public sealed class MarketDataWorker : BackgroundService
         _tradeLogger         = tradeLogger;
         _polyClient          = polyClient;
         _discovery           = discovery;
+        _futuresData         = futuresData;
         _logger              = logger;
     }
 
@@ -59,7 +62,10 @@ public sealed class MarketDataWorker : BackgroundService
 
         await BackfillOneMinuteCandlesAsync(stoppingToken);
 
-        _logger.LogInformation("Buffer warm-up complete. Starting WebSocket stream (1m only)...");
+        _logger.LogInformation("Buffer warm-up complete. Starting futures data streams...");
+        await _futuresData.StartAsync(Asset.Tradeable.ToList(), stoppingToken);
+
+        _logger.LogInformation("Starting WebSocket stream (1m only)...");
 
         var engineCount = _tradingEngines.Count();
         _publisher.PublishSystemStatus(new SystemStatusDto(
@@ -257,11 +263,25 @@ public sealed class MarketDataWorker : BackgroundService
 
         var volExpansion = volLong > 0 ? volShort / volLong : 1m;
 
-        // === COMPOSITE SCORE ===
-        const decimal wOFI = 0.65m;
-        const decimal wVWAP = 0.35m;
+        // === FEATURE 3: Order Book Imbalance (from L2 depth) ===
+        var obi = _futuresData.GetOrderBookImbalance(candle.Asset.Symbol);
+        var scoreOBI = Math.Clamp(obi * 2.0m, -1m, 1m);
 
-        var compositeScore = wOFI * scoreOFI + wVWAP * scoreVWAP;
+        // === COMPOSITE SCORE (3 features) ===
+        const decimal wOFI = 0.40m;
+        const decimal wVWAP = 0.20m;
+        const decimal wOBI = 0.40m;
+        var compositeScore = wOFI * scoreOFI + wVWAP * scoreVWAP + wOBI * scoreOBI;
+
+        // === Funding Rate Contrarian Filter (multiplicative) ===
+        var fundingRate = _futuresData.GetFundingRate(candle.Asset.Symbol);
+        if (Math.Abs(fundingRate) > 0.0005m) // extreme funding
+        {
+            if (Math.Sign(fundingRate) != Math.Sign(compositeScore))
+                compositeScore *= 1.15m; // contrarian to crowded side = boost
+            else
+                compositeScore *= 0.85m; // same as crowded side = discount
+        }
 
         // Volatility gate: expanding vol = boost, contracting = discount
         if (volExpansion > 1.5m)
@@ -289,8 +309,8 @@ public sealed class MarketDataWorker : BackgroundService
         var effectiveDelta = compositeScore / 3.0m;
 
         _logger.LogInformation(
-            "{Symbol} L19 | OFI:{OFI:F3} VWAP:{VW:F3} VolExp:{VE:F2} | Score:{S:F3} Dir:{D}",
-            candle.Asset.Symbol, scoreOFI, scoreVWAP, volExpansion, compositeScore, direction);
+            "{Symbol} L20 | OFI:{OFI:F3} VWAP:{VW:F3} OBI:{OBI:F3} FR:{FR:F6} VolExp:{VE:F2} | Score:{S:F3} Dir:{D}",
+            candle.Asset.Symbol, scoreOFI, scoreVWAP, scoreOBI, fundingRate, volExpansion, compositeScore, direction);
 
         // === Market Discovery + Entry ===
         var discoverResult = await _discovery.DiscoverMarketsAsync();
@@ -361,6 +381,7 @@ public sealed class MarketDataWorker : BackgroundService
 
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
+        await _futuresData.StopAsync(cancellationToken);
         await _marketDataProvider.StopStreamAsync(cancellationToken);
         await base.StopAsync(cancellationToken);
     }
