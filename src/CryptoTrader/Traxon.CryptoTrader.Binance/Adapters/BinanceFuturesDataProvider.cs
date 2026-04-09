@@ -4,6 +4,7 @@ using CryptoExchange.Net.Objects.Sockets;
 using Microsoft.Extensions.Logging;
 using Traxon.CryptoTrader.Application.Abstractions;
 using Traxon.CryptoTrader.Domain.Assets;
+using Traxon.CryptoTrader.Domain.Market;
 
 namespace Traxon.CryptoTrader.Binance.Adapters;
 
@@ -11,6 +12,7 @@ public sealed class BinanceFuturesDataProvider : IFuturesDataProvider
 {
     private readonly IBinanceSocketClient _socketClient;
     private readonly IBinanceRestClient _restClient;
+    private readonly IFuturesSnapshotWriter _snapshotWriter;
     private readonly ILogger<BinanceFuturesDataProvider> _logger;
 
     private readonly ConcurrentDictionary<string, decimal> _fundingRates = new();
@@ -29,10 +31,12 @@ public sealed class BinanceFuturesDataProvider : IFuturesDataProvider
     public BinanceFuturesDataProvider(
         IBinanceSocketClient socketClient,
         IBinanceRestClient restClient,
+        IFuturesSnapshotWriter snapshotWriter,
         ILogger<BinanceFuturesDataProvider> logger)
     {
         _socketClient = socketClient;
         _restClient = restClient;
+        _snapshotWriter = snapshotWriter;
         _logger = logger;
     }
 
@@ -147,6 +151,9 @@ public sealed class BinanceFuturesDataProvider : IFuturesDataProvider
         _pollCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         _pollTask = PollOpenInterestAsync(assets, _pollCts.Token);
 
+        // 4) Periodic DB snapshot saving
+        _ = Task.Run(() => SaveSnapshotsToDatabaseAsync(_pollCts.Token), _pollCts.Token);
+
         _logger.LogInformation("FuturesDataProvider started successfully");
     }
 
@@ -173,6 +180,58 @@ public sealed class BinanceFuturesDataProvider : IFuturesDataProvider
         _subscriptions.Clear();
 
         _logger.LogInformation("FuturesDataProvider stopped");
+    }
+
+    private async Task SaveSnapshotsToDatabaseAsync(CancellationToken ct)
+    {
+        while (!ct.IsCancellationRequested)
+        {
+            try
+            {
+                await Task.Delay(60_000, ct);
+                var now = DateTime.UtcNow;
+                var snapshots = new List<FuturesSnapshot>();
+
+                foreach (var symbol in _fundingRates.Keys)
+                {
+                    _fundingRates.TryGetValue(symbol, out var fr);
+                    _openInterest.TryGetValue(symbol, out var oi);
+                    _orderBookImbalance.TryGetValue(symbol, out var obi);
+
+                    var persistence = 0m;
+                    if (_obiHistory.TryGetValue(symbol, out var history) && history.Count > 0)
+                    {
+                        lock (history)
+                        {
+                            if (history.Count > 0)
+                            {
+                                var avg = history.Average();
+                                persistence = (decimal)history.Count(v => Math.Sign(v) == Math.Sign(avg)) / history.Count;
+                            }
+                        }
+                    }
+
+                    snapshots.Add(new FuturesSnapshot
+                    {
+                        Symbol = symbol,
+                        FundingRate = fr,
+                        OpenInterest = oi,
+                        OrderBookImbalance = obi,
+                        ObiPersistence = persistence,
+                        BidVolume = 0,
+                        AskVolume = 0,
+                        Timestamp = now
+                    });
+                }
+
+                await _snapshotWriter.WriteAsync(snapshots, ct);
+            }
+            catch (OperationCanceledException) { break; }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to save futures snapshots to DB");
+            }
+        }
     }
 
     private async Task PollOpenInterestAsync(IReadOnlyList<Asset> assets, CancellationToken ct)
