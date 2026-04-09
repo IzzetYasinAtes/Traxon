@@ -14,6 +14,8 @@ internal sealed class NullTradeLogger : ITradeLogger
         => Task.FromResult<IReadOnlyList<Trade>>(Array.Empty<Trade>());
     public Task<PortfolioSnapshotDto?> GetLatestSnapshotAsync(string engineName, CancellationToken ct = default)
         => Task.FromResult<PortfolioSnapshotDto?>(null);
+    public Task<decimal> GetRealizedPnLAsync(string engineName, CancellationToken ct = default)
+        => Task.FromResult(0m);
     public Task LogSignalWithResultsAsync(Signal signal, IReadOnlyList<(string engineName, bool accepted, string? rejectionCode, Guid? tradeId)> engineResults, CancellationToken ct = default)
         => Task.CompletedTask;
 }

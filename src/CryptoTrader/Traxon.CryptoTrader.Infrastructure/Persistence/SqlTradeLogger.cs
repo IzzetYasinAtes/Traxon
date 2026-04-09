@@ -119,6 +119,22 @@ public sealed class SqlTradeLogger : ITradeLogger
         }
     }
 
+    public async Task<decimal> GetRealizedPnLAsync(string engineName, CancellationToken ct = default)
+    {
+        try
+        {
+            await using var db = await _dbFactory.CreateDbContextAsync(ct);
+            return await db.Trades
+                .Where(t => t.Engine == engineName && t.Status == TradeStatus.Closed)
+                .SumAsync(t => (decimal?)t.PnL, ct) ?? 0m;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get realized PnL for engine: {Engine}", engineName);
+            return 0m;
+        }
+    }
+
     public async Task LogSignalWithResultsAsync(
         Signal signal,
         IReadOnlyList<(string engineName, bool accepted, string? rejectionCode, Guid? tradeId)> engineResults,
