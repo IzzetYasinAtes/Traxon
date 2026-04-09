@@ -112,6 +112,91 @@ public sealed class AdaptiveSignalGenerator : ISignalGenerator
         return GenerateWithDirection(asset, timeFrame, candles, marketPrice, precomputedIndicators, direction);
     }
 
+    public Result<Signal> Generate(
+        Asset asset,
+        TimeFrame timeFrame,
+        IReadOnlyList<Candle> candles,
+        decimal marketPrice,
+        TechnicalIndicators precomputedIndicators,
+        SignalDirection direction,
+        decimal effectiveDelta)
+    {
+        if (candles.Count < MinCandlesForSignal)
+            return Result<Signal>.Failure(Error.NotEnoughCandles);
+
+        return GenerateFromEnsemble(asset, timeFrame, candles, marketPrice, precomputedIndicators, direction, effectiveDelta);
+    }
+
+    /// <summary>
+    /// Ensemble scoring signal generation. Direction + delta from worker's composite score.
+    /// No regime gate — confidence from delta magnitude.
+    /// </summary>
+    private Result<Signal> GenerateFromEnsemble(
+        Asset asset,
+        TimeFrame timeFrame,
+        IReadOnlyList<Candle> candles,
+        decimal marketPrice,
+        TechnicalIndicators indicators,
+        SignalDirection direction,
+        decimal effectiveDelta)
+    {
+        if (marketPrice < MinMarketPrice || marketPrice > MaxMarketPrice)
+            return Result<Signal>.Failure(Error.InvalidMarketPrice);
+
+        // Confidence from composite score magnitude
+        var confidence = Math.Clamp(0.50m + Math.Abs(effectiveDelta) * 8m, 0.52m, 0.90m);
+
+        // Fair value: P(Up) basis
+        decimal fairValue;
+        if (direction == SignalDirection.Up)
+            fairValue = confidence;
+        else
+            fairValue = 1m - confidence;
+
+        fairValue = Math.Clamp(fairValue, 0.01m, 0.99m);
+
+        var edge = Math.Abs(fairValue - marketPrice);
+        if (edge < 0.01m)
+        {
+            _logger.LogDebug("Edge too small for {Symbol}: {Edge:F3}", asset.Symbol, edge);
+            return Result<Signal>.Failure(Error.InvalidEdge);
+        }
+
+        // Parkinson volatility regime for sizing
+        var volShort = _indicatorCalculator.CalculateParkinsonVolatility(candles, RegimeShortPeriod);
+        var volLong  = candles.Count >= RegimeLongPeriod
+            ? _indicatorCalculator.CalculateParkinsonVolatility(candles, RegimeLongPeriod)
+            : volShort;
+
+        var volRegime = (volLong > 0 && volShort > HighVolMultiplier * volLong)
+            ? MarketRegime.HighVolatility
+            : MarketRegime.LowVolatility;
+
+        var isLowVol = volRegime == MarketRegime.LowVolatility;
+
+        var sizeResult = _positionSizer.Calculate(fairValue, marketPrice, 30m, isLowVol);
+        if (!sizeResult.MeetsMinimumEdge)
+            return Result<Signal>.Failure(Error.InvalidEdge);
+
+        var signal = new Signal(
+            asset:         asset,
+            timeFrame:     timeFrame,
+            direction:     direction,
+            fairValue:     fairValue,
+            marketPrice:   marketPrice,
+            kellyFraction: sizeResult.KellyFraction,
+            muEstimate:    effectiveDelta,
+            sigmaEstimate: 0m,
+            regime:        volRegime,
+            indicators:    indicators);
+
+        _logger.LogInformation(
+            "EnsembleSignal: {Symbol} {Direction} Delta:{Delta:F4} Conf:{Conf:F2} FV:{FV:F3} Market:{Market:F3} Edge:{Edge:F3}",
+            asset.Symbol, direction, effectiveDelta, confidence, fairValue, marketPrice, edge);
+
+        return Result<Signal>.Success(signal);
+    }
+
     /// <summary>
     /// Signal generation with pre-determined direction from worker.
     /// Skips Layer 1 (regime) and Layer 2 (direction) — only does validation, confirmation, sizing.

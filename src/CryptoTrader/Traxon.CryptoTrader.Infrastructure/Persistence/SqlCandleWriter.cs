@@ -33,11 +33,11 @@ public sealed class SqlCandleWriter : ICandleWriter
                   USING (SELECT @p0 AS Id) AS source ON target.Id = source.Id
                   WHEN NOT MATCHED THEN
                       INSERT (Id, Symbol, [Interval], OpenTime, CloseTime,
-                          [Open], High, Low, [Close], Volume, QuoteVolume, TradeCount, IsClosed)
-                      VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6, @p7, @p8, @p9, @p10, @p11, @p12)
+                          [Open], High, Low, [Close], Volume, QuoteVolume, TradeCount, IsClosed, TakerBuyBaseVolume)
+                      VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6, @p7, @p8, @p9, @p10, @p11, @p12, @p13)
                   WHEN MATCHED THEN
                       UPDATE SET [Open] = @p5, High = @p6, Low = @p7, [Close] = @p8,
-                          Volume = @p9, QuoteVolume = @p10, TradeCount = @p11, IsClosed = @p12;";
+                          Volume = @p9, QuoteVolume = @p10, TradeCount = @p11, IsClosed = @p12, TakerBuyBaseVolume = @p13;";
             cmd.Parameters.Add(new SqlParameter("@p0", candle.Id));
             cmd.Parameters.Add(new SqlParameter("@p1", candle.Asset.Symbol));
             cmd.Parameters.Add(new SqlParameter("@p2", candle.TimeFrame.Value));
@@ -51,6 +51,7 @@ public sealed class SqlCandleWriter : ICandleWriter
             cmd.Parameters.Add(new SqlParameter("@p10", System.Data.SqlDbType.Decimal) { Precision = 18, Scale = 8, Value = candle.QuoteVolume });
             cmd.Parameters.Add(new SqlParameter("@p11", candle.TradeCount));
             cmd.Parameters.Add(new SqlParameter("@p12", candle.IsClosed));
+            cmd.Parameters.Add(new SqlParameter("@p13", System.Data.SqlDbType.Decimal) { Precision = 18, Scale = 8, Value = candle.TakerBuyBaseVolume });
             await cmd.ExecuteNonQueryAsync(ct);
         }
         catch (OperationCanceledException) { /* shutdown */ }

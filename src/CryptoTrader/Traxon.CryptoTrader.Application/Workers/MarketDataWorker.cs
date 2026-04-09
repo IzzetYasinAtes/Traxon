@@ -124,10 +124,6 @@ public sealed class MarketDataWorker : BackgroundService
         _publisher.PublishCandleUpdate(candle.ToCandleDto());
         WriteCandleAsync(candle);
 
-        // Trigger signal pipeline every 5 minutes (at Polymarket window boundaries).
-        // Binance 1m candle CloseTime = OpenTime + 1 minute, so the candle closing a
-        // 5-minute window has OpenTime at :04, :09, :14, … :59 (i.e. (minute+1) % 5 == 0).
-        // This ensures signals fire exactly when the 5-min window ends (:05, :10, … :00 UTC).
         if ((candle.OpenTime.Minute + 1) % 5 == 0 && candle.OpenTime.Second == 0)
             await RunSignalPipelineAsync(candle);
 
@@ -183,22 +179,9 @@ public sealed class MarketDataWorker : BackgroundService
         var indicatorResult = _indicatorCalculator.Calculate(
             candle.Asset, TimeFrame.OneMinute, oneMinCandles);
 
-        if (indicatorResult.IsFailure)
-        {
-            _logger.LogWarning("Indicator calc failed for {Symbol}/1m: {Error}",
-                candle.Asset.Symbol, indicatorResult.Error!.Message);
-            return;
-        }
+        if (indicatorResult.IsFailure) return;
 
         var indicators = indicatorResult.Value!;
-        _logger.LogInformation(
-            "{Symbol}/1m — RSI:{Rsi:F1} MACD:{Macd:F6} BB({Lower:F2}/{Upper:F2}) ATR:{Atr:F6} Bulls:{Bulls}/5",
-            candle.Asset.Symbol,
-            indicators.Rsi.Value,
-            indicators.Macd.Histogram,
-            indicators.BollingerBands.Lower, indicators.BollingerBands.Upper,
-            indicators.Atr.Value,
-            indicators.BullishCount());
 
         await TryGenerateAndDispatchSignalAsync(candle, oneMinCandles, indicators);
     }
@@ -208,98 +191,138 @@ public sealed class MarketDataWorker : BackgroundService
         IReadOnlyList<Candle> oneMinCandles,
         Domain.Indicators.TechnicalIndicators indicators)
     {
-        // ── Regime Detection + Direction (moved from AdaptiveSignalGenerator) ──
-        var zScore     = ZScoreCalculator.Compute(oneMinCandles);
-        var hurst      = HurstCalculator.Compute(oneMinCandles, 120);
-        var takerRatio = TakerRatioCalculator.Compute(oneMinCandles, 5);
+        if (oneMinCandles.Count < 60) return;
 
-        // Random walk regime — skip entirely
-        if (hurst >= 0.45m && hurst <= 0.55m)
-        {
-            _logger.LogDebug("Random walk (H={H:F3}) for {Symbol}, skipping", hurst, candle.Asset.Symbol);
-            return;
-        }
+        // ======================================================
+        // LOOP 19: OFI DELTA (1v3) + VWAP Z-SCORE + VOLATILITY GATE
+        // Simpler, faster OFI. No UP bias. Volatility gate skips flat markets.
+        // ======================================================
 
-        string? direction = null;
-        if (hurst < 0.45m) // Mean reverting
-        {
-            if (zScore > 1.6m)       direction = "Down";
-            else if (zScore < -2.0m)  direction = "Up";
-        }
-        else // Trending (H > 0.55)
-        {
-            var recentMomentum = oneMinCandles.Count >= 4
-                ? (oneMinCandles[^1].Close - oneMinCandles[^4].Close) / oneMinCandles[^4].Close
-                : 0m;
-            if (recentMomentum > 0 && takerRatio > 0.55m)      direction = "Up";
-            else if (recentMomentum < 0 && takerRatio < 0.45m)  direction = "Down";
-        }
-
-        if (direction is null)
-        {
-            _logger.LogDebug("No direction for {Symbol}: H={H:F3} Z={Z:F2} Taker={T:F3}",
-                candle.Asset.Symbol, hurst, zScore, takerRatio);
-            return;
-        }
-
-        // ── Market Discovery + Midpoint (direction is now authoritative) ──
         var baseAsset = candle.Asset.Symbol.Replace("USDT", "");
 
-        var discoverResult = await _discovery.DiscoverMarketsAsync();
-        if (discoverResult.IsFailure)
+        // === FEATURE 1: OFI Delta (1-bar recent vs 3-bar baseline) ===
+        // Shorter lookback = fresher signal (microstructure research)
+        var lastBar = oneMinCandles[^1];
+        var ofiRecentRatio = lastBar.Volume > 0 ? lastBar.TakerBuyBaseVolume / lastBar.Volume : 0.5m;
+
+        var ofiBaseline = 0m; var volBaseline = 0m;
+        for (int i = oneMinCandles.Count - 4; i < oneMinCandles.Count - 1; i++)
         {
-            _logger.LogWarning("Polymarket market discovery failed for {Symbol}, skipping signal", candle.Asset.Symbol);
-            return;
+            ofiBaseline += oneMinCandles[i].TakerBuyBaseVolume;
+            volBaseline += oneMinCandles[i].Volume;
         }
+        var ofiBaselineRatio = volBaseline > 0 ? ofiBaseline / volBaseline : 0.5m;
+
+        var ofiDelta = ofiRecentRatio - ofiBaselineRatio;
+        var scoreOFI = Math.Clamp(ofiDelta * 15m, -1m, 1m);
+
+        // === FEATURE 2: VWAP Z-Score (mean reversion at extremes) ===
+        var vwapSum = 0m; var vwapVolSum = 0m;
+        var vwapLookback = Math.Min(60, oneMinCandles.Count);
+        for (int i = oneMinCandles.Count - vwapLookback; i < oneMinCandles.Count; i++)
+        {
+            vwapSum += oneMinCandles[i].Close * oneMinCandles[i].Volume;
+            vwapVolSum += oneMinCandles[i].Volume;
+        }
+        var vwap = vwapVolSum > 0 ? vwapSum / vwapVolSum : oneMinCandles[^1].Close;
+        var vwapVarSum = 0m;
+        for (int i = oneMinCandles.Count - vwapLookback; i < oneMinCandles.Count; i++)
+        {
+            var diff = oneMinCandles[i].Close - vwap;
+            vwapVarSum += diff * diff * oneMinCandles[i].Volume;
+        }
+        var vwapStd = vwapVolSum > 0 ? (decimal)Math.Sqrt((double)(vwapVarSum / vwapVolSum)) : 1m;
+        var vwapZ = vwapStd > 0.000001m ? (oneMinCandles[^1].Close - vwap) / vwapStd : 0m;
+        var scoreVWAP = Math.Clamp(-vwapZ / 2.0m, -1m, 1m);
+
+        // === VOLATILITY GATE (skip flat markets, boost conviction moves) ===
+        // Parkinson volatility: last 3 bars vs last 10 bars
+        var volShort = 0m;
+        for (int i = oneMinCandles.Count - 3; i < oneMinCandles.Count; i++)
+        {
+            var hl = oneMinCandles[i].High - oneMinCandles[i].Low;
+            var mid = (oneMinCandles[i].High + oneMinCandles[i].Low) / 2m;
+            if (mid > 0) volShort += (hl / mid) * (hl / mid);
+        }
+        volShort = (decimal)Math.Sqrt((double)(volShort / 3m));
+
+        var volLong = 0m;
+        for (int i = oneMinCandles.Count - 10; i < oneMinCandles.Count; i++)
+        {
+            var hl = oneMinCandles[i].High - oneMinCandles[i].Low;
+            var mid = (oneMinCandles[i].High + oneMinCandles[i].Low) / 2m;
+            if (mid > 0) volLong += (hl / mid) * (hl / mid);
+        }
+        volLong = (decimal)Math.Sqrt((double)(volLong / 10m));
+
+        var volExpansion = volLong > 0 ? volShort / volLong : 1m;
+
+        // === COMPOSITE SCORE ===
+        const decimal wOFI = 0.65m;
+        const decimal wVWAP = 0.35m;
+
+        var compositeScore = wOFI * scoreOFI + wVWAP * scoreVWAP;
+
+        // Volatility gate: expanding vol = boost, contracting = discount
+        if (volExpansion > 1.5m)
+            compositeScore *= 1.2m; // conviction move
+        else if (volExpansion < 0.7m)
+            compositeScore *= 0.5m; // flat market, likely noise
+
+        // === VOLUME FILTER (skip dead markets) ===
+        var volRecent5 = 0m;
+        for (int i = oneMinCandles.Count - 5; i < oneMinCandles.Count; i++)
+            volRecent5 += oneMinCandles[i].Volume;
+        volRecent5 /= 5m;
+        var volAvg20 = 0m;
+        for (int i = oneMinCandles.Count - 20; i < oneMinCandles.Count; i++)
+            volAvg20 += oneMinCandles[i].Volume;
+        volAvg20 /= 20m;
+        var volRatio = volAvg20 > 0 ? volRecent5 / volAvg20 : 1m;
+
+        if (volRatio < 0.3m) return;
+
+        // === MINIMUM THRESHOLD ===
+        if (Math.Abs(compositeScore) < 0.05m) return;
+
+        string direction = compositeScore > 0 ? "Up" : "Down";
+        var effectiveDelta = compositeScore / 3.0m;
+
+        _logger.LogInformation(
+            "{Symbol} L19 | OFI:{OFI:F3} VWAP:{VW:F3} VolExp:{VE:F2} | Score:{S:F3} Dir:{D}",
+            candle.Asset.Symbol, scoreOFI, scoreVWAP, volExpansion, compositeScore, direction);
+
+        // === Market Discovery + Entry ===
+        var discoverResult = await _discovery.DiscoverMarketsAsync();
+        if (discoverResult.IsFailure) return;
 
         var market = discoverResult.Value!
             .FirstOrDefault(m => m.UnderlyingAsset.Equals(baseAsset, StringComparison.OrdinalIgnoreCase)
                               && m.Direction == direction);
-        if (market is null)
-        {
-            _logger.LogDebug("No Polymarket market for {Symbol} {Direction}, skipping signal", candle.Asset.Symbol, direction);
-            return;
-        }
+        if (market is null) return;
 
         var midResult = await _polyClient.GetMidpointAsync(market.RelevantTokenId);
-        if (midResult.IsFailure)
-        {
-            _logger.LogWarning("Polymarket midpoint failed for {Symbol}, skipping signal", candle.Asset.Symbol);
-            return;
-        }
+        if (midResult.IsFailure) return;
 
         var marketPrice = midResult.Value;
+        if (direction == "Down") marketPrice = 1m - marketPrice;
 
-        // FairValue = P(Up). Down token midpoint = P(Down). Convert to same basis.
-        if (direction == "Down")
-            marketPrice = 1m - marketPrice;
-
-        // Convert string direction to enum for the generator
         var signalDirection = direction == "Up" ? SignalDirection.Up : SignalDirection.Down;
 
-        // Signal uses TimeFrame.FiveMinute for DB record since signals fire every 5 minutes
-        // Pass direction explicitly so the generator validates/sizes without re-determining direction
         var signalResult = _signalGenerator.Generate(
             candle.Asset, TimeFrame.FiveMinute, oneMinCandles,
-            marketPrice, indicators, signalDirection);
+            marketPrice, indicators, signalDirection, effectiveDelta);
 
         if (signalResult.IsSuccess)
         {
             var sig = signalResult.Value!;
             _logger.LogInformation(
-                ">>> SIGNAL: {Symbol}/5m {Direction} | FV:{FV:F3} Market:{Market:F3} Edge:{Edge:F3} " +
-                "Kelly:{Kelly:F4} Regime:{Regime} Bulls:{Bulls}/5",
-                sig.Asset.Symbol, sig.Direction,
-                sig.FairValue, sig.MarketPrice, sig.Edge, sig.KellyFraction, sig.Regime,
-                sig.Indicators.BullishCount());
+                ">>> SIGNAL: {Symbol}/5m {Direction} | FV:{FV:F3} Market:{Market:F3} Edge:{Edge:F3} Score:{Score:F3}",
+                sig.Asset.Symbol, sig.Direction, sig.FairValue, sig.MarketPrice, sig.Edge, compositeScore);
 
             _publisher.PublishSignalGenerated(sig.ToDto());
+            await Task.Delay(2000); // Golden Rule 2: T=0+2s entry
             await DispatchToEnginesAsync(sig);
-        }
-        else
-        {
-            _logger.LogDebug("No signal: {Symbol}/5m — {Reason}",
-                candle.Asset.Symbol, signalResult.Error!.Code);
         }
     }
 
@@ -310,16 +333,14 @@ public sealed class MarketDataWorker : BackgroundService
             var openResult = await engine.OpenPositionAsync(sig);
             if (openResult.IsFailure)
             {
-                _logger.LogDebug(
-                    "[{Engine}] OpenPosition skipped: {Reason}",
+                _logger.LogDebug("[{Engine}] OpenPosition skipped: {Reason}",
                     engine.EngineName, openResult.Error!.Code);
                 return (engine.EngineName, false, (string?)openResult.Error!.Code, (Guid?)null);
             }
             else if (openResult.Value is not null)
             {
                 var trade = openResult.Value;
-                _logger.LogInformation(
-                    "Trade opened: {Engine} {Symbol} {Direction} size:{Size:F2}",
+                _logger.LogInformation("Trade opened: {Engine} {Symbol} {Direction} size:{Size:F2}",
                     engine.EngineName, sig.Asset.Symbol, sig.Direction, trade.PositionSize);
                 _publisher.PublishTradeOpened(trade.ToDto());
                 return (engine.EngineName, true, (string?)null, (Guid?)trade.Id);

@@ -6,7 +6,7 @@ namespace Traxon.CryptoTrader.Domain.Market;
 /// </summary>
 public static class ZScoreCalculator
 {
-    private const int WindowMinutes = 120;
+    private const int WindowMinutes = 30;
     private const int ReturnPeriodMinutes = 5;
 
     /// <summary>
@@ -22,14 +22,14 @@ public static class ZScoreCalculator
             ? oneMinuteCandles.Skip(oneMinuteCandles.Count - WindowMinutes).ToList()
             : oneMinuteCandles.ToList();
 
-        // Group into 5-candle blocks and compute returns
+        // Overlapping 5-bar rolling returns for more statistical samples
         var returns = new List<decimal>();
-        for (var i = 0; i + ReturnPeriodMinutes <= recentCandles.Count; i += ReturnPeriodMinutes)
+        for (var i = ReturnPeriodMinutes; i < recentCandles.Count; i++)
         {
-            var blockOpen  = recentCandles[i].Open;
-            var blockClose = recentCandles[i + ReturnPeriodMinutes - 1].Close;
-            if (blockOpen > 0)
-                returns.Add((blockClose - blockOpen) / blockOpen);
+            var open = recentCandles[i - ReturnPeriodMinutes].Close;
+            var close = recentCandles[i].Close;
+            if (open > 0)
+                returns.Add((close - open) / open);
         }
 
         if (returns.Count < 3)

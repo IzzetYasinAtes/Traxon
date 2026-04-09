@@ -29,6 +29,16 @@ public interface ITradeLogger
     Task<PortfolioSnapshotDto?> GetLatestSnapshotAsync(string engineName, CancellationToken ct = default);
 
     /// <summary>
+    /// Belirtilen engine icin kapanmis trade'lerin toplam realized PnL'ini doner.
+    /// </summary>
+    Task<decimal> GetRealizedPnLAsync(string engineName, CancellationToken ct = default);
+
+    /// <summary>
+    /// Belirtilen engine icin kapanmis trade'lerin win/loss sayilarini doner.
+    /// </summary>
+    Task<(int wins, int losses)> GetClosedTradeCountsAsync(string engineName, CancellationToken ct = default);
+
+    /// <summary>
     /// Sinyal ve tum engine sonuclarini (accept/reject) birlikte DB'ye yazar.
     /// </summary>
     Task LogSignalWithResultsAsync(

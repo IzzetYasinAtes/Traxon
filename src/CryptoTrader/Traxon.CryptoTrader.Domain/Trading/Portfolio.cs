@@ -47,8 +47,9 @@ public sealed class Portfolio : AggregateRoot<Guid>
     {
         if (position.PositionSize > MaxPositionSize)
             return Result<Position>.Failure(Error.PortfolioInsufficient);
-        if (TotalExposure + position.PositionSize > MaxExposure)
-            return Result<Position>.Failure(Error.PortfolioInsufficient);
+        // MaxExposure check removed — Balance check alone is sufficient.
+        // Old %90 limit was blocking trades when many positions were open
+        // waiting for Gamma API resolution (10-15min), causing 100+ rejections.
         if (Balance < position.PositionSize)
             return Result<Position>.Failure(Error.PortfolioInsufficient);
 
@@ -70,6 +71,22 @@ public sealed class Portfolio : AggregateRoot<Guid>
         if (outcome == TradeOutcome.Win) WinCount++;
         else LossCount++;
 
+        Version++;
+    }
+
+    /// <summary>
+    /// DB'den gelen realized PnL, win/loss sayilari ve acik pozisyon exposure ile
+    /// in-memory state'i senkronize eder. DB single source of truth olarak kullanilir.
+    /// TotalExposure yerine DB'den gelen openExposure kullanilir — ghost position drift'i onler.
+    /// </summary>
+    public void SyncFromDb(decimal realizedPnL, int winCount, int lossCount, decimal openExposure)
+    {
+        TotalPnL = realizedPnL;
+        WinCount = winCount;
+        LossCount = lossCount;
+        // Balance = initial + realized earnings - what's locked in open positions (from DB)
+        // Using DB openExposure instead of in-memory TotalExposure prevents ghost position bugs
+        Balance = InitialBalance + realizedPnL - openExposure;
         Version++;
     }
 }

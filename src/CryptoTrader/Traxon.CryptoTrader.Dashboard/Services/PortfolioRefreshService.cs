@@ -43,7 +43,7 @@ public sealed class PortfolioRefreshService : BackgroundService
                     var dto = new PortfolioDto(
                         Engine:            snap.Engine,
                         Balance:           snap.Balance,
-                        InitialBalance:    snap.Balance - snap.TotalPnL,
+                        InitialBalance:    snap.Balance - snap.TotalPnL + snap.TotalExposure,
                         TotalPnL:          snap.TotalPnL,
                         WinCount:          winCount,
                         LossCount:         lossCount,

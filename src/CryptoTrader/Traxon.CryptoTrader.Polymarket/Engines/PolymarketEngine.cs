@@ -80,16 +80,30 @@ public sealed class PolymarketEngine : ITradingEngine, IAsyncDisposable
                     ? (int)Math.Round(snapshot.WinRate.Value * snapshot.TradeCount)
                     : 0;
                 var lossCount = snapshot.TradeCount - winCount;
-                _portfolio.Restore(snapshot.Balance, snapshot.TotalPnL, winCount, lossCount);
+                // Use DB-calculated realized PnL instead of snapshot.TotalPnL to prevent drift.
+                var realPnL = await _tradeLogger.GetRealizedPnLAsync(EngineName, ct);
+                var unencumberedBalance = InitialBalance + realPnL;
+                _portfolio.Restore(unencumberedBalance, realPnL, winCount, lossCount);
                 _logger.LogInformation(
-                    "[LivePoly] Portfolio restored: Balance:{Balance:F2} PnL:{PnL:F2} W:{Win} L:{Loss}",
-                    snapshot.Balance, snapshot.TotalPnL, winCount, lossCount);
+                    "[LivePoly] Portfolio restored: Balance:{Balance:F2} (unencumbered) PnL:{PnL:F2} (snapshot had:{SnapshotPnL:F2}) W:{Win} L:{Loss}",
+                    unencumberedBalance, realPnL, snapshot.TotalPnL, winCount, lossCount);
             }
 
             var openTrades = await _tradeLogger.GetOpenTradesAsync(EngineName, ct);
             foreach (var trade in openTrades ?? [])
             {
                 _openTrades[trade.Id] = trade;
+
+                // Restore token ID from EntryReason ("...OrderId:XXX" or "...Token:XXX")
+                var reason = trade.EntryReason ?? "";
+                var tokenPrefix = "Token:";
+                var tokenIdx = reason.IndexOf(tokenPrefix, StringComparison.Ordinal);
+                if (tokenIdx >= 0)
+                {
+                    var tokenId = reason[(tokenIdx + tokenPrefix.Length)..].Trim();
+                    if (!string.IsNullOrEmpty(tokenId))
+                        _tradeToTokenId[trade.Id] = tokenId;
+                }
 
                 var position = new Position(
                     asset:        trade.Asset,
@@ -124,6 +138,9 @@ public sealed class PolymarketEngine : ITradingEngine, IAsyncDisposable
     {
         await EnsureInitializedAsync(ct);
 
+        // Always sync portfolio from DB before opening — prevents ghost position / PnL drift
+        await SyncPortfolioFromDbAsync(ct);
+
         if (!_options.Enabled)
             return Result<Trade>.Failure(Error.Disabled);
 
@@ -134,7 +151,8 @@ public sealed class PolymarketEngine : ITradingEngine, IAsyncDisposable
         try
         {
             // Polymarket 5-min window boundary: epoch % 300 == 0
-            var unixNow = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            // +3s buffer handles T=0 entry where signal fires at :59.9 (candle boundary)
+            var unixNow = DateTimeOffset.UtcNow.ToUnixTimeSeconds() + 3;
             var currentWindowStart = DateTimeOffset.FromUnixTimeSeconds(unixNow - (unixNow % 300)).UtcDateTime;
             if (_openTrades.Values.Any(t => t.Asset == signal.Asset && t.OpenedAt >= currentWindowStart))
                 return Result<Trade>.Failure(Error.DuplicatePosition);
@@ -365,6 +383,30 @@ public sealed class PolymarketEngine : ITradingEngine, IAsyncDisposable
                     "[LivePoly] Trade RESOLVED: {Symbol} {Direction} Exit:{Exit:F2} PnL:{PnL:F4} Outcome:{Outcome}",
                     trade.Asset.Symbol, trade.Direction, exitPrice, pnl, outcome);
             }
+        }
+
+        // Periodic Portfolio sync from DB (prevents PnL drift)
+        await SyncPortfolioFromDbAsync(ct);
+    }
+
+    private async Task SyncPortfolioFromDbAsync(CancellationToken ct)
+    {
+        try
+        {
+            var realPnL = await _tradeLogger.GetRealizedPnLAsync(EngineName, ct);
+            var closedTrades = await _tradeLogger.GetClosedTradeCountsAsync(EngineName, ct);
+            var openTrades = await _tradeLogger.GetOpenTradesAsync(EngineName, ct);
+            var openExposure = openTrades?.Sum(t => t.PositionSize) ?? 0m;
+
+            _portfolio.SyncFromDb(realPnL, closedTrades.wins, closedTrades.losses, openExposure);
+
+            _logger.LogDebug(
+                "[LivePoly] DB sync: PnL:{PnL:F4} W:{W} L:{L} OpenExposure:{Exp:F2} Balance:{Bal:F2}",
+                realPnL, closedTrades.wins, closedTrades.losses, openExposure, _portfolio.Balance);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[LivePoly] Portfolio sync failed, will retry next cycle");
         }
     }
 

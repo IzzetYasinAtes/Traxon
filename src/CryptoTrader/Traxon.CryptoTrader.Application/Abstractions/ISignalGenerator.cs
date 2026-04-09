@@ -41,4 +41,16 @@ public interface ISignalGenerator
         TechnicalIndicators precomputedIndicators,
         SignalDirection direction);
 
+    /// <summary>
+    /// Ensemble scoring: direction + effectiveDelta from worker composite score.
+    /// </summary>
+    Result<Signal> Generate(
+        Asset asset,
+        TimeFrame timeFrame,
+        IReadOnlyList<Candle> candles,
+        decimal marketPrice,
+        TechnicalIndicators precomputedIndicators,
+        SignalDirection direction,
+        decimal effectiveDelta);
+
 }
