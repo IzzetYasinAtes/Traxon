@@ -34,6 +34,11 @@ public interface ITradeLogger
     Task<decimal> GetRealizedPnLAsync(string engineName, CancellationToken ct = default);
 
     /// <summary>
+    /// Belirtilen engine icin kapanmis trade'lerin win/loss sayilarini doner.
+    /// </summary>
+    Task<(int wins, int losses)> GetClosedTradeCountsAsync(string engineName, CancellationToken ct = default);
+
+    /// <summary>
     /// Sinyal ve tum engine sonuclarini (accept/reject) birlikte DB'ye yazar.
     /// </summary>
     Task LogSignalWithResultsAsync(

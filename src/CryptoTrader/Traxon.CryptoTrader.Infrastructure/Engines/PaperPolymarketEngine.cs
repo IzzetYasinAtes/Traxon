@@ -356,5 +356,22 @@ public sealed class PaperPolymarketEngine : ITradingEngine
                     trade.Asset.Symbol, trade.Direction, exitPrice, pnl, outcome);
             }
         }
+
+        // Periodic Portfolio sync from DB (prevents PnL drift)
+        await SyncPortfolioFromDbAsync(ct);
+    }
+
+    private async Task SyncPortfolioFromDbAsync(CancellationToken ct)
+    {
+        try
+        {
+            var realPnL = await _tradeLogger.GetRealizedPnLAsync(EngineName, ct);
+            var closedTrades = await _tradeLogger.GetClosedTradeCountsAsync(EngineName, ct);
+            _portfolio.SyncPnL(realPnL, closedTrades.wins, closedTrades.losses);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[PaperPoly] Portfolio sync failed, will retry next cycle");
+        }
     }
 }

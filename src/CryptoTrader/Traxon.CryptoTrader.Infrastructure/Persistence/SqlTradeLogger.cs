@@ -135,6 +135,22 @@ public sealed class SqlTradeLogger : ITradeLogger
         }
     }
 
+    public async Task<(int wins, int losses)> GetClosedTradeCountsAsync(string engineName, CancellationToken ct = default)
+    {
+        try
+        {
+            await using var db = await _dbFactory.CreateDbContextAsync(ct);
+            var wins = await db.Trades.CountAsync(t => t.Engine == engineName && t.Status == TradeStatus.Closed && t.Outcome == TradeOutcome.Win, ct);
+            var losses = await db.Trades.CountAsync(t => t.Engine == engineName && t.Status == TradeStatus.Closed && t.Outcome == TradeOutcome.Loss, ct);
+            return (wins, losses);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get closed trade counts for engine: {Engine}", engineName);
+            return (0, 0);
+        }
+    }
+
     public async Task LogSignalWithResultsAsync(
         Signal signal,
         IReadOnlyList<(string engineName, bool accepted, string? rejectionCode, Guid? tradeId)> engineResults,

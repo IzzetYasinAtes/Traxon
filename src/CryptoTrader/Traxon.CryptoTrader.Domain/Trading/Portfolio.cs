@@ -73,4 +73,17 @@ public sealed class Portfolio : AggregateRoot<Guid>
 
         Version++;
     }
+
+    /// <summary>
+    /// DB'den gelen realized PnL ile in-memory state'i senkronize eder.
+    /// Race condition veya DB write hatalarından kaynaklanan drift'i düzeltir.
+    /// </summary>
+    public void SyncPnL(decimal dbTotalPnL, int dbWinCount, int dbLossCount)
+    {
+        TotalPnL = dbTotalPnL;
+        WinCount = dbWinCount;
+        LossCount = dbLossCount;
+        // Recalculate balance from source of truth
+        Balance = InitialBalance + dbTotalPnL - TotalExposure;
+    }
 }
