@@ -75,15 +75,18 @@ public sealed class Portfolio : AggregateRoot<Guid>
     }
 
     /// <summary>
-    /// DB'den gelen realized PnL ile in-memory state'i senkronize eder.
-    /// Race condition veya DB write hatalarından kaynaklanan drift'i düzeltir.
+    /// DB'den gelen realized PnL, win/loss sayilari ve acik pozisyon exposure ile
+    /// in-memory state'i senkronize eder. DB single source of truth olarak kullanilir.
+    /// TotalExposure yerine DB'den gelen openExposure kullanilir — ghost position drift'i onler.
     /// </summary>
-    public void SyncPnL(decimal dbTotalPnL, int dbWinCount, int dbLossCount)
+    public void SyncFromDb(decimal realizedPnL, int winCount, int lossCount, decimal openExposure)
     {
-        TotalPnL = dbTotalPnL;
-        WinCount = dbWinCount;
-        LossCount = dbLossCount;
-        // Recalculate balance from source of truth
-        Balance = InitialBalance + dbTotalPnL - TotalExposure;
+        TotalPnL = realizedPnL;
+        WinCount = winCount;
+        LossCount = lossCount;
+        // Balance = initial + realized earnings - what's locked in open positions (from DB)
+        // Using DB openExposure instead of in-memory TotalExposure prevents ghost position bugs
+        Balance = InitialBalance + realizedPnL - openExposure;
+        Version++;
     }
 }

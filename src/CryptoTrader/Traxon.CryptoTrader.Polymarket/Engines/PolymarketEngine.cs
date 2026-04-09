@@ -138,6 +138,9 @@ public sealed class PolymarketEngine : ITradingEngine, IAsyncDisposable
     {
         await EnsureInitializedAsync(ct);
 
+        // Always sync portfolio from DB before opening — prevents ghost position / PnL drift
+        await SyncPortfolioFromDbAsync(ct);
+
         if (!_options.Enabled)
             return Result<Trade>.Failure(Error.Disabled);
 
@@ -392,7 +395,14 @@ public sealed class PolymarketEngine : ITradingEngine, IAsyncDisposable
         {
             var realPnL = await _tradeLogger.GetRealizedPnLAsync(EngineName, ct);
             var closedTrades = await _tradeLogger.GetClosedTradeCountsAsync(EngineName, ct);
-            _portfolio.SyncPnL(realPnL, closedTrades.wins, closedTrades.losses);
+            var openTrades = await _tradeLogger.GetOpenTradesAsync(EngineName, ct);
+            var openExposure = openTrades?.Sum(t => t.PositionSize) ?? 0m;
+
+            _portfolio.SyncFromDb(realPnL, closedTrades.wins, closedTrades.losses, openExposure);
+
+            _logger.LogDebug(
+                "[LivePoly] DB sync: PnL:{PnL:F4} W:{W} L:{L} OpenExposure:{Exp:F2} Balance:{Bal:F2}",
+                realPnL, closedTrades.wins, closedTrades.losses, openExposure, _portfolio.Balance);
         }
         catch (Exception ex)
         {

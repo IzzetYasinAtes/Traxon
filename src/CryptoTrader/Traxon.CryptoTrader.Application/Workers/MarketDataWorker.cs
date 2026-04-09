@@ -194,25 +194,19 @@ public sealed class MarketDataWorker : BackgroundService
         if (oneMinCandles.Count < 60) return;
 
         // ======================================================
-        // LOOP 15: SIMPLE — OFI DELTA + VWAP Z-SCORE + UP BIAS
-        // Only 2 features. No filters stacking. Maximum simplicity.
-        // Research shows: simpler = better at 5-min crypto scale.
+        // LOOP 19: OFI DELTA (1v3) + VWAP Z-SCORE + VOLATILITY GATE
+        // Simpler, faster OFI. No UP bias. Volatility gate skips flat markets.
         // ======================================================
 
         var baseAsset = candle.Asset.Symbol.Replace("USDT", "");
 
-        // === FEATURE 1: OFI Delta (change in order flow, not level) ===
-        // Recent 2 bars vs baseline 5 bars — the SHIFT predicts, not the level
-        var ofiRecent = 0m; var volRecent = 0m;
-        for (int i = oneMinCandles.Count - 2; i < oneMinCandles.Count; i++)
-        {
-            ofiRecent += oneMinCandles[i].TakerBuyBaseVolume;
-            volRecent += oneMinCandles[i].Volume;
-        }
-        var ofiRecentRatio = volRecent > 0 ? ofiRecent / volRecent : 0.5m;
+        // === FEATURE 1: OFI Delta (1-bar recent vs 3-bar baseline) ===
+        // Shorter lookback = fresher signal (microstructure research)
+        var lastBar = oneMinCandles[^1];
+        var ofiRecentRatio = lastBar.Volume > 0 ? lastBar.TakerBuyBaseVolume / lastBar.Volume : 0.5m;
 
         var ofiBaseline = 0m; var volBaseline = 0m;
-        for (int i = oneMinCandles.Count - 7; i < oneMinCandles.Count - 2; i++)
+        for (int i = oneMinCandles.Count - 4; i < oneMinCandles.Count - 1; i++)
         {
             ofiBaseline += oneMinCandles[i].TakerBuyBaseVolume;
             volBaseline += oneMinCandles[i].Volume;
@@ -220,9 +214,7 @@ public sealed class MarketDataWorker : BackgroundService
         var ofiBaselineRatio = volBaseline > 0 ? ofiBaseline / volBaseline : 0.5m;
 
         var ofiDelta = ofiRecentRatio - ofiBaselineRatio;
-        // Positive delta = buyers getting more aggressive = UP
-        // Negative delta = sellers getting more aggressive = DOWN
-        var scoreOFI = Math.Clamp(ofiDelta * 12m, -1m, 1m);
+        var scoreOFI = Math.Clamp(ofiDelta * 15m, -1m, 1m);
 
         // === FEATURE 2: VWAP Z-Score (mean reversion at extremes) ===
         var vwapSum = 0m; var vwapVolSum = 0m;
@@ -241,21 +233,43 @@ public sealed class MarketDataWorker : BackgroundService
         }
         var vwapStd = vwapVolSum > 0 ? (decimal)Math.Sqrt((double)(vwapVarSum / vwapVolSum)) : 1m;
         var vwapZ = vwapStd > 0.000001m ? (oneMinCandles[^1].Close - vwap) / vwapStd : 0m;
-        // Positive Z = above VWAP = overbought = expect DOWN
-        // Negative Z = below VWAP = oversold = expect UP
         var scoreVWAP = Math.Clamp(-vwapZ / 2.0m, -1m, 1m);
 
+        // === VOLATILITY GATE (skip flat markets, boost conviction moves) ===
+        // Parkinson volatility: last 3 bars vs last 10 bars
+        var volShort = 0m;
+        for (int i = oneMinCandles.Count - 3; i < oneMinCandles.Count; i++)
+        {
+            var hl = oneMinCandles[i].High - oneMinCandles[i].Low;
+            var mid = (oneMinCandles[i].High + oneMinCandles[i].Low) / 2m;
+            if (mid > 0) volShort += (hl / mid) * (hl / mid);
+        }
+        volShort = (decimal)Math.Sqrt((double)(volShort / 3m));
+
+        var volLong = 0m;
+        for (int i = oneMinCandles.Count - 10; i < oneMinCandles.Count; i++)
+        {
+            var hl = oneMinCandles[i].High - oneMinCandles[i].Low;
+            var mid = (oneMinCandles[i].High + oneMinCandles[i].Low) / 2m;
+            if (mid > 0) volLong += (hl / mid) * (hl / mid);
+        }
+        volLong = (decimal)Math.Sqrt((double)(volLong / 10m));
+
+        var volExpansion = volLong > 0 ? volShort / volLong : 1m;
+
         // === COMPOSITE SCORE ===
-        // OFI Delta: 60% weight (strongest short-term predictor from research)
-        // VWAP Z-Score: 30% weight (mean reversion at extremes)
-        // UP Bias: 10% weight (51% of 5-min candles are green, flat=UP in Polymarket)
-        const decimal wOFI = 0.60m;
-        const decimal wVWAP = 0.30m;
-        const decimal upBias = 0.05m; // small constant UP nudge
+        const decimal wOFI = 0.65m;
+        const decimal wVWAP = 0.35m;
 
-        var compositeScore = wOFI * scoreOFI + wVWAP * scoreVWAP + upBias;
+        var compositeScore = wOFI * scoreOFI + wVWAP * scoreVWAP;
 
-        // === VOLUME FILTER ONLY (skip dead markets, not a signal) ===
+        // Volatility gate: expanding vol = boost, contracting = discount
+        if (volExpansion > 1.5m)
+            compositeScore *= 1.2m; // conviction move
+        else if (volExpansion < 0.7m)
+            compositeScore *= 0.5m; // flat market, likely noise
+
+        // === VOLUME FILTER (skip dead markets) ===
         var volRecent5 = 0m;
         for (int i = oneMinCandles.Count - 5; i < oneMinCandles.Count; i++)
             volRecent5 += oneMinCandles[i].Volume;
@@ -266,25 +280,17 @@ public sealed class MarketDataWorker : BackgroundService
         volAvg20 /= 20m;
         var volRatio = volAvg20 > 0 ? volRecent5 / volAvg20 : 1m;
 
-        if (volRatio < 0.3m)
-        {
-            _logger.LogDebug("{Symbol} dead market, volRatio={VR:F2}", candle.Asset.Symbol, volRatio);
-            return;
-        }
+        if (volRatio < 0.3m) return;
 
-        // === MINIMUM THRESHOLD (single, same for all coins) ===
-        if (Math.Abs(compositeScore) < 0.06m)
-        {
-            _logger.LogDebug("{Symbol} score too weak: {Score:F3}", candle.Asset.Symbol, compositeScore);
-            return;
-        }
+        // === MINIMUM THRESHOLD ===
+        if (Math.Abs(compositeScore) < 0.05m) return;
 
         string direction = compositeScore > 0 ? "Up" : "Down";
         var effectiveDelta = compositeScore / 3.0m;
 
         _logger.LogInformation(
-            "{Symbol} L15 | OFI:{OFI:F3} VWAP:{VW:F3} | Score:{S:F3} Dir:{D} VolR:{VR:F2}",
-            candle.Asset.Symbol, scoreOFI, scoreVWAP, compositeScore, direction, volRatio);
+            "{Symbol} L19 | OFI:{OFI:F3} VWAP:{VW:F3} VolExp:{VE:F2} | Score:{S:F3} Dir:{D}",
+            candle.Asset.Symbol, scoreOFI, scoreVWAP, volExpansion, compositeScore, direction);
 
         // === Market Discovery + Entry ===
         var discoverResult = await _discovery.DiscoverMarketsAsync();
