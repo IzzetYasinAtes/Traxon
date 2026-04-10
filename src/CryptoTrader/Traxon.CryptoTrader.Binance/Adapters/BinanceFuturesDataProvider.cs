@@ -46,6 +46,28 @@ public sealed class BinanceFuturesDataProvider : IFuturesDataProvider
     public decimal GetOpenInterest(string symbol)
         => _openInterest.TryGetValue(symbol, out var oi) ? oi : 0m;
 
+    public decimal GetOrderBookMomentum(string symbol)
+    {
+        if (!_obiHistory.TryGetValue(symbol, out var history))
+            return 0m;
+        lock (history)
+        {
+            if (history.Count < 6) return 0m;
+            var mid = history.Count / 2;
+            var recentAvg = history.Skip(mid).Average();
+            var olderAvg = history.Take(mid).Average();
+            return recentAvg - olderAvg; // positive = OBI accelerating up
+        }
+    }
+
+    public decimal GetOpenInterestChange(string symbol)
+    {
+        if (!_openInterest.TryGetValue(symbol, out var current) ||
+            !_openInterestPrev.TryGetValue(symbol, out var prev) || prev == 0)
+            return 0m;
+        return (current - prev) / prev;
+    }
+
     public decimal GetOrderBookImbalance(string symbol)
     {
         if (!_obiHistory.TryGetValue(symbol, out var history) || history.Count == 0)
