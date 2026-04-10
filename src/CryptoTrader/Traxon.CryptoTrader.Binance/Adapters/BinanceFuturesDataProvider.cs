@@ -25,7 +25,7 @@ public sealed class BinanceFuturesDataProvider : IFuturesDataProvider
     private CancellationTokenSource? _pollCts;
     private Task? _pollTask;
 
-    private const int ObiHistorySize = 12;
+    private const int ObiHistorySize = 30;
     private static readonly decimal[] ObiWeights = [1.0m, 0.5m, 0.25m, 0.125m, 0.0625m];
 
     public BinanceFuturesDataProvider(

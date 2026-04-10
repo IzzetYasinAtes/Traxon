@@ -200,19 +200,24 @@ public sealed class MarketDataWorker : BackgroundService
         if (oneMinCandles.Count < 60) return;
 
         // ======================================================
-        // LOOP 21: OFI DELTA + VWAP Z + OBI + OBI MOMENTUM + OI CHANGE + FUNDING + VOL GATE
-        // Simpler, faster OFI. No UP bias. Volatility gate skips flat markets.
+        // LOOP 24: OFI 2v6 + VWAP Z + OBI 30s + OBI Mom 5x + Confidence 3x/0.75 + OI + FR + VG
+        // Wider OFI lookback, smoother OBI, confidence granularity fix.
         // ======================================================
 
         var baseAsset = candle.Asset.Symbol.Replace("USDT", "");
 
-        // === FEATURE 1: OFI Delta (1-bar recent vs 3-bar baseline) ===
-        // Shorter lookback = fresher signal (microstructure research)
-        var lastBar = oneMinCandles[^1];
-        var ofiRecentRatio = lastBar.Volume > 0 ? lastBar.TakerBuyBaseVolume / lastBar.Volume : 0.5m;
+        // === FEATURE 1: OFI Delta (2-bar recent vs 6-bar baseline) ===
+        // Wider lookback = smoother signal, less noise
+        var ofiRecent = 0m; var volRecent = 0m;
+        for (int i = oneMinCandles.Count - 2; i < oneMinCandles.Count; i++)
+        {
+            ofiRecent += oneMinCandles[i].TakerBuyBaseVolume;
+            volRecent += oneMinCandles[i].Volume;
+        }
+        var ofiRecentRatio = volRecent > 0 ? ofiRecent / volRecent : 0.5m;
 
         var ofiBaseline = 0m; var volBaseline = 0m;
-        for (int i = oneMinCandles.Count - 4; i < oneMinCandles.Count - 1; i++)
+        for (int i = oneMinCandles.Count - 8; i < oneMinCandles.Count - 2; i++)
         {
             ofiBaseline += oneMinCandles[i].TakerBuyBaseVolume;
             volBaseline += oneMinCandles[i].Volume;
@@ -220,7 +225,7 @@ public sealed class MarketDataWorker : BackgroundService
         var ofiBaselineRatio = volBaseline > 0 ? ofiBaseline / volBaseline : 0.5m;
 
         var ofiDelta = ofiRecentRatio - ofiBaselineRatio;
-        var scoreOFI = Math.Clamp(ofiDelta * 15m, -1m, 1m);
+        var scoreOFI = Math.Clamp(ofiDelta * 12m, -1m, 1m);
 
         // === FEATURE 2: VWAP Z-Score (mean reversion at extremes) ===
         var vwapSum = 0m; var vwapVolSum = 0m;
@@ -273,7 +278,7 @@ public sealed class MarketDataWorker : BackgroundService
         const decimal wOBI = 0.40m;
         const decimal wOBIMom = 0.15m;
         var obiMomentum = _futuresData.GetOrderBookMomentum(candle.Asset.Symbol);
-        var scoreOBIMom = Math.Clamp(obiMomentum * 8m, -1m, 1m);
+        var scoreOBIMom = Math.Clamp(obiMomentum * 5m, -1m, 1m);
         var compositeScore = wOFI * scoreOFI + wVWAP * scoreVWAP + wOBI * scoreOBI + wOBIMom * scoreOBIMom;
 
         // === Funding Rate Contrarian Filter (multiplicative) ===
@@ -319,7 +324,7 @@ public sealed class MarketDataWorker : BackgroundService
         var effectiveDelta = compositeScore / 3.0m;
 
         _logger.LogInformation(
-            "{Symbol} L21 | OFI:{OFI:F3} VW:{VW:F3} OBI:{OBI:F3} OBIMom:{OM:F3} OI%:{OI:F3} FR:{FR:F6} VE:{VE:F2} | Score:{S:F3} Dir:{D}",
+            "{Symbol} L24 | OFI:{OFI:F3} VW:{VW:F3} OBI:{OBI:F3} OBIMom:{OM:F3} OI%:{OI:F3} FR:{FR:F6} VE:{VE:F2} | Score:{S:F3} Dir:{D}",
             candle.Asset.Symbol, scoreOFI, scoreVWAP, scoreOBI, scoreOBIMom, oiChange, fundingRate, volExpansion, compositeScore, direction);
 
         // === Market Discovery + Entry ===
