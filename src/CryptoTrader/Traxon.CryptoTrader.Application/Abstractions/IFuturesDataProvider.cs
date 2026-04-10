@@ -9,7 +9,6 @@ public interface IFuturesDataProvider
     decimal GetOrderBookImbalance(string symbol);
     decimal GetOrderBookMomentum(string symbol);
     decimal GetOpenInterestChange(string symbol);
-    decimal GetNormalizedSpread(string symbol);
     Task StartAsync(IReadOnlyList<Asset> assets, CancellationToken ct);
     Task StopAsync(CancellationToken ct);
 }

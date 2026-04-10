@@ -20,9 +20,6 @@ public sealed class BinanceFuturesDataProvider : IFuturesDataProvider
     private readonly ConcurrentDictionary<string, decimal> _openInterestPrev = new();
     private readonly ConcurrentDictionary<string, decimal> _orderBookImbalance = new();
     private readonly ConcurrentDictionary<string, List<decimal>> _obiHistory = new();
-    private readonly ConcurrentDictionary<string, decimal> _normalizedSpread = new();
-    private readonly ConcurrentDictionary<string, List<decimal>> _spreadHistory = new();
-    private const int SpreadHistorySize = 60; // 30 seconds of data at 500ms
 
     private readonly List<UpdateSubscription> _subscriptions = [];
     private CancellationTokenSource? _pollCts;
@@ -69,20 +66,6 @@ public sealed class BinanceFuturesDataProvider : IFuturesDataProvider
             !_openInterestPrev.TryGetValue(symbol, out var prev) || prev == 0)
             return 0m;
         return (current - prev) / prev;
-    }
-
-    public decimal GetNormalizedSpread(string symbol)
-    {
-        if (!_normalizedSpread.TryGetValue(symbol, out var current))
-            return 0m;
-        if (!_spreadHistory.TryGetValue(symbol, out var history))
-            return 0m;
-        lock (history)
-        {
-            if (history.Count < 10) return 0m; // not enough data
-            var avg = history.Average();
-            return avg > 0 ? current / avg : 0m; // ratio: current/average
-        }
     }
 
     public decimal GetOrderBookImbalance(string symbol)
@@ -144,27 +127,6 @@ public sealed class BinanceFuturesDataProvider : IFuturesDataProvider
                     {
                         var bids = data.Data.Bids.Take(5).ToList();
                         var asks = data.Data.Asks.Take(5).ToList();
-
-                        // Spread calculation
-                        if (bids.Count > 0 && asks.Count > 0)
-                        {
-                            var bestBid = bids[0].Price;
-                            var bestAsk = asks[0].Price;
-                            var mid = (bestBid + bestAsk) / 2m;
-                            if (mid > 0)
-                            {
-                                var normSpread = (bestAsk - bestBid) / mid;
-                                _normalizedSpread[asset.Symbol] = normSpread;
-
-                                var spreadHist = _spreadHistory.GetOrAdd(asset.Symbol, _ => new List<decimal>());
-                                lock (spreadHist)
-                                {
-                                    spreadHist.Add(normSpread);
-                                    while (spreadHist.Count > SpreadHistorySize)
-                                        spreadHist.RemoveAt(0);
-                                }
-                            }
-                        }
 
                         var weightedBid = 0m;
                         var weightedAsk = 0m;
