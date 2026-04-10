@@ -200,7 +200,7 @@ public sealed class MarketDataWorker : BackgroundService
         if (oneMinCandles.Count < 60) return;
 
         // ======================================================
-        // LOOP 21: OFI DELTA + VWAP Z + OBI + OBI MOMENTUM + OI CHANGE + FUNDING + VOL GATE
+        // LOOP 22: L21 + Feature Agreement Modifier + OBI Scaling 1.5x
         // Simpler, faster OFI. No UP bias. Volatility gate skips flat markets.
         // ======================================================
 
@@ -265,7 +265,7 @@ public sealed class MarketDataWorker : BackgroundService
 
         // === FEATURE 3: Order Book Imbalance (from L2 depth) ===
         var obi = _futuresData.GetOrderBookImbalance(candle.Asset.Symbol);
-        var scoreOBI = Math.Clamp(obi * 2.0m, -1m, 1m);
+        var scoreOBI = Math.Clamp(obi * 1.5m, -1m, 1m);
 
         // === COMPOSITE SCORE (4 features) ===
         const decimal wOFI = 0.35m;
@@ -275,6 +275,18 @@ public sealed class MarketDataWorker : BackgroundService
         var obiMomentum = _futuresData.GetOrderBookMomentum(candle.Asset.Symbol);
         var scoreOBIMom = Math.Clamp(obiMomentum * 8m, -1m, 1m);
         var compositeScore = wOFI * scoreOFI + wVWAP * scoreVWAP + wOBI * scoreOBI + wOBIMom * scoreOBIMom;
+
+        // Feature agreement: count how many features agree with composite direction
+        var compositeSign = Math.Sign(compositeScore);
+        var agreeCount = 0;
+        if (Math.Sign(scoreOFI) == compositeSign) agreeCount++;
+        if (Math.Sign(scoreVWAP) == compositeSign) agreeCount++;
+        if (Math.Sign(scoreOBI) == compositeSign) agreeCount++;
+
+        if (agreeCount >= 3)
+            compositeScore *= 1.15m; // all features agree = high conviction
+        else if (agreeCount <= 1)
+            compositeScore *= 0.70m; // features disagree = likely noise
 
         // === Funding Rate Contrarian Filter (multiplicative) ===
         var fundingRate = _futuresData.GetFundingRate(candle.Asset.Symbol);
@@ -319,8 +331,8 @@ public sealed class MarketDataWorker : BackgroundService
         var effectiveDelta = compositeScore / 3.0m;
 
         _logger.LogInformation(
-            "{Symbol} L21 | OFI:{OFI:F3} VW:{VW:F3} OBI:{OBI:F3} OBIMom:{OM:F3} OI%:{OI:F3} FR:{FR:F6} VE:{VE:F2} | Score:{S:F3} Dir:{D}",
-            candle.Asset.Symbol, scoreOFI, scoreVWAP, scoreOBI, scoreOBIMom, oiChange, fundingRate, volExpansion, compositeScore, direction);
+            "{Symbol} L22 | OFI:{OFI:F3} VW:{VW:F3} OBI:{OBI:F3} OM:{OM:F3} OI:{OI:F3} FR:{FR:F6} VE:{VE:F2} Agr:{A} | Score:{S:F3} Dir:{D}",
+            candle.Asset.Symbol, scoreOFI, scoreVWAP, scoreOBI, scoreOBIMom, oiChange, fundingRate, volExpansion, agreeCount, compositeScore, direction);
 
         // === Market Discovery + Entry ===
         var discoverResult = await _discovery.DiscoverMarketsAsync();
