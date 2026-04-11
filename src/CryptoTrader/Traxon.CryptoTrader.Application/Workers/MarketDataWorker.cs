@@ -200,8 +200,8 @@ public sealed class MarketDataWorker : BackgroundService
         if (oneMinCandles.Count < 60) return;
 
         // ======================================================
-        // LOOP 24: OFI 2v6 + VWAP Z + OBI 30s + OBI Mom 5x + Confidence 3x/0.75 + OI + FR + VG
-        // Wider OFI lookback, smoother OBI, confidence granularity fix.
+        // LOOP 25: Sqrt scaling (OFI/OBI/Mom) + Fixed confidence 0.60 + OI + FR + VG
+        // Concave scaling compresses extreme values, rewards moderate imbalance.
         // ======================================================
 
         var baseAsset = candle.Asset.Symbol.Replace("USDT", "");
@@ -225,7 +225,8 @@ public sealed class MarketDataWorker : BackgroundService
         var ofiBaselineRatio = volBaseline > 0 ? ofiBaseline / volBaseline : 0.5m;
 
         var ofiDelta = ofiRecentRatio - ofiBaselineRatio;
-        var scoreOFI = Math.Clamp(ofiDelta * 12m, -1m, 1m);
+        var rawOFI = ofiDelta * 12m;
+        var scoreOFI = Math.Clamp(Math.Sign(rawOFI) * (decimal)Math.Sqrt(Math.Abs((double)rawOFI)) * 1.0m, -1m, 1m);
 
         // === FEATURE 2: VWAP Z-Score (mean reversion at extremes) ===
         var vwapSum = 0m; var vwapVolSum = 0m;
@@ -270,7 +271,8 @@ public sealed class MarketDataWorker : BackgroundService
 
         // === FEATURE 3: Order Book Imbalance (from L2 depth) ===
         var obi = _futuresData.GetOrderBookImbalance(candle.Asset.Symbol);
-        var scoreOBI = Math.Clamp(obi * 2.0m, -1m, 1m);
+        var rawOBI = obi * 2.0m;
+        var scoreOBI = Math.Clamp(Math.Sign(rawOBI) * (decimal)Math.Sqrt(Math.Abs((double)rawOBI)) * 1.0m, -1m, 1m);
 
         // === COMPOSITE SCORE (4 features) ===
         const decimal wOFI = 0.35m;
@@ -278,7 +280,8 @@ public sealed class MarketDataWorker : BackgroundService
         const decimal wOBI = 0.40m;
         const decimal wOBIMom = 0.15m;
         var obiMomentum = _futuresData.GetOrderBookMomentum(candle.Asset.Symbol);
-        var scoreOBIMom = Math.Clamp(obiMomentum * 5m, -1m, 1m);
+        var rawOBIMom = obiMomentum * 5m;
+        var scoreOBIMom = Math.Clamp(Math.Sign(rawOBIMom) * (decimal)Math.Sqrt(Math.Abs((double)rawOBIMom)) * 1.0m, -1m, 1m);
         var compositeScore = wOFI * scoreOFI + wVWAP * scoreVWAP + wOBI * scoreOBI + wOBIMom * scoreOBIMom;
 
         // === Funding Rate Contrarian Filter (multiplicative) ===
@@ -324,7 +327,7 @@ public sealed class MarketDataWorker : BackgroundService
         var effectiveDelta = compositeScore / 3.0m;
 
         _logger.LogInformation(
-            "{Symbol} L24 | OFI:{OFI:F3} VW:{VW:F3} OBI:{OBI:F3} OBIMom:{OM:F3} OI%:{OI:F3} FR:{FR:F6} VE:{VE:F2} | Score:{S:F3} Dir:{D}",
+            "{Symbol} L25 | OFI:{OFI:F3} VW:{VW:F3} OBI:{OBI:F3} OBIMom:{OM:F3} OI%:{OI:F3} FR:{FR:F6} VE:{VE:F2} | Score:{S:F3} Dir:{D}",
             candle.Asset.Symbol, scoreOFI, scoreVWAP, scoreOBI, scoreOBIMom, oiChange, fundingRate, volExpansion, compositeScore, direction);
 
         // === Market Discovery + Entry ===

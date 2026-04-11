@@ -144,7 +144,7 @@ public sealed class AdaptiveSignalGenerator : ISignalGenerator
             return Result<Signal>.Failure(Error.InvalidMarketPrice);
 
         // Confidence from composite score magnitude
-        var confidence = Math.Clamp(0.50m + Math.Abs(effectiveDelta) * 3m, 0.52m, 0.75m);
+        var confidence = 0.60m; // Fixed — confidence metric unreliable per Loop24 data
 
         // Fair value: P(Up) basis
         decimal fairValue;
