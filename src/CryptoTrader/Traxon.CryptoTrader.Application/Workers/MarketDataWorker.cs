@@ -200,7 +200,7 @@ public sealed class MarketDataWorker : BackgroundService
         if (oneMinCandles.Count < 60) return;
 
         // ======================================================
-        // LOOP 27: L25 sqrt scaling + fixed confidence (EntryPrice filter reverted)
+        // LOOP 27: L25 sqrt + OBI dominant (OFI20 VW5 OBI55 Mom20)
         // Concave scaling compresses extreme values, rewards moderate imbalance.
         // ======================================================
 
@@ -275,10 +275,10 @@ public sealed class MarketDataWorker : BackgroundService
         var scoreOBI = Math.Clamp(Math.Sign(rawOBI) * (decimal)Math.Sqrt(Math.Abs((double)rawOBI)) * 1.0m, -1m, 1m);
 
         // === COMPOSITE SCORE (4 features) ===
-        const decimal wOFI = 0.35m;
-        const decimal wVWAP = 0.10m;
-        const decimal wOBI = 0.40m;
-        const decimal wOBIMom = 0.15m;
+        const decimal wOFI = 0.20m;
+        const decimal wVWAP = 0.05m;
+        const decimal wOBI = 0.55m;
+        const decimal wOBIMom = 0.20m;
         var obiMomentum = _futuresData.GetOrderBookMomentum(candle.Asset.Symbol);
         var rawOBIMom = obiMomentum * 5m;
         var scoreOBIMom = Math.Clamp(Math.Sign(rawOBIMom) * (decimal)Math.Sqrt(Math.Abs((double)rawOBIMom)) * 1.0m, -1m, 1m);
