@@ -200,7 +200,7 @@ public sealed class MarketDataWorker : BackgroundService
         if (oneMinCandles.Count < 60) return;
 
         // ======================================================
-        // LOOP 26: L25 + EntryPrice >= 0.47 filter (skip cheap tokens)
+        // LOOP 27: L25 sqrt scaling + fixed confidence (EntryPrice filter reverted)
         // Concave scaling compresses extreme values, rewards moderate imbalance.
         // ======================================================
 
@@ -327,7 +327,7 @@ public sealed class MarketDataWorker : BackgroundService
         var effectiveDelta = compositeScore / 3.0m;
 
         _logger.LogInformation(
-            "{Symbol} L26 | OFI:{OFI:F3} VW:{VW:F3} OBI:{OBI:F3} OBIMom:{OM:F3} OI%:{OI:F3} FR:{FR:F6} VE:{VE:F2} | Score:{S:F3} Dir:{D}",
+            "{Symbol} L27 | OFI:{OFI:F3} VW:{VW:F3} OBI:{OBI:F3} OBIMom:{OM:F3} OI%:{OI:F3} FR:{FR:F6} VE:{VE:F2} | Score:{S:F3} Dir:{D}",
             candle.Asset.Symbol, scoreOFI, scoreVWAP, scoreOBI, scoreOBIMom, oiChange, fundingRate, volExpansion, compositeScore, direction);
 
         // === Market Discovery + Entry ===
@@ -344,14 +344,6 @@ public sealed class MarketDataWorker : BackgroundService
 
         var marketPrice = midResult.Value;
         if (direction == "Down") marketPrice = 1m - marketPrice;
-
-        // EntryPrice filter: skip if market price too far from midpoint (< 0.47)
-        // Data shows EntryPrice < 0.47 has 30% WR vs 57.5% for >= 0.47
-        if (marketPrice < 0.47m)
-        {
-            _logger.LogDebug("{Symbol} L26 SKIP: EntryPrice {Price:F3} < 0.47 threshold", candle.Asset.Symbol, marketPrice);
-            return;
-        }
 
         var signalDirection = direction == "Up" ? SignalDirection.Up : SignalDirection.Down;
 
