@@ -61,5 +61,43 @@ edge < -0.03 → DOWN underpriced → BUY DOWN
 - **Baslangic Bakiye:** $30.00
 - **Loop Suresi:** 8 saat
 
-## Loop34 Sonuclari
-_(Loop devam ediyor, sonuclar loop bitiminde eklenecek)_
+## Loop34 Sonuclari — -$27.63 PnL, %48.5 WR, 608 trade / 8 saat
+
+### Peak-to-Trough Trajesi (ÖNEMLI)
+- **Başlangıç bakiye**: $30.00
+- **Peak bakiye**: $48.40 (19:03 TR, ~1.5 saat içinde +$18.40 = %61 kâr!)
+- **Son bakiye**: $0.37 (bitik)
+- **Drawdown**: -$48.03 peak'ten (!)
+
+### Saat Bazında PnL Detayı
+| UTC (TR) | Trade | WR% | PnL | Not |
+|----------|-------|-----|-----|-----|
+| 14 (17) | 35 | %80 | +$20.86 | 🟢 ilk saat — GÜÇLÜ EDGE |
+| 15 (18) | 79 | %53 | +$4.38 | 🟡 normal |
+| 16 (19) | 81 | %35 | -$27.33 | 🔴 PEAK'I YEDİ |
+| 17 (20) | 79 | %60 | +$15.51 | 🟢 bounce |
+| 18 (21) | 79 | %42 | -$16.04 | 🔴 düşüş |
+| 19 (22) | 73 | %56 | +$8.99 | 🟢 recovery |
+| 20 (23) | 81 | %46 | -$9.26 | 🟠 |
+| 21 (00) | 34 | %44 | -$4.70 | 🟠 |
+
+### Yön Analizi (Kritik)
+- **UP**: 341 trade, %55.7 WR, **+$16.17** ✓ (arbitraj UP'ta çalışıyor)
+- **DOWN**: 267 trade, %42.1 WR, **-$43.81** ✗ (DOWN'da çuvallıyor)
+
+### Coin Bazında En Kötü
+- **SOL Down**: %27.8 WR, -$16.51 (tek başına %60 zararın kaynağı)
+- **DOGE Down**: %43.9 WR, -$6.44
+- **XRP Down**: %41.7 WR, -$5.99
+
+### ÖNEMLİ BULGU
+Algoritmanın GERÇEK EDGE'İ VAR — ilk 1.5 saatte %80 WR, +$18 kâr üretti ve bakiye $48'e çıktı. Ama rejim değiştiğinde (16 UTC) algoritma tepki veremedi ve peak'i tamamen geri verdi.
+
+**Kök neden**: 60-bar rolling realized volatility regime change'i yakalayamıyor. Polymarket Brownian'dan daha hızlı öğreniyor.
+
+**DOWN token fiyat hatası**: `1 - polyMidUp` formülü DOWN token'ın gerçek midpoint'ini vermiyor olabilir (Polymarket spread'i).
+
+## Loop35 İyileştirmeleri (Kullanıcı kararı: kökten değişim YOK)
+1. **EWMA volatility (λ=0.94)** — regime change'i hızlı yakala
+2. **Drift term** — kısa vadeli trend bias
+3. **DOWN token doğru midpoint fetch** — separate API call

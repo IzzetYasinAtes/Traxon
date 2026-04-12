@@ -214,9 +214,9 @@ public sealed class MarketDataWorker : BackgroundService
         if (oneMinCandles.Count < 60) return;
 
         // ======================================================
-        // LOOP 34: BINANCE-POLYMARKET IMPLIED PROBABILITY ARBITRAGE
+        // LOOP 35: Loop34 base + EWMA volatility (λ=0.94) + drift term + DOWN midpoint fix
         // Benjamin-Cup (Feb 2026): Brownian motion implied prob vs Polymarket mid
-        // Academic refs: Black-Scholes 1973, Reiner-Rubinstein 1991
+        // Academic refs: Black-Scholes 1973, Reiner-Rubinstein 1991, RiskMetrics 1996
         // Target: 5-10 signals/hour, 62-68% hit rate, 3¢+ edge
         // ======================================================
 
@@ -237,7 +237,7 @@ public sealed class MarketDataWorker : BackgroundService
         var spotStart = windowOpenCandle.Open; // price at window start
         var spotNow = candle.Close; // latest price (just closed candle)
 
-        // === STEP 2: Compute realized volatility (per-minute) ===
+        // === STEP 2: Compute realized volatility (EWMA, RiskMetrics λ=0.94) ===
         var returns = new List<double>();
         for (int i = oneMinCandles.Count - 61; i < oneMinCandles.Count - 1; i++)
         {
@@ -250,16 +250,29 @@ public sealed class MarketDataWorker : BackgroundService
         }
         if (returns.Count < 30) return;
 
-        double mean = returns.Sum() / returns.Count;
-        double variance = returns.Sum(r => (r - mean) * (r - mean)) / (returns.Count - 1);
-        double sigmaPerMin = Math.Sqrt(variance);
+        // EWMA variance (λ=0.94) — regime change'e hızlı adapte
+        const double lambda = 0.94;
+        double sigmaSquared = returns[0] * returns[0]; // seed with first squared return
+        for (int i = 1; i < returns.Count; i++)
+        {
+            sigmaSquared = lambda * sigmaSquared + (1.0 - lambda) * returns[i] * returns[i];
+        }
+        double sigmaPerMin = Math.Sqrt(sigmaSquared);
 
         if (sigmaPerMin < 1e-6) return; // no volatility, skip
 
-        // === STEP 3: Brownian implied probability ===
+        // === STEP 3: Brownian implied probability (with drift) ===
         double tau = 5.0 - 2.0 / 60.0; // 5 min - 2 sec entry delay ≈ 4.967 min
         double lnRatio = Math.Log((double)(spotNow / spotStart));
-        double z = (lnRatio + 0.5 * sigmaPerMin * sigmaPerMin * tau)
+
+        // Drift: mean of last 15 1-min log returns (per minute trend bias)
+        int driftWindow = Math.Min(15, returns.Count);
+        double mu = 0.0;
+        for (int i = returns.Count - driftWindow; i < returns.Count; i++) mu += returns[i];
+        mu /= driftWindow;
+
+        // Full Brownian with drift: z = (ln(S_t/S_0) + (μ - 0.5σ²)·τ) / (σ·√τ)
+        double z = (lnRatio + (mu - 0.5 * sigmaPerMin * sigmaPerMin) * tau)
                  / (sigmaPerMin * Math.Sqrt(tau));
         decimal impliedProbUp = (decimal)StandardNormalCDF(z);
 
@@ -285,12 +298,12 @@ public sealed class MarketDataWorker : BackgroundService
         var absEdge = Math.Abs(edge);
 
         _logger.LogInformation(
-            "{Symbol} L34 | spot0:{S0:F2} spotNow:{SN:F2} σ:{Sig:F5} τ:{Tau:F2} Φ(z):{Prob:F3} polyUp:{Poly:F3} edge:{Edge:F3}",
-            symbol, spotStart, spotNow, sigmaPerMin, tau, impliedProbUp, polyMidUp, edge);
+            "{Symbol} L35 | spot0:{S0:F2} spotNow:{SN:F2} σewma:{Sig:F5} μ:{Mu:F6} τ:{Tau:F2} Φ(z):{Prob:F3} polyUp:{Poly:F3} edge:{Edge:F3}",
+            symbol, spotStart, spotNow, sigmaPerMin, mu, tau, impliedProbUp, polyMidUp, edge);
 
         if (absEdge < 0.03m)
         {
-            _logger.LogDebug("{Symbol} L34 SKIP: edge {Edge:F3} below 0.03 threshold", symbol, edge);
+            _logger.LogDebug("{Symbol} L35 SKIP: edge {Edge:F3} below 0.03 threshold", symbol, edge);
             return;
         }
 
@@ -310,11 +323,14 @@ public sealed class MarketDataWorker : BackgroundService
         }
         else
         {
-            // impliedProb < polyMid → UP overpriced → DOWN is underpriced → buy DOWN
+            // UP overpriced → DOWN underpriced → fetch DOWN midpoint separately
             direction = "Down";
             signalDirection = SignalDirection.Down;
             market = marketDown;
-            marketPrice = 1m - polyMidUp;
+
+            var midDownResult = await _polyClient.GetMidpointAsync(marketDown.RelevantTokenId);
+            if (midDownResult.IsFailure) return;
+            marketPrice = midDownResult.Value;
         }
 
         // === STEP 7: Build signal with edge as conviction ===
