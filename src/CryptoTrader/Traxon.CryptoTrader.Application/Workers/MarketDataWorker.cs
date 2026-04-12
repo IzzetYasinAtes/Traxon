@@ -214,161 +214,74 @@ public sealed class MarketDataWorker : BackgroundService
         if (oneMinCandles.Count < 60) return;
 
         // ======================================================
-        // LOOP 31: BTC Lead-Lag dominant + microstructure confirmation (academic cross-asset)
+        // LOOP 32: FOLLOW POLYMARKET — No prediction, follow the market
+        // Academic: 5-min crypto random walk, unpredictable
+        // Empirical: When market signals UP (mid 0.52-0.65), WR 73%
+        // When we go AGAINST market (UP while market says DOWN), WR 30%
+        // Strategy: Trust Polymarket prices as pre-embedded smart money info
         // ======================================================
 
         var baseAsset = candle.Asset.Symbol.Replace("USDT", "");
 
-        // === FEATURE 1: OFI Delta (1-bar recent vs 3-bar baseline) ===
-        // Shorter lookback = fresher signal (microstructure research)
-        var lastBar = oneMinCandles[^1];
-        var ofiRecentRatio = lastBar.Volume > 0 ? lastBar.TakerBuyBaseVolume / lastBar.Volume : 0.5m;
-
-        var ofiBaseline = 0m; var volBaseline = 0m;
-        for (int i = oneMinCandles.Count - 4; i < oneMinCandles.Count - 1; i++)
-        {
-            ofiBaseline += oneMinCandles[i].TakerBuyBaseVolume;
-            volBaseline += oneMinCandles[i].Volume;
-        }
-        var ofiBaselineRatio = volBaseline > 0 ? ofiBaseline / volBaseline : 0.5m;
-
-        var ofiDelta = ofiRecentRatio - ofiBaselineRatio;
-        var scoreOFI = Math.Clamp(ofiDelta * 15m, -1m, 1m);
-
-        // === FEATURE 2: VWAP Z-Score (mean reversion at extremes) ===
-        var vwapSum = 0m; var vwapVolSum = 0m;
-        var vwapLookback = Math.Min(60, oneMinCandles.Count);
-        for (int i = oneMinCandles.Count - vwapLookback; i < oneMinCandles.Count; i++)
-        {
-            vwapSum += oneMinCandles[i].Close * oneMinCandles[i].Volume;
-            vwapVolSum += oneMinCandles[i].Volume;
-        }
-        var vwap = vwapVolSum > 0 ? vwapSum / vwapVolSum : oneMinCandles[^1].Close;
-        var vwapVarSum = 0m;
-        for (int i = oneMinCandles.Count - vwapLookback; i < oneMinCandles.Count; i++)
-        {
-            var diff = oneMinCandles[i].Close - vwap;
-            vwapVarSum += diff * diff * oneMinCandles[i].Volume;
-        }
-        var vwapStd = vwapVolSum > 0 ? (decimal)Math.Sqrt((double)(vwapVarSum / vwapVolSum)) : 1m;
-        var vwapZ = vwapStd > 0.000001m ? (oneMinCandles[^1].Close - vwap) / vwapStd : 0m;
-        var scoreVWAP = Math.Clamp(-vwapZ / 2.0m, -1m, 1m);
-
-        // === VOLATILITY GATE (skip flat markets, boost conviction moves) ===
-        // Parkinson volatility: last 3 bars vs last 10 bars
-        var volShort = 0m;
-        for (int i = oneMinCandles.Count - 3; i < oneMinCandles.Count; i++)
-        {
-            var hl = oneMinCandles[i].High - oneMinCandles[i].Low;
-            var mid = (oneMinCandles[i].High + oneMinCandles[i].Low) / 2m;
-            if (mid > 0) volShort += (hl / mid) * (hl / mid);
-        }
-        volShort = (decimal)Math.Sqrt((double)(volShort / 3m));
-
-        var volLong = 0m;
-        for (int i = oneMinCandles.Count - 10; i < oneMinCandles.Count; i++)
-        {
-            var hl = oneMinCandles[i].High - oneMinCandles[i].Low;
-            var mid = (oneMinCandles[i].High + oneMinCandles[i].Low) / 2m;
-            if (mid > 0) volLong += (hl / mid) * (hl / mid);
-        }
-        volLong = (decimal)Math.Sqrt((double)(volLong / 10m));
-
-        var volExpansion = volLong > 0 ? volShort / volLong : 1m;
-
-        // === FEATURE 3: Order Book Imbalance (from L2 depth) ===
-        var obi = _futuresData.GetOrderBookImbalance(candle.Asset.Symbol);
-        var scoreOBI = Math.Clamp(obi * 2.0m, -1m, 1m);
-
-        // === OBI Momentum ===
-        var obiMomentum = _futuresData.GetOrderBookMomentum(candle.Asset.Symbol);
-        var scoreOBIMom = Math.Clamp(obiMomentum * 8m, -1m, 1m);
-
-        // === FEATURE 5: BTC Lead-Lag (academic: BTC leads altcoins with ~1min lag) ===
-        // For altcoins: BTC's 1-min momentum predicts their direction
-        // For BTC: self-referential (still useful as recent momentum)
-        decimal btcMomentum = 0m;
-        var btcSnapshot = _btcCloses.ToArray();
-        if (btcSnapshot.Length >= 2)
-        {
-            var latest = btcSnapshot[^1].close;
-            var prev = btcSnapshot[^2].close;
-            if (prev > 0) btcMomentum = (latest - prev) / prev;
-        }
-        var scoreBTCLead = Math.Clamp(btcMomentum * 300m, -1m, 1m);
-
-        // === COMPOSITE SCORE (5 features) ===
-        const decimal wOFI = 0.20m;
-        const decimal wVWAP = 0.05m;
-        const decimal wOBI = 0.25m;
-        const decimal wOBIMom = 0.10m;
-        const decimal wBTCLead = 0.40m; // BTC lead-lag dominant per academic research
-        var compositeScore = wOFI * scoreOFI + wVWAP * scoreVWAP + wOBI * scoreOBI
-                           + wOBIMom * scoreOBIMom + wBTCLead * scoreBTCLead;
-
-        // === Funding Rate Contrarian Filter (multiplicative) ===
-        var fundingRate = _futuresData.GetFundingRate(candle.Asset.Symbol);
-        if (Math.Abs(fundingRate) > 0.0005m) // extreme funding
-        {
-            if (Math.Sign(fundingRate) != Math.Sign(compositeScore))
-                compositeScore *= 1.15m; // contrarian to crowded side = boost
-            else
-                compositeScore *= 0.85m; // same as crowded side = discount
-        }
-
-        // Open Interest change: increasing OI = conviction, decreasing = closing positions
-        var oiChange = _futuresData.GetOpenInterestChange(candle.Asset.Symbol);
-        if (oiChange > 0.01m)
-            compositeScore *= 1.10m; // OI increasing >1% = conviction
-        else if (oiChange < -0.01m)
-            compositeScore *= 0.90m; // OI decreasing >1% = position closing
-
-        // Volatility gate: expanding vol = boost, contracting = discount
-        if (volExpansion > 1.5m)
-            compositeScore *= 1.2m; // conviction move
-        else if (volExpansion < 0.7m)
-            compositeScore *= 0.5m; // flat market, likely noise
-
-        // === VOLUME FILTER (skip dead markets) ===
-        var volRecent5 = 0m;
-        for (int i = oneMinCandles.Count - 5; i < oneMinCandles.Count; i++)
-            volRecent5 += oneMinCandles[i].Volume;
-        volRecent5 /= 5m;
-        var volAvg20 = 0m;
-        for (int i = oneMinCandles.Count - 20; i < oneMinCandles.Count; i++)
-            volAvg20 += oneMinCandles[i].Volume;
-        volAvg20 /= 20m;
-        var volRatio = volAvg20 > 0 ? volRecent5 / volAvg20 : 1m;
-
-        if (volRatio < 0.3m) return;
-
-        // === MINIMUM THRESHOLD ===
-        if (Math.Abs(compositeScore) < 0.05m) return;
-
-        string direction = compositeScore > 0 ? "Up" : "Down";
-        var effectiveDelta = compositeScore / 3.0m;
-
-        _logger.LogInformation(
-            "{Symbol} L31 | OFI:{OFI:F3} VW:{VW:F3} OBI:{OBI:F3} OBIMom:{OM:F3} BTCLead:{BL:F3} FR:{FR:F6} VE:{VE:F2} | Score:{S:F3} Dir:{D}",
-            candle.Asset.Symbol, scoreOFI, scoreVWAP, scoreOBI, scoreOBIMom, scoreBTCLead, fundingRate, volExpansion, compositeScore, direction);
-
-        // === Market Discovery + Entry ===
+        // Step 1: Discover UP market
         var discoverResult = await _discovery.DiscoverMarketsAsync();
         if (discoverResult.IsFailure) return;
 
-        var market = discoverResult.Value!
+        var marketUp = discoverResult.Value!
             .FirstOrDefault(m => m.UnderlyingAsset.Equals(baseAsset, StringComparison.OrdinalIgnoreCase)
-                              && m.Direction == direction);
-        if (market is null) return;
+                              && m.Direction == "Up");
+        var marketDown = discoverResult.Value!
+            .FirstOrDefault(m => m.UnderlyingAsset.Equals(baseAsset, StringComparison.OrdinalIgnoreCase)
+                              && m.Direction == "Down");
 
-        var midResult = await _polyClient.GetMidpointAsync(market.RelevantTokenId);
-        if (midResult.IsFailure) return;
+        if (marketUp is null || marketDown is null) return;
 
-        var marketPrice = midResult.Value;
-        if (direction == "Down") marketPrice = 1m - marketPrice;
+        // Step 2: Get UP midpoint (primary signal)
+        var midUpResult = await _polyClient.GetMidpointAsync(marketUp.RelevantTokenId);
+        if (midUpResult.IsFailure) return;
+        var upMidpoint = midUpResult.Value;
 
-        var signalDirection = direction == "Up" ? SignalDirection.Up : SignalDirection.Down;
+        // Step 3: Decide direction based on Polymarket midpoint
+        // - 0.52 to 0.65: BUY UP (market modest bullish, empirical WR 73%)
+        // - 0.35 to 0.48: BUY DOWN (market modest bearish)
+        // - 0.48 to 0.52: SKIP (market undecided)
+        // - > 0.65 or < 0.35: SKIP (too extreme, no edge)
 
+        string direction;
+        decimal marketPrice;
+        Traxon.CryptoTrader.Application.Polymarket.Models.PolymarketMarket market;
+        SignalDirection signalDirection;
+
+        if (upMidpoint >= 0.52m && upMidpoint <= 0.65m)
+        {
+            direction = "Up";
+            signalDirection = SignalDirection.Up;
+            market = marketUp;
+            marketPrice = upMidpoint;
+        }
+        else if (upMidpoint >= 0.35m && upMidpoint <= 0.48m)
+        {
+            direction = "Down";
+            signalDirection = SignalDirection.Down;
+            market = marketDown;
+            marketPrice = 1m - upMidpoint;
+        }
+        else
+        {
+            // Skip: market undecided (0.48-0.52) or too extreme (>0.65 or <0.35)
+            return;
+        }
+
+        // Step 4: Build signal
+        // Conviction: how far from 0.50 the market signals
+        var conviction = Math.Abs(upMidpoint - 0.50m); // 0.02 to 0.15
+        var effectiveDelta = (direction == "Up" ? 1m : -1m) * conviction;
+
+        _logger.LogInformation(
+            "{Symbol} L32 FOLLOW | UpMid:{Up:F3} -> {D} at {P:F3} Conv:{C:F3}",
+            candle.Asset.Symbol, upMidpoint, direction, marketPrice, conviction);
+
+        // Step 5: Generate signal and dispatch
         var signalResult = _signalGenerator.Generate(
             candle.Asset, TimeFrame.FiveMinute, oneMinCandles,
             marketPrice, indicators, signalDirection, effectiveDelta);
@@ -377,8 +290,8 @@ public sealed class MarketDataWorker : BackgroundService
         {
             var sig = signalResult.Value!;
             _logger.LogInformation(
-                ">>> SIGNAL: {Symbol}/5m {Direction} | FV:{FV:F3} Market:{Market:F3} Edge:{Edge:F3} Score:{Score:F3}",
-                sig.Asset.Symbol, sig.Direction, sig.FairValue, sig.MarketPrice, sig.Edge, compositeScore);
+                ">>> SIGNAL: {Symbol}/5m {Direction} | FV:{FV:F3} Market:{Market:F3} Edge:{Edge:F3}",
+                sig.Asset.Symbol, sig.Direction, sig.FairValue, sig.MarketPrice, sig.Edge);
 
             _publisher.PublishSignalGenerated(sig.ToDto());
             await Task.Delay(2000); // Golden Rule 2: T=0+2s entry
