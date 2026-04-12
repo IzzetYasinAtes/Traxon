@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Traxon.CryptoTrader.Application.Abstractions;
@@ -27,6 +28,10 @@ public sealed class MarketDataWorker : BackgroundService
     private const int BackfillDays = 3;
     private const int BackfillPageSize = 1500;
     private const int MinOneMinuteCandles = 100;
+
+    // BTC lead-lag tracking — last 6 BTC closes for 5-min momentum
+    private static readonly ConcurrentQueue<(DateTime time, decimal close)> _btcCloses = new();
+    private const int BtcCloseHistory = 10;
 
     public MarketDataWorker(
         IMarketDataProvider marketDataProvider,
@@ -126,6 +131,15 @@ public sealed class MarketDataWorker : BackgroundService
     private async Task OnCandleClosedAsync(Candle candle)
     {
         _candleBuffer.Add(candle);
+
+        // Track BTC closes for lead-lag feature
+        if (candle.Asset.Symbol == "BTCUSDT")
+        {
+            _btcCloses.Enqueue((candle.OpenTime, candle.Close));
+            while (_btcCloses.Count > BtcCloseHistory)
+                _btcCloses.TryDequeue(out _);
+        }
+
         PublishTickerUpdate(candle);
         _publisher.PublishCandleUpdate(candle.ToCandleDto());
         WriteCandleAsync(candle);
@@ -200,8 +214,7 @@ public sealed class MarketDataWorker : BackgroundService
         if (oneMinCandles.Count < 60) return;
 
         // ======================================================
-        // LOOP 21: OFI DELTA + VWAP Z + OBI + OBI MOMENTUM + OI CHANGE + FUNDING + VOL GATE
-        // Simpler, faster OFI. No UP bias. Volatility gate skips flat markets.
+        // LOOP 31: BTC Lead-Lag dominant + microstructure confirmation (academic cross-asset)
         // ======================================================
 
         var baseAsset = candle.Asset.Symbol.Replace("USDT", "");
@@ -267,14 +280,31 @@ public sealed class MarketDataWorker : BackgroundService
         var obi = _futuresData.GetOrderBookImbalance(candle.Asset.Symbol);
         var scoreOBI = Math.Clamp(obi * 2.0m, -1m, 1m);
 
-        // === COMPOSITE SCORE (4 features) ===
-        const decimal wOFI = 0.35m;
-        const decimal wVWAP = 0.10m;
-        const decimal wOBI = 0.40m;
-        const decimal wOBIMom = 0.15m;
+        // === OBI Momentum ===
         var obiMomentum = _futuresData.GetOrderBookMomentum(candle.Asset.Symbol);
         var scoreOBIMom = Math.Clamp(obiMomentum * 8m, -1m, 1m);
-        var compositeScore = wOFI * scoreOFI + wVWAP * scoreVWAP + wOBI * scoreOBI + wOBIMom * scoreOBIMom;
+
+        // === FEATURE 5: BTC Lead-Lag (academic: BTC leads altcoins with ~1min lag) ===
+        // For altcoins: BTC's 1-min momentum predicts their direction
+        // For BTC: self-referential (still useful as recent momentum)
+        decimal btcMomentum = 0m;
+        var btcSnapshot = _btcCloses.ToArray();
+        if (btcSnapshot.Length >= 2)
+        {
+            var latest = btcSnapshot[^1].close;
+            var prev = btcSnapshot[^2].close;
+            if (prev > 0) btcMomentum = (latest - prev) / prev;
+        }
+        var scoreBTCLead = Math.Clamp(btcMomentum * 300m, -1m, 1m);
+
+        // === COMPOSITE SCORE (5 features) ===
+        const decimal wOFI = 0.20m;
+        const decimal wVWAP = 0.05m;
+        const decimal wOBI = 0.25m;
+        const decimal wOBIMom = 0.10m;
+        const decimal wBTCLead = 0.40m; // BTC lead-lag dominant per academic research
+        var compositeScore = wOFI * scoreOFI + wVWAP * scoreVWAP + wOBI * scoreOBI
+                           + wOBIMom * scoreOBIMom + wBTCLead * scoreBTCLead;
 
         // === Funding Rate Contrarian Filter (multiplicative) ===
         var fundingRate = _futuresData.GetFundingRate(candle.Asset.Symbol);
@@ -319,8 +349,8 @@ public sealed class MarketDataWorker : BackgroundService
         var effectiveDelta = compositeScore / 3.0m;
 
         _logger.LogInformation(
-            "{Symbol} L21 | OFI:{OFI:F3} VW:{VW:F3} OBI:{OBI:F3} OBIMom:{OM:F3} OI%:{OI:F3} FR:{FR:F6} VE:{VE:F2} | Score:{S:F3} Dir:{D}",
-            candle.Asset.Symbol, scoreOFI, scoreVWAP, scoreOBI, scoreOBIMom, oiChange, fundingRate, volExpansion, compositeScore, direction);
+            "{Symbol} L31 | OFI:{OFI:F3} VW:{VW:F3} OBI:{OBI:F3} OBIMom:{OM:F3} BTCLead:{BL:F3} FR:{FR:F6} VE:{VE:F2} | Score:{S:F3} Dir:{D}",
+            candle.Asset.Symbol, scoreOFI, scoreVWAP, scoreOBI, scoreOBIMom, scoreBTCLead, fundingRate, volExpansion, compositeScore, direction);
 
         // === Market Discovery + Entry ===
         var discoverResult = await _discovery.DiscoverMarketsAsync();
