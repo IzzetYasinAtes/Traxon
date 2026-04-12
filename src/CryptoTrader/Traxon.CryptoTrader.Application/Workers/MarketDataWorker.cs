@@ -214,74 +214,95 @@ public sealed class MarketDataWorker : BackgroundService
         if (oneMinCandles.Count < 60) return;
 
         // ======================================================
-        // LOOP 32: FOLLOW POLYMARKET — No prediction, follow the market
-        // Academic: 5-min crypto random walk, unpredictable
-        // Empirical: When market signals UP (mid 0.52-0.65), WR 73%
-        // When we go AGAINST market (UP while market says DOWN), WR 30%
-        // Strategy: Trust Polymarket prices as pre-embedded smart money info
+        // LOOP 33: MATEMATIKSEL — Cont-Kukanov OFI + Permutation Entropy + OU Mean Reversion
+        // Academic refs: Cont-Kukanov-Stoikov 2014, Bandt-Pompe 2002, Leung-Li 2015
+        // Target: 55-60% WR
         // ======================================================
 
-        var baseAsset = candle.Asset.Symbol.Replace("USDT", "");
+        var symbol = candle.Asset.Symbol;
 
-        // Step 1: Discover UP market
-        var discoverResult = await _discovery.DiscoverMarketsAsync();
-        if (discoverResult.IsFailure) return;
+        // ===== COMPONENT 1: Cont-Kukanov Multi-Level OFI =====
+        var ofi = _futuresData.GetCKOrderFlowImbalance(symbol);
+        // Z-score via historical rolling std (simplified: use recent OFI magnitude)
+        // For MVP: scale OFI to [-1, 1] using percentile approximation
+        var ofiNormalized = Math.Tanh((double)(ofi * 0.01m)); // empirical scaling
+        var scoreOFI = (decimal)ofiNormalized;
 
-        var marketUp = discoverResult.Value!
-            .FirstOrDefault(m => m.UnderlyingAsset.Equals(baseAsset, StringComparison.OrdinalIgnoreCase)
-                              && m.Direction == "Up");
-        var marketDown = discoverResult.Value!
-            .FirstOrDefault(m => m.UnderlyingAsset.Equals(baseAsset, StringComparison.OrdinalIgnoreCase)
-                              && m.Direction == "Down");
-
-        if (marketUp is null || marketDown is null) return;
-
-        // Step 2: Get UP midpoint (primary signal)
-        var midUpResult = await _polyClient.GetMidpointAsync(marketUp.RelevantTokenId);
-        if (midUpResult.IsFailure) return;
-        var upMidpoint = midUpResult.Value;
-
-        // Step 3: Decide direction based on Polymarket midpoint
-        // - 0.52 to 0.65: BUY UP (market modest bullish, empirical WR 73%)
-        // - 0.35 to 0.48: BUY DOWN (market modest bearish)
-        // - 0.48 to 0.52: SKIP (market undecided)
-        // - > 0.65 or < 0.35: SKIP (too extreme, no edge)
-
-        string direction;
-        decimal marketPrice;
-        Traxon.CryptoTrader.Application.Polymarket.Models.PolymarketMarket market;
-        SignalDirection signalDirection;
-
-        if (upMidpoint >= 0.52m && upMidpoint <= 0.65m)
+        // ===== COMPONENT 2: Permutation Entropy Filter =====
+        // m=3, look back 20 1-min returns
+        var returns = new List<double>();
+        for (int i = oneMinCandles.Count - 21; i < oneMinCandles.Count - 1; i++)
         {
-            direction = "Up";
-            signalDirection = SignalDirection.Up;
-            market = marketUp;
-            marketPrice = upMidpoint;
+            if (oneMinCandles[i].Close > 0)
+            {
+                var r = (double)((oneMinCandles[i + 1].Close - oneMinCandles[i].Close) / oneMinCandles[i].Close);
+                returns.Add(r);
+            }
         }
-        else if (upMidpoint >= 0.35m && upMidpoint <= 0.48m)
+
+        double permEntropy = ComputePermutationEntropy(returns, m: 3);
+
+        // Gate: only trade if predictability is high (low entropy)
+        if (permEntropy >= 0.85)
         {
-            direction = "Down";
-            signalDirection = SignalDirection.Down;
-            market = marketDown;
-            marketPrice = 1m - upMidpoint;
-        }
-        else
-        {
-            // Skip: market undecided (0.48-0.52) or too extreme (>0.65 or <0.35)
+            _logger.LogDebug("{Symbol} L33 SKIP: PE={PE:F3} (random walk regime)", symbol, permEntropy);
             return;
         }
 
-        // Step 4: Build signal
-        // Conviction: how far from 0.50 the market signals
-        var conviction = Math.Abs(upMidpoint - 0.50m); // 0.02 to 0.15
-        var effectiveDelta = (direction == "Up" ? 1m : -1m) * conviction;
+        // ===== COMPONENT 3: Ornstein-Uhlenbeck Mean Reversion =====
+        // Fit OU to last 60 log-prices: dX = θ(μ - X)dt + σ dW
+        var logPrices = oneMinCandles.Skip(oneMinCandles.Count - 60)
+            .Select(c => (double)Math.Log((double)c.Close)).ToArray();
+
+        var (theta, mu, sigma) = FitOU(logPrices);
+        var currentLogPrice = logPrices[^1];
+        var tau = 5.0; // 5 minutes ahead
+
+        // Conditional expected log-return
+        double expectedReturn = (mu - currentLogPrice) * (1.0 - Math.Exp(-theta * tau));
+        double stdDev = sigma * Math.Sqrt((1.0 - Math.Exp(-2.0 * theta * tau)) / (2.0 * theta));
+
+        // P(up) = P(X_{t+5} > X_t) = Φ(expectedReturn / stdDev)
+        double pUp = stdDev > 1e-10 ? StandardNormalCDF(expectedReturn / stdDev) : 0.5;
+        var scoreOU = (decimal)(pUp - 0.5) * 2m; // [-1, 1]
+
+        // ===== COMPOSITE SCORE =====
+        // Weights from literature: OFI strong direct signal, OU mean reversion confirmation
+        const decimal wOFI = 0.60m;
+        const decimal wOU = 0.40m;
+        var composite = wOFI * scoreOFI + wOU * scoreOU;
+
+        // ===== SIGNAL GATES =====
+        if (Math.Abs(composite) < 0.15m)
+        {
+            _logger.LogDebug("{Symbol} L33 SKIP: |composite|={C:F3} below threshold", symbol, Math.Abs(composite));
+            return;
+        }
+
+        string direction = composite > 0 ? "Up" : "Down";
+        var signalDirection = composite > 0 ? SignalDirection.Up : SignalDirection.Down;
+        var effectiveDelta = composite / 2m;
 
         _logger.LogInformation(
-            "{Symbol} L32 FOLLOW | UpMid:{Up:F3} -> {D} at {P:F3} Conv:{C:F3}",
-            candle.Asset.Symbol, upMidpoint, direction, marketPrice, conviction);
+            "{Symbol} L33 | OFI:{OFI:F3} OU:{OU:F3} PE:{PE:F3} | C:{C:F3} Dir:{D}",
+            symbol, scoreOFI, scoreOU, permEntropy, composite, direction);
 
-        // Step 5: Generate signal and dispatch
+        // ===== Market Discovery + Entry =====
+        var baseAsset = symbol.Replace("USDT", "");
+        var discoverResult = await _discovery.DiscoverMarketsAsync();
+        if (discoverResult.IsFailure) return;
+
+        var market = discoverResult.Value!
+            .FirstOrDefault(m => m.UnderlyingAsset.Equals(baseAsset, StringComparison.OrdinalIgnoreCase)
+                              && m.Direction == direction);
+        if (market is null) return;
+
+        var midResult = await _polyClient.GetMidpointAsync(market.RelevantTokenId);
+        if (midResult.IsFailure) return;
+
+        var marketPrice = midResult.Value;
+        if (direction == "Down") marketPrice = 1m - marketPrice;
+
         var signalResult = _signalGenerator.Generate(
             candle.Asset, TimeFrame.FiveMinute, oneMinCandles,
             marketPrice, indicators, signalDirection, effectiveDelta);
@@ -294,9 +315,85 @@ public sealed class MarketDataWorker : BackgroundService
                 sig.Asset.Symbol, sig.Direction, sig.FairValue, sig.MarketPrice, sig.Edge);
 
             _publisher.PublishSignalGenerated(sig.ToDto());
-            await Task.Delay(2000); // Golden Rule 2: T=0+2s entry
+            await Task.Delay(2000); // T=0+2s entry
             await DispatchToEnginesAsync(sig);
         }
+    }
+
+    // ===== HELPER METHODS =====
+
+    private static double ComputePermutationEntropy(List<double> returns, int m = 3)
+    {
+        if (returns.Count < m) return 1.0;
+
+        var patternCounts = new Dictionary<string, int>();
+        for (int i = 0; i <= returns.Count - m; i++)
+        {
+            var window = returns.Skip(i).Take(m).ToArray();
+            var indices = Enumerable.Range(0, m).ToArray();
+            Array.Sort(indices, (a, b) => window[a].CompareTo(window[b]));
+            var pattern = string.Join(",", indices);
+            if (!patternCounts.ContainsKey(pattern)) patternCounts[pattern] = 0;
+            patternCounts[pattern]++;
+        }
+
+        double total = patternCounts.Values.Sum();
+        double entropy = 0;
+        foreach (var count in patternCounts.Values)
+        {
+            var p = count / total;
+            if (p > 0) entropy -= p * Math.Log(p);
+        }
+
+        // Normalize to [0, 1] by max entropy = log(m!)
+        double maxEntropy = Math.Log(Factorial(m));
+        return maxEntropy > 0 ? entropy / maxEntropy : 0;
+    }
+
+    private static int Factorial(int n) => n <= 1 ? 1 : n * Factorial(n - 1);
+
+    private static (double theta, double mu, double sigma) FitOU(double[] x)
+    {
+        // Fit dX = theta*(mu - X)dt + sigma*dW via OLS on discrete-time form:
+        // X_{t+1} = a + b*X_t + eps, where b = exp(-theta*dt), a = mu*(1-b)
+        int n = x.Length - 1;
+        if (n < 2) return (0.1, x[^1], 0.01);
+
+        double sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+        for (int i = 0; i < n; i++)
+        {
+            sumX += x[i];
+            sumY += x[i + 1];
+            sumXY += x[i] * x[i + 1];
+            sumX2 += x[i] * x[i];
+        }
+        double meanX = sumX / n;
+        double meanY = sumY / n;
+        double b = (sumXY - n * meanX * meanY) / (sumX2 - n * meanX * meanX);
+        if (Math.Abs(b) >= 1.0 || double.IsNaN(b)) b = 0.99;
+        double a = meanY - b * meanX;
+        double theta = -Math.Log(Math.Abs(b));
+        double mu = a / (1.0 - b);
+
+        // Estimate sigma from residuals
+        double sumRes2 = 0;
+        for (int i = 0; i < n; i++)
+        {
+            var pred = a + b * x[i];
+            sumRes2 += (x[i + 1] - pred) * (x[i + 1] - pred);
+        }
+        double sigma = Math.Sqrt(sumRes2 / n);
+
+        return (theta, mu, sigma);
+    }
+
+    private static double StandardNormalCDF(double x)
+    {
+        // Abramowitz-Stegun approximation
+        double t = 1.0 / (1.0 + 0.2316419 * Math.Abs(x));
+        double d = 0.3989422804 * Math.Exp(-x * x / 2.0);
+        double p = d * t * (0.31938153 + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))));
+        return x >= 0 ? 1.0 - p : p;
     }
 
     private async Task DispatchToEnginesAsync(Domain.Trading.Signal sig)
