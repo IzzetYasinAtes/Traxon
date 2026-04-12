@@ -80,13 +80,14 @@
         |                       Backfill: 1m->120, 5m->500, 15m->500, 1h->48
         |                       Warmup:   1m->30,  5m->100, 15m->100, 1h->24
         v
-  [IndicatorCalculator]     &lt;- RSI(7), RSI(14), MACD(12,26,9), BB(20,2), ATR(14),
-        |                       VWAP(20), Stochastic(14,3,3), SMA(10), SMA(30),
-        |                       EMA(9), Volume(20), Parkinson Vol hesaplar
+  [IndicatorCalculator]     &lt;- RSI, MACD, BB, ATR, VWAP, SMA, EMA hesaplar
+        |                       NOT: sadece IndicatorSnapshot JSON icin (gozlemsel,
+        |                       trade/audit amacli). Sinyal uretiminde KULLANILMAZ.
         v
-  [MeanReversionSignalGenerator] &lt;- Z-Score mean reversion sinyal uretir
-        |                       ZScoreCalculator, indikator teyidi, rejim tespiti,
-        |                       NormalCDF fair value, Kelly pozisyon hesabi
+  [Loop34ArbitrageSignalGenerator] &lt;- Binance-Polymarket Implied Prob Arbitrage
+        |                       Brownian-motion z -> Phi(z) = impliedProbUp
+        |                       edge = impliedProbUp - polymarketMidpointUp
+        |                       |edge| &gt;= 0.03 ise pozisyon ac, Kelly ile boyutla
         v
   [TradingEngine]           &lt;- PaperPoly:    Gamma API + FAK market order
         |                       LivePoly:     gercek Polymarket trading
@@ -101,9 +102,10 @@
         <p>
             WebSocket API'den <code>kline</code> stream uzerinden canli mum verileri alinir. Sistem tum
             <code>Asset.Tradeable</code> varliklar (BTCUSDT, ETHUSDT, SOLUSDT, XRPUSDT, DOGEUSDT, BNBUSDT, HYPEUSDT)
-            ve tum <code>TimeFrame.All</code> zaman dilimleri (1m, 5m, 15m, 1h) icin stream dinler. Her mum kapandiginda
-            (candle close event) indicator hesaplama ve sinyal uretim sureci tetiklenir. 1h mumlar sadece trend dogrulama
-            (Adim 5) icin kullanilir, islem acma karari 5m mumlara dayanir.
+            ve tum <code>TimeFrame.All</code> zaman dilimleri (1m, 5m, 15m, 1h) icin stream dinler. 1m mumlar
+            realized volatility hesabinin girdisidir (son 60 log-return). 5m mumlari Polymarket 5-dakika pencere
+            acilis fiyatini (<code>S_0</code>) saglar. 15m ve 1h mumlar sadece IndicatorSnapshot amaciyla tutulur
+            — Loop34 sinyal uretiminde dogrudan kullanilmaz.
         </p>
         <p class="docs-source">Kaynak: <code>MarketDataWorker.cs:42-60</code></p>
 
@@ -128,292 +130,57 @@
     </div>
 
     <!-- ================================================================== -->
-    <!-- BOLUM 2: Sinyal Skoru Hesaplama -->
+    <!-- BOLUM 2: Sinyal Algoritmasi — Loop34 (Guncel) -->
     <!-- ================================================================== -->
-    <div class="docs-card" style="border-left-color: var(--color-accent-green);">
-        <h2 class="docs-title">2. Z-Score Mean Reversion Sinyal Uretimi</h2>
-        <p class="docs-source">Kaynak: <code>MeanReversionSignalGenerator.cs</code>, <code>ZScoreCalculator.cs</code></p>
-
-        <p>
-            Sistem, <strong>Z-Score tabanli mean reversion</strong> stratejisi kullanir. 1m mum verilerinden 5 dakikalik blok
-            getiriler hesaplanir, bu getirilerin Z-Score'u bulunur. Z-Score esik degeri (1.8) astiginda contrarian sinyal uretilir:
-            yuksek Z-Score (overbought) = Down sinyal, dusuk Z-Score (oversold) = Up sinyal.
+    <div class="docs-card">
+        <h2 class="docs-title">Sinyal Algoritmasi — Loop34 (Guncel)</h2>
+        <p class="docs-paragraph">
+            Traxon su an <strong>Binance-Polymarket Implied Probability Arbitrage</strong> yaklasimi kullaniyor.
+            Akademik temel: Benjamin-Cup (Subat 2026) yayinlanmis strateji.
         </p>
 
-        <h3 class="docs-subtitle-h3">Sinyal Uretim Katmanlari</h3>
-        <table class="docs-table">
-            <thead>
-                <tr>
-                    <th>Katman</th>
-                    <th>Aciklama</th>
-                    <th>Parametre</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td><strong>Z-Score</strong></td>
-                    <td>1m mumlardan 5 dakikalik blok getiriler hesaplanir, son 120 dakikalik pencere uzerinden Z-Score bulunur</td>
-                    <td><code>ZScoreThreshold = 1.8</code></td>
-                </tr>
-                <tr>
-                    <td><strong>Indikator Teyidi</strong></td>
-                    <td>Contrarian: Down sinyal icin en az 3 bullish indikator, Up sinyal icin en az 3 bearish indikator gerekir</td>
-                    <td><code>ConfirmThreshold = 3</code></td>
-                </tr>
-                <tr>
-                    <td><strong>Fair Value</strong></td>
-                    <td>Z-Score'dan Normal CDF ile fair value hesaplanir, market price ile karsilastirilarak edge bulunur</td>
-                    <td><code>DecayFactor = 0.4</code></td>
-                </tr>
-                <tr>
-                    <td><strong>Rejim Tespiti</strong></td>
-                    <td>Parkinson volatilite ile kisa/uzun donem karsilastirilir. Yuksek volatilite rejiminde pozisyon boyutu azaltilir</td>
-                    <td><code>Short=60m, Long=720m</code></td>
-                </tr>
-                <tr>
-                    <td><strong>Pozisyon Boyutu</strong></td>
-                    <td>Kelly criterion ile optimal pozisyon boyutu hesaplanir, minimum edge kontrolu yapilir</td>
-                    <td><code>Kelly fraction</code></td>
-                </tr>
-            </tbody>
-        </table>
-
-        <h3 class="docs-subtitle-h3">Z-Score Hesaplama (ZScoreCalculator)</h3>
+        <h3 class="docs-subtitle-h3">Matematiksel Temel</h3>
+        <p>Brownian motion kullanarak Binance spot fiyatindan theoretical up probability hesaplanir:</p>
         <pre class="docs-code">
-// ZScoreCalculator.Compute(candles)
-// 1. Son 120 dakikalik pencereden 5'er dakikalik blok getiriler hesapla
-// 2. Getirilerin ortalama (mu) ve standart sapmasini (sigma) bul
-// 3. Son 5 dakikalik getiriyi hesapla
-// 4. Z = (currentReturn - mu) / sigma
-// Z > 1.8  → overbought  → DOWN sinyal
-// Z &lt; -1.8 → oversold    → UP sinyal
+z = (ln(S_t/S_0) + 0.5·σ²·τ) / (σ·√τ)
+impliedProbUp = Φ(z)
+
+S_0 = Binance spot fiyati, 5-dakika penceresi baslangici
+S_t = Binance spot fiyati, T+2s (su an)
+τ = 4.967 dakika (5 dakika - 2 saniye giris gecikmesi)
+σ = son 60 1-dakika log return'den realized volatility
+Φ = standart normal kumulatif dagilim fonksiyonu
+        </pre>
+
+        <h3 class="docs-subtitle-h3">Edge Hesabi ve Trade Karari</h3>
+        <pre class="docs-code">
+edge = impliedProbUp - polymarketMidpointUp
+
+|edge| &lt; 0.03 → SKIP (3 cent altinda kar fee'ye gider)
+edge > 0.03 → UP satin al (UP underpriced)
+edge &lt; -0.03 → DOWN satin al (DOWN underpriced)
+        </pre>
+
+        <h3 class="docs-subtitle-h3">Veri Akisi</h3>
+        <ul class="docs-list">
+            <li>Binance Spot 1m Candles (WebSocket, live)</li>
+            <li>Polymarket CLOB midpoint (REST, T+2s'de)</li>
+            <li>Realized volatility: 60 1-min log return'den</li>
+            <li>Window opening price: 5-dakika sinirindaki candle.Open</li>
+        </ul>
+
+        <h3 class="docs-subtitle-h3">Yon Bagimsiz</h3>
+        <p>Algoritma UP/DOWN ayrimi yapmaz. Sadece edge yonune bakar. "Underpriced" taraf alinir.</p>
+
+        <h3 class="docs-subtitle-h3">Fee Yapisi</h3>
+        <pre class="docs-code">
+Polymarket taker fee = shares × 0.072 × price × (1 - price)
+Ornek: price=0.50 → max fee ≈ 1.8%
+Breakeven WR (fee dahil): ~53%
+Target WR: 55-65% arbitraj firsatlarinda
         </pre>
     </div>
 
-    <!-- ================================================================== -->
-    <!-- BOLUM 3: 11 Adimlik Filtre Zinciri -->
-    <!-- ================================================================== -->
-    <div class="docs-card" style="border-left-color: var(--color-accent-purple);">
-        <h2 class="docs-title">3. 11 Adimlik Filtre Zinciri (V2 Signal Engine)</h2>
-        <p class="docs-source">Kaynak: <code>SignalGenerator.cs:216-326 (GenerateV2)</code></p>
-
-        <p>
-            Her potansiyel sinyal, asagidaki 11 adimlik filtre zincirinden gecer. Herhangi bir adimda basarisiz olan sinyal
-            <strong>reddedilir</strong> ve bir sonraki adima gecilmez. Bu katmanli yaklasim, dusuk kaliteli trade'leri sistematik
-            olarak filtreler. Pratikte uretilen sinyallerin buyuk cogunlugu reddedilir — sadece tum kontrollerden gecen
-            yuksek kaliteli sinyaller islem olarak acilir.
-        </p>
-
-        <div class="docs-step">
-            <div class="docs-step-number">1</div>
-            <div class="docs-step-content">
-                <strong>Minimum Mum Kontrolu</strong>
-                <p>
-                    En az <code>20</code> mum gereklidir (<code>MinCandlesForSignal = 20</code>). Yetersiz veriyle indikatorler
-                    anlamli deger uretmez, bu yuzden sinyal uretmek mantiksizdir. Bu kontrol ozellikle sistem ilk basladiginda
-                    (warmup asamasinda) gereksiz sinyal uretimini onler.
-                </p>
-                <p class="docs-source">Red: <code>Error.NotEnoughCandles</code></p>
-            </div>
-        </div>
-
-        <div class="docs-step">
-            <div class="docs-step-number">2</div>
-            <div class="docs-step-content">
-                <strong>Piyasa Fiyat Araligi</strong>
-                <p>
-                    Market price <code>0.30 - 0.80</code> araliginda olmali (<code>MinMarketPrice = 0.30</code>,
-                    <code>MaxMarketPrice = 0.80</code>). Bu aralik, Polymarket mantigi ile uyumludur: cok dusuk
-                    fiyat (&lt;0.30) zaten "olmayacak" olarak fiyatlanmis, cok yuksek fiyat (>0.80) ise "olacak" olarak
-                    kesinlesmistir. Her iki durumda da edge cikarilmasi zordur.
-                </p>
-                <p class="docs-source">Red: <code>Error.InvalidMarketPrice</code></p>
-            </div>
-        </div>
-
-        <div class="docs-step">
-            <div class="docs-step-number">3</div>
-            <div class="docs-step-content">
-                <strong>Agirlikli Skor Hesaplama</strong>
-                <p>
-                    6 indikatorun agirlikli ortalamasiyla <code>FinalScore</code> hesaplanir (0.0 - 1.0 arasi).
-                    Hesaplama detaylari Bolum 2'dedir. Bu adimda red yoktur — skor her kosulda hesaplanir.
-                </p>
-            </div>
-        </div>
-
-        <div class="docs-step">
-            <div class="docs-step-number">4</div>
-            <div class="docs-step-content">
-                <strong>Yon Karari (Direction Decision)</strong>
-                <p>Skor bazli yon secimi uygulanir:</p>
-                <pre class="docs-code">
-FinalScore > 0.60 → UP (bullish sinyal)
-FinalScore &lt; 0.40 → DOWN (bearish sinyal)
-0.40 - 0.60 arasi → REDDEDILIR (yetersiz guven)
-                </pre>
-                <p>
-                    Bu genis notr bant (0.40-0.60), belirsiz piyasada islem acilmasini onler. Indikatorlarin cogunlugunun
-                    ayni yonde hemfikir olmasi gerekir. Pratikte 0.40-0.60 arasindaki skorlar en sik gorulendir, bu yuzden
-                    bu adimda cok sayida sinyal reddedilir.
-                </p>
-                <p class="docs-source">Red: <code>Error.InsufficientConfirmation</code></p>
-            </div>
-        </div>
-
-        <div class="docs-step">
-            <div class="docs-step-number">5</div>
-            <div class="docs-step-content">
-                <strong>1 Saatlik Trend Dogrulama (HARD BLOCK — Counter-Trend Filtresi)</strong>
-                <p>
-                    Bu, <strong>en kritik filtredir</strong>. 5 dakikalik sinyal, 1 saatlik trende ters ise <strong>kesinlikle
-                    reddedilir</strong>. Mantigi: kisa vadeli momentum yaniltici olabilir ama buyuk resim (1h trend) gercek
-                    yonu gosterir. Trende karsi islem acmak (counter-trend trading) genellikle zarar getirir.
-                </p>
-                <pre class="docs-code">
-// 1h candle'lardan SMA hesaplanir:
-hourlySmaFast = SMA(hourlyCloses, 5)    // 5 saatlik hizli ortalama
-hourlySmaSlow = SMA(hourlyCloses, 10)   // 10 saatlik yavas ortalama
-
-hourlyTrendUp = hourlySmaFast > hourlySmaSlow
-
-// Counter-trend kontrol:
-UP sinyal + DOWN trend (SMA5 &lt; SMA10) → REDDEDILIR
-DOWN sinyal + UP trend (SMA5 > SMA10) → REDDEDILIR
-                </pre>
-                <p>
-                    En az 10 adet 1h mum mevcut degilse bu kontrol atlanir (<code>hourlyCandles is { Count: >= 10 }</code>).
-                    Bu durumda <code>hourlyTrendConfirmed = false</code> olarak isaretlenir ama sinyal reddedilmez.
-                    Bu filtre, ozellikle yatay piyasalarda (choppy market) counter-trend kayiplarini buyuk olcude azaltir.
-                </p>
-                <p class="docs-source">Kaynak: <code>SignalGenerator.cs:247-263</code> | Red: <code>Error.CounterTrend</code></p>
-            </div>
-        </div>
-
-        <div class="docs-step">
-            <div class="docs-step-number">6</div>
-            <div class="docs-step-content">
-                <strong>Hacim Dogrulama</strong>
-                <p>
-                    Hacim orani (mevcut hacim / ortalama hacim) en az <code>0.8</code> olmali
-                    (<code>Volume.Ratio >= 0.8</code>). Dusuk hacimli sinyaller guvenilmezdir cunku
-                    hareketin arkasinda yeterli piyasa katilimi yoktur. Bu adim red uretmez ama <code>volumeConfirmed</code>
-                    flag'ini belirler ve sinyal kalitesini etkiler.
-                </p>
-                <p class="docs-source">Esik: <code>Volume.Ratio >= 0.8</code></p>
-            </div>
-        </div>
-
-        <div class="docs-step">
-            <div class="docs-step-number">7</div>
-            <div class="docs-step-content">
-                <strong>Fair Value Araligi</strong>
-                <p>
-                    Hesaplanan fair value (FV = finalScore) da tradeable aralikta olmali: <code>0.30 - 0.80</code>.
-                    Skor bu araligin disindaysa sinyal reddedilir. Bu kontrol, asiri yuksek (>0.80) veya asiri dusuk
-                    (&lt;0.30) skorlarin, gercekci olmadigi varsayimiyla filtrelenmesini saglar.
-                </p>
-                <p class="docs-source">Red: <code>Error.FairValueOutOfRange</code></p>
-            </div>
-        </div>
-
-        <div class="docs-step">
-            <div class="docs-step-number">8</div>
-            <div class="docs-step-content">
-                <strong>Yonsel Fair Value Kontrolleri</strong>
-                <p>Yonsel ek filtreler, zayif sinyalleri elemek icin uygulanir:</p>
-                <pre class="docs-code">
-UP sinyal  → FV >= 0.48 zorunlu  (Analyst v2 onerisi)
-DOWN sinyal → FV &lt;= 0.52 zorunlu (Analyst v3 onerisi)
-                </pre>
-                <p>
-                    UP sinyali icin FV'nin 0.48'den yuksek olmasi, "evet bu gercekten yukariya gider" inancini
-                    guclendirir. Ayni sekilde DOWN icin 0.52'den dusuk olmasi gerekir. Bu, notr bolgede bile yonsel
-                    tutarlilik saglar.
-                </p>
-                <p class="docs-source">Red: <code>Error.FairValueTooLowForUp</code> / <code>Error.FairValueTooHighForDown</code></p>
-            </div>
-        </div>
-
-        <div class="docs-step">
-            <div class="docs-step-number">9</div>
-            <div class="docs-step-content">
-                <strong>Rejim Tespiti (Parkinson Volatility)</strong>
-                <p>
-                    Piyasa rejimi (dusuk/yuksek volatilite) <strong>Parkinson volatilite tahmincisi</strong> ile belirlenir.
-                    Parkinson metodu, High/Low oraninin logaritmasini kullanan ve Close-to-Close volatiliteye gore daha
-                    verimli bir tahmin yontemidir.
-                </p>
-                <pre class="docs-code">
-// Parkinson Volatility:
-sigma = sqrt(1/(4n*ln2) * SUM(ln(H/L))^2)
-
-volShort = Parkinson(son 12 mum)   // RegimeShortPeriod = 12
-volLong  = Parkinson(son 144 mum)  // RegimeLongPeriod = 144
-
-volShort > 1.5 x volLong → HighVolatility   // HighVolMultiplier = 1.5
-aksi halde               → LowVolatility
-                </pre>
-                <p>
-                    Rejim, bir sonraki adimda (Edge kontrolu) minimum edge esigini belirler. Yuksek volatilitede piyasa
-                    daha fazla firsati sunar, bu yuzden dusuk edge bile kabul edilir. Dusuk volatilitede ise edge daha
-                    yuksek olmalidir cunku fiyat hareketi sinirlidir.
-                </p>
-                <p class="docs-source">Kaynak: <code>IndicatorCalculator.cs:250-265</code></p>
-            </div>
-        </div>
-
-        <div class="docs-step">
-            <div class="docs-step-number">10</div>
-            <div class="docs-step-content">
-                <strong>Edge Kontrolu (Position Sizing — Kelly Kriteri)</strong>
-                <p>
-                    Bu adim hem edge kontrolu yapar hem de pozisyon buyuklugunu hesaplar. Edge, fair value ile market
-                    price arasindaki mutlak farktir ve "sistemin ne kadar avantaji oldugunu" ifade eder.
-                </p>
-                <pre class="docs-code">
-Edge = |FairValue - MarketPrice|
-
-LowVolatility  → MinEdge = 0.15  (MinEdgeLowVol)
-HighVolatility  → MinEdge = 0.12  (MinEdge)
-
-Edge &lt; MinEdge → REDDEDILIR (yetersiz avantaj)
-                </pre>
-                <p>
-                    Edge esikleri <strong>Analyst v4</strong> tarafindan belirlenmistir (0.08 → 0.12 ve 0.12 → 0.15 arttirilmistir).
-                    Daha yuksek edge esigi, sadece guclu fiyat farkliliginda islem acar ve dusuk kalite trade'leri filtreler.
-                    Bu, kazanma oranini yukseltirken islem sayisini dusurur — bilinçli bir trade-off'tur.
-                </p>
-                <p class="docs-source">Kaynak: <code>PositionSizer.cs:8-9</code> | Red: <code>Error.InvalidEdge</code></p>
-            </div>
-        </div>
-
-        <div class="docs-step">
-            <div class="docs-step-number">11</div>
-            <div class="docs-step-content">
-                <strong>Sinyal Olusturma</strong>
-                <p>
-                    Tum 10 filtreden gecen sinyal, SignalScore ve tum meta-bilgiyle birlikte olusturulur ve ilgili
-                    engine'e gonderilir. SignalScore record'u su bilgileri icerir:
-                </p>
-                <pre class="docs-code">
-SignalScore {
-    FinalScore,            // agirlikli skor (0.0 - 1.0)
-    Edge,                  // |FV - market| (minimum 0.12 veya 0.15)
-    HourlyTrendConfirmed,  // 1h trend teyidi var mi
-    VolumeConfirmed,       // hacim >= 0.8 mi
-    IsUpSignal,            // UP yon mu
-    IsDownSignal           // DOWN yon mu
-}
-                </pre>
-                <p>
-                    Bu bilgiler trade acildiktan sonra da takip amacli kullanilir (dashboard'da gosterilir, log'a yazilir).
-                    Ozellikle <code>HourlyTrendConfirmed</code> ve <code>VolumeConfirmed</code> alanlari sinyal kalitesi
-                    degerlendirmesinde onemli rol oynar.
-                </p>
-            </div>
-        </div>
-    </div>
 
     <!-- ================================================================== -->
     <!-- BOLUM 4: Kelly Kriteri ve Pozisyon Boyutlandirma -->
@@ -433,12 +200,12 @@ SignalScore {
 f* = (p * b - q) / b
    p = kazanma olasiligi, q = 1-p, b = kazanc/kayip orani
 
-// Traxon uyarlamasi (binary outcome icin):
-// UP pozisyon icin:
-kellyFull = (fairValue - marketPrice) / (1 - marketPrice)
+// Traxon Loop34 uyarlamasi (binary outcome icin):
+// UP pozisyon icin (edge > 0):
+kellyFull = (impliedProbUp - marketPrice) / (1 - marketPrice)
 
-// DOWN pozisyon icin:
-kellyFull = (marketPrice - fairValue) / marketPrice
+// DOWN pozisyon icin (edge &lt; 0):
+kellyFull = (marketPrice - impliedProbUp) / marketPrice
 
 // Koruma: marketPrice > 0.9999 veya &lt; 0.0001 ise kellyFull = 0
         </pre>
@@ -458,22 +225,22 @@ kellyFull = (marketPrice - fairValue) / marketPrice
             <li><strong>Psikolojik rahatlama:</strong> Buyuk pozisyonlar stres yaratir ve yanlis kararlara yol acar</li>
         </ul>
 
-        <h3 class="docs-subtitle-h3">Edge Hesabi</h3>
+        <h3 class="docs-subtitle-h3">Edge Hesabi (Loop34 Arbitrage)</h3>
         <p>
-            Edge, sistemin piyasaya karsi sahip oldugu avantajdir. <code>|fairValue - marketPrice|</code> olarak
-            hesaplanir. Yuksek edge, fair value ile market price arasindaki buyuk fark demektir — yani "piyasa
-            yaniliyor ve biz bunu biliyoruz" durumu.
+            Loop34'te fair value yerine Brownian-motion'dan turetilen <strong>implied probability</strong> kullanilir.
+            Edge, implied probability ile Polymarket midpoint arasindaki farktir:
         </p>
         <pre class="docs-code">
-Edge = |FairValue - MarketPrice|
+edge = impliedProbUp - polymarketMidpointUp
 
-// Rejim bazli minimum edge:
-HighVolatility → MinEdge = 0.12   // daha toleransli
-LowVolatility  → MinEdge = 0.15   // daha katI
+// Sabit esik (rejim yok):
+|edge| &lt; 0.03 → SKIP (3 cent altinda kar fee'ye gider)
+edge > 0.03  → BUY UP
+edge &lt; -0.03 → BUY DOWN
 
 // Ornek:
-FairValue=0.68, MarketPrice=0.50 → Edge = 0.18 ✓ (>0.12 ve >0.15)
-FairValue=0.55, MarketPrice=0.50 → Edge = 0.05 ✗ (&lt;0.12, reddedilir)
+impliedProbUp=0.62, mid=0.50 → edge = +0.12 ✓ UP
+impliedProbUp=0.48, mid=0.50 → edge = -0.02 ✗ SKIP
         </pre>
 
         <h3 class="docs-subtitle-h3">Max %2 Pozisyon Limiti</h3>
@@ -491,17 +258,15 @@ positionSize  = max(0, positionSize)
 
         <h3 class="docs-subtitle-h3">Adim Adim Ornek Hesaplama</h3>
         <div class="docs-example">
-            <strong>Giris:</strong> FairValue=0.72, MarketPrice=0.50, Bankroll=$50, LowVol=false<br /><br />
-            1. Edge = |0.72 - 0.50| = <strong>0.22</strong> (>0.12 MinEdge ✓)<br />
-            2. kellyFull = (0.72 - 0.50) / (1 - 0.50) = 0.22 / 0.50 = <strong>0.44</strong><br />
-            3. kellyFraction = 0.44 * 0.15 = <strong>0.066</strong><br />
+            <strong>Giris:</strong> impliedProbUp=0.62, MarketPrice=0.50 (midUp), Bankroll=$50<br /><br />
+            1. edge = 0.62 - 0.50 = <strong>+0.12</strong> (>0.03 esigi ✓ → BUY UP)<br />
+            2. kellyFull = (0.62 - 0.50) / (1 - 0.50) = 0.12 / 0.50 = <strong>0.24</strong><br />
+            3. kellyFraction = 0.24 * 0.15 = <strong>0.036</strong><br />
             4. maxPosition = $50 * 0.02 = <strong>$1.00</strong><br />
-            5. positionSize = min(0.066 * $50, $1.00) = min($3.30, $1.00) = <strong>$1.00</strong><br /><br />
+            5. positionSize = min(0.036 * $50, $1.00) = min($1.80, $1.00) = <strong>$1.00</strong><br /><br />
             Sonuc: $1.00 pozisyon acilir (max %2 sinirinda)
         </div>
     </div>
-
-    @* BOLUM 5: PaperBinance Motoru — silindi *@
 
     <!-- ================================================================== -->
     <!-- BOLUM 6: PaperPoly Motoru -->
@@ -771,18 +536,18 @@ Balance += positionSize + PnL
                 <tr><td>Id</td><td>uniqueidentifier</td><td>Primary key (GUID)</td></tr>
                 <tr><td>Symbol</td><td>nvarchar(20)</td><td>Islem cifti (BTCUSDT, ETHUSDT vb.)</td></tr>
                 <tr><td>TimeFrame</td><td>nvarchar(5)</td><td>Zaman dilimi (1m, 5m, 15m, 1h)</td></tr>
-                <tr><td>Direction</td><td>nvarchar(10)</td><td>Sinyal yonu (Up/Down)</td></tr>
-                <tr><td>FairValue</td><td>decimal(18,8)</td><td>Adil deger P(Up)</td></tr>
-                <tr><td>MarketPrice</td><td>decimal(18,8)</td><td>Piyasa fiyati</td></tr>
-                <tr><td>Edge</td><td>decimal(18,8)</td><td>|FairValue - MarketPrice|</td></tr>
-                <tr><td>KellyFraction</td><td>decimal(18,8)</td><td>Half Kelly orani</td></tr>
-                <tr><td>MuEstimate</td><td>decimal(18,12)</td><td>Momentum tahmini</td></tr>
-                <tr><td>SigmaEstimate</td><td>decimal(18,12)</td><td>Volatilite tahmini</td></tr>
-                <tr><td>Regime</td><td>nvarchar(20)</td><td>Piyasa rejimi (LowVolatility/HighVolatility)</td></tr>
-                <tr><td>SignalScore</td><td>decimal(18,8)?</td><td>V2 sinyal skoru (null ise V1)</td></tr>
-                <tr><td>Rsi</td><td>decimal(18,8)</td><td>RSI(14) degeri</td></tr>
-                <tr><td>MacdHistogram</td><td>decimal(18,8)</td><td>MACD histogram degeri</td></tr>
-                <tr><td>BullishCount</td><td>int</td><td>Bullish onay sayisi</td></tr>
+                <tr><td>Direction</td><td>nvarchar(10)</td><td>Sinyal yonu (Up/Down) — edge isaretine gore</td></tr>
+                <tr><td>FairValue</td><td>decimal(18,8)</td><td>impliedProbUp = Φ(z)</td></tr>
+                <tr><td>MarketPrice</td><td>decimal(18,8)</td><td>Polymarket midpoint (Up tarafi)</td></tr>
+                <tr><td>Edge</td><td>decimal(18,8)</td><td>impliedProbUp - polymarketMidUp</td></tr>
+                <tr><td>KellyFraction</td><td>decimal(18,8)</td><td>0.15x Kelly orani</td></tr>
+                <tr><td>MuEstimate</td><td>decimal(18,12)</td><td>Drift tahmini (Loop34'te 0 varsayilir)</td></tr>
+                <tr><td>SigmaEstimate</td><td>decimal(18,12)</td><td>Realized vol (son 60 1m log return)</td></tr>
+                <tr><td>Regime</td><td>nvarchar(20)</td><td>Gozlemsel — sinyal uretimi rejimden bagimsizdir</td></tr>
+                <tr><td>SignalScore</td><td>decimal(18,8)?</td><td>Legacy kolon — Loop34'te null</td></tr>
+                <tr><td>Rsi</td><td>decimal(18,8)</td><td>Snapshot amacli, sinyalde kullanilmaz</td></tr>
+                <tr><td>MacdHistogram</td><td>decimal(18,8)</td><td>Snapshot amacli, sinyalde kullanilmaz</td></tr>
+                <tr><td>BullishCount</td><td>int</td><td>Legacy kolon — Loop34'te kullanilmaz</td></tr>
                 <tr><td>GeneratedAt</td><td>datetime2</td><td>Sinyal uretim zamani (UTC)</td></tr>
             </tbody>
         </table>
@@ -811,11 +576,11 @@ Balance += positionSize + PnL
             <tbody>
                 <tr><td><code>Domain.DuplicatePosition</code></td><td>Ayni asset icin zaten acik pozisyon var</td></tr>
                 <tr><td><code>Domain.PortfolioInsufficient</code></td><td>Bakiye yetersiz, pozisyon acilamaz</td></tr>
-                <tr><td><code>Domain.InsufficientConfirmation</code></td><td>Yeterli teknik onay yok (min 3/5 gerekli)</td></tr>
-                <tr><td><code>Domain.EngineNotReady</code></td><td>Engine henuz hazir degil</td></tr>
+                <tr><td><code>Domain.InsufficientEdge</code></td><td>|edge| &lt; 0.03 (arbitraj esiginin altinda)</td></tr>
+                <tr><td><code>Domain.EngineNotReady</code></td><td>Engine henuz hazir degil (warmup / volatilite veri eksik)</td></tr>
                 <tr><td><code>Engine.Disabled</code></td><td>Engine konfigurasyonda devre disi</td></tr>
-                <tr><td><code>Domain.CounterTrend</code></td><td>Sinyal yonu 1h trend ile celisiyor</td></tr>
-                <tr><td><code>Domain.FairValueOutOfRange</code></td><td>Fair value islem yapilabilir aralik disinda</td></tr>
+                <tr><td><code>Domain.MarketNotFound</code></td><td>Polymarket 5-dakika event'i bulunamadi</td></tr>
+                <tr><td><code>Domain.InvalidMidpoint</code></td><td>Polymarket midpoint gecersiz / stale</td></tr>
             </tbody>
         </table>
     </div>

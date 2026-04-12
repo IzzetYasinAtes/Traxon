@@ -37,7 +37,7 @@
             <tbody>
                 <tr>
                     <td>Sinyal</td>
-                    <td>5m candle kapaninca uretilir (RSI, MACD, ATR, FairValue, Edge)</td>
+                    <td>5m candle kapaninca eski indikator stack'i ile uretilirdi (RSI, MACD, ATR, FairValue, Edge, Kelly) — artik kullanilmiyor</td>
                 </tr>
                 <tr>
                     <td>Market bulma</td>
@@ -91,8 +91,8 @@
             <tbody>
                 <tr>
                     <td>Sinyal</td>
-                    <td>Ayni ✓</td>
-                    <td>Ayni ✓</td>
+                    <td>Loop34 — Binance-Polymarket arbitrage (Brownian implied prob vs Polymarket mid)</td>
+                    <td>Loop34 — ayni algoritma ✓</td>
                 </tr>
                 <tr>
                     <td>Market bulma</td>
@@ -377,26 +377,31 @@
     </div>
 
     <!-- ================================================================== -->
-    <!-- BOLUM 8: Sinyal Uretimi (Degismedi) -->
+    <!-- BOLUM 8: Sinyal Uretimi (Loop34'e Guncellendi) -->
     <!-- ================================================================== -->
-    <div class="docs-card" style="border-left-color: var(--color-text-muted);">
-        <h2 class="docs-title">8. Sinyal Uretimi (Degismedi)</h2>
-
-        <div class="docs-info">
-            <strong>Bilgi:</strong> Sinyal uretim mekanizmasi hic degismedi. Ayni matematik, ayni indikatorler.
-        </div>
-
-        <pre class="docs-code">Binance WebSocket → 1m candle
-    ↓
-Buffer biriktirme → 5m candle olusur
-    ↓
-Indikator hesaplama (RSI, MACD, ATR, Bollinger, vs.)
-    ↓
-FairValue + Edge + Kelly hesaplama
-    ↓
-Sinyal: "BTCUSDT Up" veya "BTCUSDT Down"
-    ↓
-Engine'lere gonderilir (PaperPoly + LivePoly)</pre>
+    <div class="docs-card" style="border-left-color: var(--color-accent-green);">
+        <h3 class="docs-subtitle-h3">Sinyal Uretimi (Loop34'e Guncellendi)</h3>
+        <p>Eski indikator tabanli sinyal (RSI, MACD, ATR, Bollinger) KALDIRILDI. Yeni yaklasim Binance-Polymarket arbitrage:</p>
+        <pre class="docs-code">
+Binance WebSocket → 1m candle buffer
+↓
+5-dakika boundary: window opening price al
+↓
+Realized volatility hesapla (60 1-min log return)
+↓
+Brownian implied probability: Φ((ln(S/S₀) + 0.5σ²τ) / σ√τ)
+↓
+Polymarket UP midpoint fetch
+↓
+edge = impliedProb - polymarketMid
+↓
+|edge| > 0.03 ise trade, yon edge isaretinden
+↓
+T+2s delay, FAK market order
+        </pre>
+        <p class="docs-info">
+            Detayli algoritma tarihcesi icin <a href="/loops">Loop Tarihcesi</a> sayfasini inceleyin.
+        </p>
     </div>
     </div>
 </div>
