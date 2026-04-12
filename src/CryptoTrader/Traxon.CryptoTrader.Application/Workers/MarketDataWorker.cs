@@ -197,41 +197,33 @@ public sealed class MarketDataWorker : BackgroundService
         IReadOnlyList<Candle> oneMinCandles,
         Domain.Indicators.TechnicalIndicators indicators)
     {
-        if (oneMinCandles.Count < 60) return;
+        if (oneMinCandles.Count < 61) return;
 
         // ======================================================
-        // LOOP 28: RADICAL — Momentum replaces VWAP + Loop21 base (OFI25 Mom20 OBI35 OBIMom20)
-        // Simpler, faster OFI. No UP bias. Volatility gate skips flat markets.
+        // LOOP 29: RADICAL — Pure price-based multi-timeframe trend
+        // All microstructure (OBI, OFI, OBI Mom) REMOVED
+        // Thesis: Microstructure valid for seconds, price trend valid for minutes
         // ======================================================
 
         var baseAsset = candle.Asset.Symbol.Replace("USDT", "");
 
-        // === FEATURE 1: OFI Delta (1-bar recent vs 3-bar baseline) ===
-        // Shorter lookback = fresher signal (microstructure research)
-        var lastBar = oneMinCandles[^1];
-        var ofiRecentRatio = lastBar.Volume > 0 ? lastBar.TakerBuyBaseVolume / lastBar.Volume : 0.5m;
+        // === FEATURE 1: Short-term momentum (5 bar = 5 min) ===
+        var mom5Ref = oneMinCandles[^6].Close;
+        var mom5Now = oneMinCandles[^1].Close;
+        var mom5Change = mom5Ref > 0 ? (mom5Now - mom5Ref) / mom5Ref : 0m;
+        var scoreMom5 = Math.Clamp(mom5Change * 200m, -1m, 1m);
 
-        var ofiBaseline = 0m; var volBaseline = 0m;
-        for (int i = oneMinCandles.Count - 4; i < oneMinCandles.Count - 1; i++)
-        {
-            ofiBaseline += oneMinCandles[i].TakerBuyBaseVolume;
-            volBaseline += oneMinCandles[i].Volume;
-        }
-        var ofiBaselineRatio = volBaseline > 0 ? ofiBaseline / volBaseline : 0.5m;
+        // === FEATURE 2: Medium-term trend (15 bar = 15 min) ===
+        var mom15Ref = oneMinCandles[^16].Close;
+        var mom15Change = mom15Ref > 0 ? (mom5Now - mom15Ref) / mom15Ref : 0m;
+        var scoreMom15 = Math.Clamp(mom15Change * 100m, -1m, 1m);
 
-        var ofiDelta = ofiRecentRatio - ofiBaselineRatio;
-        var scoreOFI = Math.Clamp(ofiDelta * 15m, -1m, 1m);
+        // === FEATURE 3: Long-term trend (60 bar = 60 min) ===
+        var mom60Ref = oneMinCandles[^61].Close;
+        var mom60Change = mom60Ref > 0 ? (mom5Now - mom60Ref) / mom60Ref : 0m;
+        var scoreMom60 = Math.Clamp(mom60Change * 50m, -1m, 1m);
 
-        // === FEATURE 2: Price Momentum (trend direction over last 5 bars) ===
-        // Crypto'da momentum > mean reversion for 5-min prediction
-        // OBI saniyeler için geçerli — momentum dakikalar için geçerli
-        var momClose = oneMinCandles[^1].Close;
-        var momRef = oneMinCandles[^6].Close;
-        var momChange = momRef > 0 ? (momClose - momRef) / momRef : 0m;
-        var scoreMomentum = Math.Clamp(momChange * 200m, -1m, 1m);
-
-        // === VOLATILITY GATE (skip flat markets, boost conviction moves) ===
-        // Parkinson volatility: last 3 bars vs last 10 bars
+        // === VOLATILITY GATE (Parkinson: last 3 vs last 10) ===
         var volShort = 0m;
         for (int i = oneMinCandles.Count - 3; i < oneMinCandles.Count; i++)
         {
@@ -249,21 +241,24 @@ public sealed class MarketDataWorker : BackgroundService
             if (mid > 0) volLong += (hl / mid) * (hl / mid);
         }
         volLong = (decimal)Math.Sqrt((double)(volLong / 10m));
-
         var volExpansion = volLong > 0 ? volShort / volLong : 1m;
 
-        // === FEATURE 3: Order Book Imbalance (from L2 depth) ===
-        var obi = _futuresData.GetOrderBookImbalance(candle.Asset.Symbol);
-        var scoreOBI = Math.Clamp(obi * 2.0m, -1m, 1m);
+        // === COMPOSITE SCORE (3 price-based features) ===
+        // Weights: short-term (5m) dominant, medium/long for trend confirmation
+        const decimal wMom5 = 0.45m;
+        const decimal wMom15 = 0.30m;
+        const decimal wMom60 = 0.25m;
+        var compositeScore = wMom5 * scoreMom5 + wMom15 * scoreMom15 + wMom60 * scoreMom60;
 
-        // === COMPOSITE SCORE (4 features) ===
-        const decimal wOFI = 0.25m;
-        const decimal wMomentum = 0.20m;
-        const decimal wOBI = 0.35m;
-        const decimal wOBIMom = 0.20m;
-        var obiMomentum = _futuresData.GetOrderBookMomentum(candle.Asset.Symbol);
-        var scoreOBIMom = Math.Clamp(obiMomentum * 8m, -1m, 1m);
-        var compositeScore = wOFI * scoreOFI + wMomentum * scoreMomentum + wOBI * scoreOBI + wOBIMom * scoreOBIMom;
+        // === Trend Agreement Bonus ===
+        // If all 3 timeframes agree on direction, boost; if disagree, discount
+        var compSign = Math.Sign(compositeScore);
+        var agreeCount = 0;
+        if (Math.Sign(scoreMom5) == compSign) agreeCount++;
+        if (Math.Sign(scoreMom15) == compSign) agreeCount++;
+        if (Math.Sign(scoreMom60) == compSign) agreeCount++;
+        if (agreeCount == 3) compositeScore *= 1.20m;  // all agree
+        else if (agreeCount <= 1) compositeScore *= 0.60m; // disagree
 
         // === Funding Rate Contrarian Filter (multiplicative) ===
         var fundingRate = _futuresData.GetFundingRate(candle.Asset.Symbol);
@@ -308,8 +303,8 @@ public sealed class MarketDataWorker : BackgroundService
         var effectiveDelta = compositeScore / 3.0m;
 
         _logger.LogInformation(
-            "{Symbol} L28 | OFI:{OFI:F3} Mom:{Mom:F3} OBI:{OBI:F3} OBIMom:{OM:F3} OI%:{OI:F3} FR:{FR:F6} VE:{VE:F2} | Score:{S:F3} Dir:{D}",
-            candle.Asset.Symbol, scoreOFI, scoreMomentum, scoreOBI, scoreOBIMom, oiChange, fundingRate, volExpansion, compositeScore, direction);
+            "{Symbol} L29 | Mom5:{M5:F3} Mom15:{M15:F3} Mom60:{M60:F3} Agr:{A} FR:{FR:F6} VolExp:{VE:F2} | Score:{S:F3} Dir:{D}",
+            candle.Asset.Symbol, scoreMom5, scoreMom15, scoreMom60, agreeCount, fundingRate, volExpansion, compositeScore, direction);
 
         // === Market Discovery + Entry ===
         var discoverResult = await _discovery.DiscoverMarketsAsync();
