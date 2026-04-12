@@ -47,3 +47,40 @@ Tum agent rolleri, kod standartlari, karar yetkileri ve test sorumlulugu RULES.m
 ## Guvenlik
 - Agent'lar local git islemleri + push yapar
 - `.claude/settings.local.json` deny kurallari aktif
+
+## Güncel Algoritma (Loop34)
+
+Sistem şu an **Binance-Polymarket Implied Probability Arbitrage** kullanıyor (Benjamin-Cup Şubat 2026 formülü):
+
+```
+z = (ln(S_t/S_0) + 0.5σ²τ) / (σ√τ)
+impliedProbUp = Φ(z)
+edge = impliedProbUp - polymarketMid
+|edge| > 0.03 → trade underpriced side
+```
+
+- `S_0`: Binance spot at 5-min window open
+- `S_t`: Binance spot now (T+2s)
+- `σ`: realized volatility from last 60 1-min log returns
+- `τ`: 4.967 min remaining in 5-min window
+
+Detaylar ve 34 loop tarihçesi: `LoopTest/Loop*/report.md` dosyalarında ve `/loops` UI sayfasında.
+
+## Altın Kurallar (Değişmezler)
+
+1. **Saat filtresi YASAK** — her saat trade yapılabilir
+2. **T=0+2sn giriş** — market açılır açılmaz gir
+3. **Timeout/fake loss YASAK** — Gamma API ile doğru kapat
+4. **Position size sabit**: MAX(Bakiye × 2%, $1)
+5. **Direction agnostic** — UP/DOWN ayrımı yapma
+6. **40+ sinyal/saat ideal** — agresif filtreleme YASAK
+7. **LivePoly branch + tek commit/loop**
+8. **Köklü değişiklik UNUT** — Loop34 yaklaşımını iyileştir, değiştirme
+9. **Kayıp önlemek için sinyal azaltma** — tahmin kalitesini artır
+10. **MCP'leri durdurma** — sadece `Traxon.CryptoTrader*` öldür
+
+## Loop Yaklaşımı
+
+- Her loop 8 saat çalışır
+- Loop sonu: PnL -$3 ile +$3 → küçük iyileştirme; -$10+ → değerlendir (köklü değil, iyileştir)
+- Erken durdurma: sadece bakiye < $1 VE açık trade 0

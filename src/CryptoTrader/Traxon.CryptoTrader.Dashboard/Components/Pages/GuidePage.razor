@@ -171,15 +171,15 @@
         <h3 class="guide-subtitle-h3">Zaman Dilimleri: Ne Zaman Hangisi Kullanilir?</h3>
         <p>Her mum belirli bir sureyi temsil eder ve farkli zaman dilimleri farkli amaclarla kullanilir:</p>
         <ul class="guide-list">
-            <li><strong>1m (1 dakika):</strong> Cok kisa vadeli, yuksek gurultu. Scalping icin kullanilir ama sahte sinyaller cok fazladir.</li>
-            <li><strong>5m (5 dakika):</strong> Scalping ve kisa vadeli trading icin ideal. Traxon sistemi ana islem kararlarini 5m mumlara dayandirır.</li>
-            <li><strong>15m (15 dakika):</strong> Intraday (gun ici) trading icin uygundur. 5m'e gore daha az gurultu, daha net sinyaller.</li>
-            <li><strong>1h (1 saat):</strong> Trend teyidi icin kullanilir. Traxon sistemi 1h mumlari trend yonu dogrulama (counter-trend filtre) icin kullanir.</li>
+            <li><strong>1m (1 dakika):</strong> Traxon sistemi 1m mumlari <strong>realized volatility (σ)</strong> hesaplamak icin kullanir (son 60 log return).</li>
+            <li><strong>5m (5 dakika):</strong> Polymarket 5-dakikalik event pencereleriyle eslesir. Traxon <code>S_0</code> degerini (pencere acilis fiyati) 5m mum Open degerinden alir.</li>
+            <li><strong>15m (15 dakika):</strong> Intraday (gun ici) trading icin uygundur. Traxon'da gozlemsel IndicatorSnapshot amaciyla tutulur.</li>
+            <li><strong>1h (1 saat):</strong> Buyuk resim trend analizi. Traxon'da gozlemsel amacli, sinyal uretiminde <strong>kullanilmaz</strong>.</li>
         </ul>
         <p>
             Genel kural: <strong>kisa zaman dilimi = daha fazla sinyal ama daha cok gurultu</strong>. Uzun zaman dilimi = daha az
-            sinyal ama daha guvenilir. Profesyonel traderlar genellikle birden fazla zaman dilimini birlikte kullanir (multi-timeframe analysis).
-            Traxon sistemi tam da bunu yapar: 5m'de islem acar, 1h'da trend yonu dogrular.
+            sinyal ama daha guvenilir. Traxon sistemi, Binance 1m/5m mumlariyla Polymarket 5-dakikalik event'leri eslestirerek
+            <strong>arbitraj firsati</strong> arar (indicator-bazli multi-timeframe analiz yerine).
         </p>
 
         <h3 class="guide-subtitle-h3">Temel Mum Formasyonlari</h3>
@@ -259,8 +259,9 @@
             <p>
                 <strong>RSI(7) vs RSI(14) farki:</strong> RSI(7) kisa vadeli momentum icin kullanilir, fiyat degisikliklerine
                 cok hizli tepki verir ama daha fazla sahte sinyal uretir. RSI(14) daha uzun vadeli trendi gosterir ve daha
-                guvenilirdir ama yavastir. Traxon sistemi her ikisini de kullanir: RSI(7) sinyal skorunda %25 agirlikla ana
-                momentum gostergesi olarak, RSI(14) ise %10 agirlikla uzun vadeli teyit olarak kullanilir.
+                guvenilirdir ama yavastir. Traxon sistemi RSI degerlerini <strong>sadece IndicatorSnapshot (gozlemsel log)</strong>
+                amaciyla kaydeder — sinyal uretiminde (Loop34 arbitrage) RSI <strong>kullanilmaz</strong>. Sinyaller Binance
+                spot fiyatindan turetilen implied probability ile Polymarket midpoint arasindaki arbitraj farkiyla uretilir.
             </p>
             <p>
                 <strong>Divergence (Sapma):</strong> Fiyat yeni zirve yaparken RSI yapamiyorsa <strong>bearish divergence</strong>
@@ -288,9 +289,10 @@
                 Histogramin boyutu ise momentumun gucunu gosterir: buyuk histogram = guclu momentum.
             </p>
             <p>
-                Traxon sistemi MACD'yi binary olarak kullanir: histogram > 0 ise bullish (skor = 1.0), degilse bearish (skor = 0.0).
-                Bu basitlik, sinyal skorunda %20 agirlikla net bir trend yonu katkisi saglar. MACD'nin en guclu oldugu durumlar
-                trend baslangiclardir; yatay piyasalarda yaniltici olabilir.
+                Traxon sistemi MACD degerini <strong>sadece IndicatorSnapshot (gozlemsel log)</strong> amaciyla kaydeder.
+                Sinyal uretiminde (Loop34 arbitrage) MACD <strong>kullanilmaz</strong>. MACD'nin en guclu oldugu durumlar
+                trend baslangiclardir; yatay piyasalarda yaniltici olabilir — bu tarz subjektif yorumlar yerine Traxon
+                dogrudan Brownian-motion tabanli olasilik hesaplar.
             </p>
         </div>
 
@@ -314,7 +316,8 @@
             <p>
                 <strong>Squeeze (Sikisma):</strong> Bantlar daralmaya basladiginda bu, volatilitenin cok dustugunu ve buyuk bir
                 fiyat hareketinin yaklastigini gosterir. Squeeze sonrasi genellikle sert bir yukselis veya dusus gelir. Traxon
-                sistemi, fiyatin bantlar icindeki konumunu 0-1 arasinda normalize eder ve sinyal skoruna %20 agirlikla katar.
+                sistemi Bollinger Bantlarini <strong>sadece IndicatorSnapshot (gozlemsel log)</strong> amaciyla kaydeder;
+                Loop34 arbitrage sinyalinde kullanilmaz.
             </p>
         </div>
 
@@ -334,7 +337,10 @@
                 ATR'nin en onemli kullanim alani <strong>Stop Loss ve Take Profit seviyelerini belirlemektir</strong>. Yuksek
                 volatiliteli bir piyasada dar SL kullanirseniz, normal fiyat dalgalanmalari bile SL'nizi tetikler. ATR bazli SL,
                 piyasanin dogal hareket genisligine uyum saglar. Ornegin ATR = 50$ ise, SL'yi en az 1 ATR (50$) uzaga koymak
-                mantiklidir. Traxon sistemi ATR'yi rejim tespiti (yuksek/dusuk volatilite) icin kullanir.
+                mantiklidir. Traxon sistemi ATR'yi <strong>sadece IndicatorSnapshot (gozlemsel log)</strong> amaciyla
+                kaydeder — Polymarket binary-resolution yapisinda SL/TP yoktur, pozisyon event resolution'a kadar tutulur.
+                Volatilite hesabi icin Traxon, ATR yerine son 60 1-dakikalik <strong>log return'den realized volatility</strong>
+                (σ) hesaplar.
             </p>
         </div>
 
@@ -353,7 +359,8 @@
             <p>
                 Fiyat VWAP'in <strong>ustundeyse</strong> alicilar guclu (bullish), <strong>altindaysa</strong> saticilar guclu
                 (bearish) yorumu yapilir. VWAP, ozellikle gun ici (intraday) islemlerde guclu bir destek/direnç seviyesi
-                olarak calisir. Traxon sistemi 20 mumlik rolling VWAP hesaplar ve multi-confirmation filtrede kullanir.
+                olarak calisir. Traxon sistemi 20 mumlik rolling VWAP degerini <strong>sadece IndicatorSnapshot (gozlemsel log)</strong>
+                amaciyla kaydeder; Loop34 arbitrage sinyalinde kullanilmaz.
             </p>
         </div>
 
@@ -374,8 +381,9 @@
                 olusur. Bu, <strong>guclu bir satis sinyalidir</strong>.
             </p>
             <p>
-                Traxon sistemi <strong>SMA(10)</strong> ve <strong>SMA(30)</strong> kullanir. SMA(10) > SMA(30) ise trend yukaridir
-                (bullish), SMA(10) &lt; SMA(30) ise trend asagidir (bearish). Bu bilgi multi-confirmation filtrede kullanilir.
+                Traxon sistemi <strong>SMA(10)</strong> ve <strong>SMA(30)</strong> degerlerini <strong>sadece
+                IndicatorSnapshot (gozlemsel log)</strong> amaciyla kaydeder. Loop34 arbitrage sinyalinde SMA kullanilmaz —
+                yon karari yalnizca Binance implied probability ile Polymarket midpoint arasindaki edge'e dayanir.
             </p>
         </div>
 
@@ -392,10 +400,9 @@
                 <code>EMA(9) icin: k = 2/10 = 0.2 (son fiyata %20 agirlik)</code>
             </div>
             <p>
-                Traxon sistemi <strong>EMA(9)</strong> kullanir. Sinyal skorunda iki bilgi degerlendirilir: (1) fiyat EMA'nin
-                ustunde mi? (ustundeyse +0.5 puan), (2) EMA yukseliyor mu? (yukseliyorsa +0.5 puan). Toplam EMA skoru 0-1
-                arasinda olur ve %15 agirlikla final skora eklenir. Hem fiyat pozisyonu hem de momentum (slope) birlikte
-                degerlendirilir.
+                Traxon sistemi <strong>EMA(9)</strong> degerini <strong>sadece IndicatorSnapshot (gozlemsel log)</strong>
+                amaciyla kaydeder. Loop34 arbitrage sinyalinde EMA kullanilmaz — sinyal yalnizca Binance spot fiyatindan
+                turetilen implied probability ile Polymarket midpoint arasindaki edge'e dayanir.
             </p>
         </div>
 
@@ -415,8 +422,8 @@
                 <strong>80 ustu:</strong> Asiri alim bolgesi — fiyat cok yukseldi, dusus gelebilir. <strong>20 alti:</strong>
                 Asiri satim bolgesi — fiyat cok dustu, yukselis gelebilir. <strong>%K > %D</strong> oldugunda
                 <span class="text-green">bullish (alis)</span>, <strong>%K &lt; %D</strong> oldugunda
-                <span class="text-red">bearish (satis)</span> sinyali verir. Traxon sistemi Stochastic'i multi-confirmation
-                filtrede 5 indikatorun birisi olarak kullanir.
+                <span class="text-red">bearish (satis)</span> sinyali verir. Traxon sistemi Stochastic'i <strong>sadece
+                IndicatorSnapshot (gozlemsel log)</strong> amaciyla kaydeder; Loop34 arbitrage sinyalinde kullanilmaz.
             </p>
         </div>
 
@@ -435,9 +442,9 @@
             </p>
             <p>
                 Traxon sistemi son <strong>20 mumun hacim ortalamasini</strong> referans alir. Mevcut mumun hacmi / ortalama hacim
-                orani hesaplanir (Volume Ratio). Ratio = 2.0 ise hacim ortalamanin 2 kati demektir ve bu cok guclu bir
-                hareket gostergesidir. Sinyal skorunda hacim %10 agirlikla kullanilir: <code>clamp(Ratio / 2, 0, 1)</code>.
-                Ayrica V2 sinyal motorunda hacim orani en az <strong>0.8</strong> olmali (hacim dogrulama filtresi).
+                orani (Volume Ratio) <strong>sadece IndicatorSnapshot (gozlemsel log)</strong> amaciyla kaydedilir.
+                Loop34 arbitrage sinyalinde hacim filtresi <strong>kullanilmaz</strong> — yon karari tamamen
+                Binance-Polymarket implied probability farkiyla verilir.
             </p>
         </div>
     </div>
@@ -555,8 +562,10 @@
             Ortalama kazanc/kayip: 2.0 (kazandiginizda kaybettiginizin 2 kati)<br /><br />
             f* = (0.55 x 2.0 - 0.45) / 2.0 = (1.10 - 0.45) / 2.0 = 0.65 / 2.0 = <strong>0.325</strong><br /><br />
             Kelly, bakiyenizin %32.5'ini riske atmanizi onerir. Ama bu pratikte <strong>cok agresiftir</strong> cunku
-            modelin tahminleri her zaman dogru degildir. PaperPoly motoru Kelly hesabi yerine
-            <strong>sabit bakiyenin %2'si</strong> (minimum $1) pozisyon buyuklugu kullanir.
+            modelin tahminleri her zaman dogru degildir. Traxon sistemi <strong>%15 Kelly</strong>
+            (<code>kellyFraction = kellyFull × 0.15</code>) kullanir ve ustune <strong>bakiyenin %2</strong>
+            tavanini uygular: <code>positionSize = min(kellyFraction × bankroll, bankroll × 0.02)</code>.
+            Bu sayede Kelly'nin asiri iyimser tahminleri sinirlandirilir.
         </div>
 
         <h3 class="guide-subtitle-h3">Drawdown: Maksimum Dusus</h3>
@@ -752,16 +761,19 @@
     <div class="guide-card" style="border-left-color: var(--color-accent-gold);">
         <h2 class="guide-title">8. Sinyal Uretimi ve Red Sebepleri</h2>
 
-        <h3 style="color: var(--color-text-primary); margin: 16px 0 8px;">Sinyal Nedir?</h3>
+        <h3 style="color: var(--color-text-primary); margin: 16px 0 8px;">Sinyal Nedir? (Loop34 Arbitrage)</h3>
         <p>
-            Sistem, her mum kapanisinda teknik gostergeleri analiz ederek <strong>sinyal</strong> uretir. Sinyal,
-            bir varligin fiyatinin yukselecegi (Up) veya dusecegi (Down) yonunde bir tahmindir. Her sinyal su bilgileri tasir:
+            Sistem, <strong>Binance-Polymarket Implied Probability Arbitrage</strong> (Loop34) algoritmasiyla sinyal uretir.
+            Brownian-motion ile Binance spot fiyatindan teorik UP olasiligi hesaplanir
+            (<code>impliedProbUp = Φ(z)</code>), ardindan Polymarket midpoint ile karsilastirilir
+            (<code>edge = impliedProbUp - polymarketMidpointUp</code>). Her sinyal su bilgileri tasir:
         </p>
         <ul>
-            <li><strong>Adil Deger (FairValue):</strong> Sistemin hesapladigi gercek deger olasiligi</li>
-            <li><strong>Edge:</strong> Adil deger ile piyasa fiyati arasindaki fark — ne kadar buyukse firsat o kadar iyi</li>
-            <li><strong>Kelly Orani:</strong> Matematik formule gore ne kadar yatirim yapilmasi gerektigi</li>
-            <li><strong>Sinyal Skoru:</strong> RSI, MACD, Bollinger gibi gostergelerin agirlikli puani (0-1 arasi)</li>
+            <li><strong>impliedProbUp (FairValue):</strong> Brownian-motion modelinden turetilen teorik UP olasiligi (Φ(z))</li>
+            <li><strong>Polymarket Midpoint (MarketPrice):</strong> Polymarket UP tarafi order book midpoint degeri</li>
+            <li><strong>Edge:</strong> <code>impliedProbUp - midpointUp</code> — isaret yonu, mutlak deger firsat buyuklugunu gosterir</li>
+            <li><strong>Sigma (σ):</strong> Son 60 1-dakikalik Binance log return'den hesaplanan realized volatility</li>
+            <li><strong>Kelly Fraksiyonu:</strong> Edge ve fiyata gore hesaplanan pozisyon orani (0.15x carpan uygulanir)</li>
         </ul>
 
         <h3 style="color: var(--color-text-primary); margin: 16px 0 8px;">Engine Neden Reddedebilir?</h3>
@@ -771,11 +783,11 @@
         <ul>
             <li><strong>Acik Pozisyon:</strong> Ayni varlik icin zaten acik bir trade varsa yeni pozisyon acilmaz</li>
             <li><strong>Bakiye Yetersiz:</strong> Portfoyde yeni pozisyon acmak icin yeterli bakiye yoksa reddedilir</li>
-            <li><strong>Yetersiz Onay:</strong> Teknik gostergelerden en az 3/5 onay gelmemisse sinyal zayif kabul edilir</li>
-            <li><strong>Engine Hazir Degil:</strong> Engine henuz baslatilmamis veya ilk veri yuklenmemisse bekler</li>
+            <li><strong>Yetersiz Edge:</strong> |edge| &lt; 0.03 ise pozisyon acilmaz (3 cent altinda kar Polymarket fee'sine gider)</li>
+            <li><strong>Engine Hazir Degil:</strong> Warmup tamamlanmadi (en az 60 1-dakikalik mum gerekli, σ icin)</li>
             <li><strong>Engine Devre Disi:</strong> Konfigurasyonda engine kapatilmissa sinyal islenmez</li>
-            <li><strong>Ters Trend:</strong> Sinyal yonu, 1 saatlik trend ile celisiyorsa guvenlik icin reddedilir</li>
-            <li><strong>Fair Value Aralik Disi:</strong> Adil deger, islem yapilabilir aralik disindaysa reddedilir</li>
+            <li><strong>Polymarket Event Bulunamadi:</strong> Gamma API'de 5-dakikalik event aktif degilse atlanir</li>
+            <li><strong>Gecersiz Midpoint:</strong> Polymarket order book'ta midpoint hesaplanamadiysa reddedilir</li>
         </ul>
 
         <h3 style="color: var(--color-text-primary); margin: 16px 0 8px;">Tum Kararlar Kayit Altinda</h3>

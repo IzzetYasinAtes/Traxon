@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Traxon.CryptoTrader.Application.Abstractions;
@@ -27,6 +28,10 @@ public sealed class MarketDataWorker : BackgroundService
     private const int BackfillDays = 3;
     private const int BackfillPageSize = 1500;
     private const int MinOneMinuteCandles = 100;
+
+    // BTC lead-lag tracking — last 6 BTC closes for 5-min momentum
+    private static readonly ConcurrentQueue<(DateTime time, decimal close)> _btcCloses = new();
+    private const int BtcCloseHistory = 10;
 
     public MarketDataWorker(
         IMarketDataProvider marketDataProvider,
@@ -126,6 +131,15 @@ public sealed class MarketDataWorker : BackgroundService
     private async Task OnCandleClosedAsync(Candle candle)
     {
         _candleBuffer.Add(candle);
+
+        // Track BTC closes for lead-lag feature
+        if (candle.Asset.Symbol == "BTCUSDT")
+        {
+            _btcCloses.Enqueue((candle.OpenTime, candle.Close));
+            while (_btcCloses.Count > BtcCloseHistory)
+                _btcCloses.TryDequeue(out _);
+        }
+
         PublishTickerUpdate(candle);
         _publisher.PublishCandleUpdate(candle.ToCandleDto());
         WriteCandleAsync(candle);
@@ -200,144 +214,115 @@ public sealed class MarketDataWorker : BackgroundService
         if (oneMinCandles.Count < 60) return;
 
         // ======================================================
-        // LOOP 21: OFI DELTA + VWAP Z + OBI + OBI MOMENTUM + OI CHANGE + FUNDING + VOL GATE
-        // Simpler, faster OFI. No UP bias. Volatility gate skips flat markets.
+        // LOOP 34: BINANCE-POLYMARKET IMPLIED PROBABILITY ARBITRAGE
+        // Benjamin-Cup (Feb 2026): Brownian motion implied prob vs Polymarket mid
+        // Academic refs: Black-Scholes 1973, Reiner-Rubinstein 1991
+        // Target: 5-10 signals/hour, 62-68% hit rate, 3¢+ edge
         // ======================================================
 
-        var baseAsset = candle.Asset.Symbol.Replace("USDT", "");
+        var symbol = candle.Asset.Symbol;
+        var baseAsset = symbol.Replace("USDT", "");
 
-        // === FEATURE 1: OFI Delta (1-bar recent vs 3-bar baseline) ===
-        // Shorter lookback = fresher signal (microstructure research)
-        var lastBar = oneMinCandles[^1];
-        var ofiRecentRatio = lastBar.Volume > 0 ? lastBar.TakerBuyBaseVolume / lastBar.Volume : 0.5m;
+        // === STEP 1: Find window opening price ===
+        // The 5-min window opening bar (OpenTime where minute % 5 == 0)
+        // candle.OpenTime is the just-closed 1m candle (minute is :04, :09, :14, etc.)
+        // The 5-min window opening bar is candle.OpenTime - 4 minutes (or the :00, :05, :10, :15... bar)
+        var windowOpenMinute = (candle.OpenTime.Minute / 5) * 5;
+        var windowOpenTime = new DateTime(candle.OpenTime.Year, candle.OpenTime.Month, candle.OpenTime.Day,
+                                          candle.OpenTime.Hour, windowOpenMinute, 0, DateTimeKind.Utc);
 
-        var ofiBaseline = 0m; var volBaseline = 0m;
-        for (int i = oneMinCandles.Count - 4; i < oneMinCandles.Count - 1; i++)
+        var windowOpenCandle = oneMinCandles.FirstOrDefault(c => c.OpenTime == windowOpenTime);
+        if (windowOpenCandle == null) return;
+
+        var spotStart = windowOpenCandle.Open; // price at window start
+        var spotNow = candle.Close; // latest price (just closed candle)
+
+        // === STEP 2: Compute realized volatility (per-minute) ===
+        var returns = new List<double>();
+        for (int i = oneMinCandles.Count - 61; i < oneMinCandles.Count - 1; i++)
         {
-            ofiBaseline += oneMinCandles[i].TakerBuyBaseVolume;
-            volBaseline += oneMinCandles[i].Volume;
+            if (i < 0) continue;
+            if (oneMinCandles[i].Close > 0)
+            {
+                var r = Math.Log((double)(oneMinCandles[i + 1].Close / oneMinCandles[i].Close));
+                returns.Add(r);
+            }
         }
-        var ofiBaselineRatio = volBaseline > 0 ? ofiBaseline / volBaseline : 0.5m;
+        if (returns.Count < 30) return;
 
-        var ofiDelta = ofiRecentRatio - ofiBaselineRatio;
-        var scoreOFI = Math.Clamp(ofiDelta * 15m, -1m, 1m);
+        double mean = returns.Sum() / returns.Count;
+        double variance = returns.Sum(r => (r - mean) * (r - mean)) / (returns.Count - 1);
+        double sigmaPerMin = Math.Sqrt(variance);
 
-        // === FEATURE 2: VWAP Z-Score (mean reversion at extremes) ===
-        var vwapSum = 0m; var vwapVolSum = 0m;
-        var vwapLookback = Math.Min(60, oneMinCandles.Count);
-        for (int i = oneMinCandles.Count - vwapLookback; i < oneMinCandles.Count; i++)
-        {
-            vwapSum += oneMinCandles[i].Close * oneMinCandles[i].Volume;
-            vwapVolSum += oneMinCandles[i].Volume;
-        }
-        var vwap = vwapVolSum > 0 ? vwapSum / vwapVolSum : oneMinCandles[^1].Close;
-        var vwapVarSum = 0m;
-        for (int i = oneMinCandles.Count - vwapLookback; i < oneMinCandles.Count; i++)
-        {
-            var diff = oneMinCandles[i].Close - vwap;
-            vwapVarSum += diff * diff * oneMinCandles[i].Volume;
-        }
-        var vwapStd = vwapVolSum > 0 ? (decimal)Math.Sqrt((double)(vwapVarSum / vwapVolSum)) : 1m;
-        var vwapZ = vwapStd > 0.000001m ? (oneMinCandles[^1].Close - vwap) / vwapStd : 0m;
-        var scoreVWAP = Math.Clamp(-vwapZ / 2.0m, -1m, 1m);
+        if (sigmaPerMin < 1e-6) return; // no volatility, skip
 
-        // === VOLATILITY GATE (skip flat markets, boost conviction moves) ===
-        // Parkinson volatility: last 3 bars vs last 10 bars
-        var volShort = 0m;
-        for (int i = oneMinCandles.Count - 3; i < oneMinCandles.Count; i++)
-        {
-            var hl = oneMinCandles[i].High - oneMinCandles[i].Low;
-            var mid = (oneMinCandles[i].High + oneMinCandles[i].Low) / 2m;
-            if (mid > 0) volShort += (hl / mid) * (hl / mid);
-        }
-        volShort = (decimal)Math.Sqrt((double)(volShort / 3m));
+        // === STEP 3: Brownian implied probability ===
+        double tau = 5.0 - 2.0 / 60.0; // 5 min - 2 sec entry delay ≈ 4.967 min
+        double lnRatio = Math.Log((double)(spotNow / spotStart));
+        double z = (lnRatio + 0.5 * sigmaPerMin * sigmaPerMin * tau)
+                 / (sigmaPerMin * Math.Sqrt(tau));
+        decimal impliedProbUp = (decimal)StandardNormalCDF(z);
 
-        var volLong = 0m;
-        for (int i = oneMinCandles.Count - 10; i < oneMinCandles.Count; i++)
-        {
-            var hl = oneMinCandles[i].High - oneMinCandles[i].Low;
-            var mid = (oneMinCandles[i].High + oneMinCandles[i].Low) / 2m;
-            if (mid > 0) volLong += (hl / mid) * (hl / mid);
-        }
-        volLong = (decimal)Math.Sqrt((double)(volLong / 10m));
-
-        var volExpansion = volLong > 0 ? volShort / volLong : 1m;
-
-        // === FEATURE 3: Order Book Imbalance (from L2 depth) ===
-        var obi = _futuresData.GetOrderBookImbalance(candle.Asset.Symbol);
-        var scoreOBI = Math.Clamp(obi * 2.0m, -1m, 1m);
-
-        // === COMPOSITE SCORE (4 features) ===
-        const decimal wOFI = 0.35m;
-        const decimal wVWAP = 0.10m;
-        const decimal wOBI = 0.40m;
-        const decimal wOBIMom = 0.15m;
-        var obiMomentum = _futuresData.GetOrderBookMomentum(candle.Asset.Symbol);
-        var scoreOBIMom = Math.Clamp(obiMomentum * 8m, -1m, 1m);
-        var compositeScore = wOFI * scoreOFI + wVWAP * scoreVWAP + wOBI * scoreOBI + wOBIMom * scoreOBIMom;
-
-        // === Funding Rate Contrarian Filter (multiplicative) ===
-        var fundingRate = _futuresData.GetFundingRate(candle.Asset.Symbol);
-        if (Math.Abs(fundingRate) > 0.0005m) // extreme funding
-        {
-            if (Math.Sign(fundingRate) != Math.Sign(compositeScore))
-                compositeScore *= 1.15m; // contrarian to crowded side = boost
-            else
-                compositeScore *= 0.85m; // same as crowded side = discount
-        }
-
-        // Open Interest change: increasing OI = conviction, decreasing = closing positions
-        var oiChange = _futuresData.GetOpenInterestChange(candle.Asset.Symbol);
-        if (oiChange > 0.01m)
-            compositeScore *= 1.10m; // OI increasing >1% = conviction
-        else if (oiChange < -0.01m)
-            compositeScore *= 0.90m; // OI decreasing >1% = position closing
-
-        // Volatility gate: expanding vol = boost, contracting = discount
-        if (volExpansion > 1.5m)
-            compositeScore *= 1.2m; // conviction move
-        else if (volExpansion < 0.7m)
-            compositeScore *= 0.5m; // flat market, likely noise
-
-        // === VOLUME FILTER (skip dead markets) ===
-        var volRecent5 = 0m;
-        for (int i = oneMinCandles.Count - 5; i < oneMinCandles.Count; i++)
-            volRecent5 += oneMinCandles[i].Volume;
-        volRecent5 /= 5m;
-        var volAvg20 = 0m;
-        for (int i = oneMinCandles.Count - 20; i < oneMinCandles.Count; i++)
-            volAvg20 += oneMinCandles[i].Volume;
-        volAvg20 /= 20m;
-        var volRatio = volAvg20 > 0 ? volRecent5 / volAvg20 : 1m;
-
-        if (volRatio < 0.3m) return;
-
-        // === MINIMUM THRESHOLD ===
-        if (Math.Abs(compositeScore) < 0.05m) return;
-
-        string direction = compositeScore > 0 ? "Up" : "Down";
-        var effectiveDelta = compositeScore / 3.0m;
-
-        _logger.LogInformation(
-            "{Symbol} L21 | OFI:{OFI:F3} VW:{VW:F3} OBI:{OBI:F3} OBIMom:{OM:F3} OI%:{OI:F3} FR:{FR:F6} VE:{VE:F2} | Score:{S:F3} Dir:{D}",
-            candle.Asset.Symbol, scoreOFI, scoreVWAP, scoreOBI, scoreOBIMom, oiChange, fundingRate, volExpansion, compositeScore, direction);
-
-        // === Market Discovery + Entry ===
+        // === STEP 4: Fetch Polymarket UP midpoint ===
         var discoverResult = await _discovery.DiscoverMarketsAsync();
         if (discoverResult.IsFailure) return;
 
-        var market = discoverResult.Value!
+        var marketUp = discoverResult.Value!
             .FirstOrDefault(m => m.UnderlyingAsset.Equals(baseAsset, StringComparison.OrdinalIgnoreCase)
-                              && m.Direction == direction);
-        if (market is null) return;
+                              && m.Direction == "Up");
+        var marketDown = discoverResult.Value!
+            .FirstOrDefault(m => m.UnderlyingAsset.Equals(baseAsset, StringComparison.OrdinalIgnoreCase)
+                              && m.Direction == "Down");
 
-        var midResult = await _polyClient.GetMidpointAsync(market.RelevantTokenId);
-        if (midResult.IsFailure) return;
+        if (marketUp is null || marketDown is null) return;
 
-        var marketPrice = midResult.Value;
-        if (direction == "Down") marketPrice = 1m - marketPrice;
+        var midUpResult = await _polyClient.GetMidpointAsync(marketUp.RelevantTokenId);
+        if (midUpResult.IsFailure) return;
+        var polyMidUp = midUpResult.Value;
 
-        var signalDirection = direction == "Up" ? SignalDirection.Up : SignalDirection.Down;
+        // === STEP 5: Compute edge ===
+        var edge = impliedProbUp - polyMidUp;
+        var absEdge = Math.Abs(edge);
+
+        _logger.LogInformation(
+            "{Symbol} L34 | spot0:{S0:F2} spotNow:{SN:F2} σ:{Sig:F5} τ:{Tau:F2} Φ(z):{Prob:F3} polyUp:{Poly:F3} edge:{Edge:F3}",
+            symbol, spotStart, spotNow, sigmaPerMin, tau, impliedProbUp, polyMidUp, edge);
+
+        if (absEdge < 0.03m)
+        {
+            _logger.LogDebug("{Symbol} L34 SKIP: edge {Edge:F3} below 0.03 threshold", symbol, edge);
+            return;
+        }
+
+        // === STEP 6: Determine direction ===
+        string direction;
+        decimal marketPrice;
+        Traxon.CryptoTrader.Application.Polymarket.Models.PolymarketMarket market;
+        SignalDirection signalDirection;
+
+        if (edge > 0)
+        {
+            // impliedProb > polyMid → UP is underpriced → buy UP
+            direction = "Up";
+            signalDirection = SignalDirection.Up;
+            market = marketUp;
+            marketPrice = polyMidUp;
+        }
+        else
+        {
+            // impliedProb < polyMid → UP overpriced → DOWN is underpriced → buy DOWN
+            direction = "Down";
+            signalDirection = SignalDirection.Down;
+            market = marketDown;
+            marketPrice = 1m - polyMidUp;
+        }
+
+        // === STEP 7: Build signal with edge as conviction ===
+        var effectiveDelta = edge; // direct, signed, capped by natural Brownian range
+
+        _logger.LogInformation(
+            ">>> SIGNAL: {Symbol}/5m {Direction} | BrownianProb:{BP:F3} PolyMid:{PM:F3} Edge:{E:F3}",
+            symbol, direction, impliedProbUp, polyMidUp, edge);
 
         var signalResult = _signalGenerator.Generate(
             candle.Asset, TimeFrame.FiveMinute, oneMinCandles,
@@ -347,13 +332,22 @@ public sealed class MarketDataWorker : BackgroundService
         {
             var sig = signalResult.Value!;
             _logger.LogInformation(
-                ">>> SIGNAL: {Symbol}/5m {Direction} | FV:{FV:F3} Market:{Market:F3} Edge:{Edge:F3} Score:{Score:F3}",
-                sig.Asset.Symbol, sig.Direction, sig.FairValue, sig.MarketPrice, sig.Edge, compositeScore);
+                ">>> DISPATCH: {Symbol}/5m {Direction} FV:{FV:F3} Market:{Market:F3} Edge:{Edge:F3}",
+                sig.Asset.Symbol, sig.Direction, sig.FairValue, sig.MarketPrice, sig.Edge);
 
             _publisher.PublishSignalGenerated(sig.ToDto());
-            await Task.Delay(2000); // Golden Rule 2: T=0+2s entry
+            await Task.Delay(2000); // T=0+2s entry
             await DispatchToEnginesAsync(sig);
         }
+    }
+
+    // === Helper: Standard Normal CDF (Abramowitz-Stegun approximation) ===
+    private static double StandardNormalCDF(double x)
+    {
+        double t = 1.0 / (1.0 + 0.2316419 * Math.Abs(x));
+        double d = 0.3989422804 * Math.Exp(-x * x / 2.0);
+        double p = d * t * (0.31938153 + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))));
+        return x >= 0 ? 1.0 - p : p;
     }
 
     private async Task DispatchToEnginesAsync(Domain.Trading.Signal sig)

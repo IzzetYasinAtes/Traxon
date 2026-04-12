@@ -1,0 +1,459 @@
+@page "/loops"
+@using Microsoft.AspNetCore.Components
+
+<PageTitle>Loop Tarihcesi</PageTitle>
+
+<div class="docs-container">
+    <h1 class="docs-main-title">Loop Tarihcesi — 34 Loop Boyunca Ne Yaptik</h1>
+    <p class="docs-subtitle">
+        Algoritmanin evrimi: basarisiz denemelerden Binance-Polymarket arbitrage yaklasimina.
+        Her loop 2-8 saatlik gercek para (PaperPoly) testi. 34 loop boyunca ogrendiklerimizin tam hikayesi.
+    </p>
+
+    <!-- ================================================================== -->
+    <!-- BOLUM 1: Proje Hedefi ve Kisitlamalar -->
+    <!-- ================================================================== -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-blue);">
+        <h2 class="docs-title">1. Proje Hedefi ve Kisitlamalar</h2>
+        <p>
+            <strong>Hedef:</strong> Polymarket 5 dakikalik binary crypto piyasalarinda
+            (BTC/ETH/SOL/BNB/XRP/DOGE/HYPE UP-DOWN kontratlari) surdurulebilir kar elde etmek.
+            Baslangic sermayesi $20-30, amac 24 saat profitable run.
+        </p>
+        <h3 class="docs-subtitle-h3">Kisitlamalar</h3>
+        <ul class="docs-list">
+            <li><strong>5 dakikalik pencere:</strong> Kontrat her 5 dakikada yeniden olusuyor, tahmin penceresi cok kisa.</li>
+            <li><strong>Polymarket fee:</strong> Dinamik taker fee edge'i yiyor. Minimum 3 cent edge gerekli.</li>
+            <li><strong>Kucuk sermaye:</strong> $30 ile order book'ta slippage'a maruz kalmadan ticaret yapmak gerekli.</li>
+            <li><strong>Latency:</strong> Polymarket CLOB, Binance'in 2-3 saniye gerisinde. Profesyonel botlar bu farki kullaniyor.</li>
+            <li><strong>Direction-agnostic:</strong> UP ve DOWN icin ayni algoritma calismali. Yon filtresi yasak.</li>
+        </ul>
+        <h3 class="docs-subtitle-h3">Kilit Metodoloji</h3>
+        <p>
+            Her loop 2-8 saat calisti, sonuc <code>LoopTest/LoopN/report.md</code> dosyasina yazildi.
+            Degisiklik basariliysa korundu, basarisizsa geri alindi. Toplam 34 loop = yuzlerce saat gercek veri.
+        </p>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- BOLUM 2: Loop Kronolojisi -->
+    <!-- ================================================================== -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-green);">
+        <h2 class="docs-title">2. Loop Kronolojisi — 34 Loop Ozet Tablosu</h2>
+        <p>
+            Asagidaki tablo 34 loop boyunca denenen yaklasimlarin kronolojik listesi. PnL ve WR (Win Rate)
+            gercek PaperPoly testlerinden alinmistir. <strong>Kalin satirlar</strong> kritik donum noktalaridir.
+        </p>
+        <table class="docs-table">
+            <thead>
+                <tr>
+                    <th>Loop</th>
+                    <th>Yaklasim</th>
+                    <th>Sonuc</th>
+                    <th>Ders</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>1</strong></td>
+                    <td>Hurst + Z-Score + TakerRatio rejim algilama</td>
+                    <td>%40 WR, -$8.11 (35 trade)</td>
+                    <td>OHLCV tek basina rastgeleden iyi degil</td>
+                </tr>
+                <tr>
+                    <td>2-7</td>
+                    <td>Window Delta, Accel, Price Filter, T=0 entry denemeleri</td>
+                    <td>Cogu zarar (%15-52 WR)</td>
+                    <td>Indikator kombinasyonlari yetersiz</td>
+                </tr>
+                <tr>
+                    <td><strong>8</strong></td>
+                    <td><strong>Multi-Signal Weighted Score</strong> (BTC lead-lag + volume + micro-momentum + Z-score)</td>
+                    <td><strong>%53.1 WR, +$2.82 (128 trade)</strong></td>
+                    <td><strong>Ilk karli loop — weighted scoring calisiyor</strong></td>
+                </tr>
+                <tr>
+                    <td>9-19</td>
+                    <td>Cesitli filtre / agirlik / rejection tweak'leri, hayalet pozisyon bug fix</td>
+                    <td>Degisken, coguniyle breakeven / hafif zarar</td>
+                    <td>Kucuk tweak'ler uzun vadede etkisiz, altyapi bug'lari PnL'i bozuyor</td>
+                </tr>
+                <tr>
+                    <td>20</td>
+                    <td>L2 Order Book + Funding Rate + Open Interest altyapisi eklendi</td>
+                    <td>Temiz sonuc kaydedilmedi</td>
+                    <td>Microstructure verisi entegre edildi — hazirlik loop'u</td>
+                </tr>
+                <tr>
+                    <td><strong>21</strong></td>
+                    <td><strong>OBI Momentum + OI Change modifier</strong> (OFI %35, VWAP %10, OBI %40, OBIMom %15)</td>
+                    <td><strong>%56.6 WR, +$22.49 (290 trade / 4 saat)</strong></td>
+                    <td><strong>En iyi loop — OBI + OI birlikte guclu sinyal</strong></td>
+                </tr>
+                <tr>
+                    <td>22</td>
+                    <td>Feature agreement modifier, OBI 1.5x scaling</td>
+                    <td>Ilk saat iyi, sonra etkisiz</td>
+                    <td>Agreement boost kisa vadede kayboluyor</td>
+                </tr>
+                <tr>
+                    <td>23</td>
+                    <td>Spread confidence + softer agreement + OBI 1.8x</td>
+                    <td>Fark yaratmadi</td>
+                    <td>Confidence tweak PnL'i degistirmiyor</td>
+                </tr>
+                <tr>
+                    <td>24</td>
+                    <td>Confidence 3x/0.75 daraltildi</td>
+                    <td>+$8.56 ama "guclu" sinyaller %52 WR (TERS calisti)</td>
+                    <td>Extreme composite score -> daha kotu tahmin (overconfidence)</td>
+                </tr>
+                <tr>
+                    <td>25</td>
+                    <td>Sqrt (concave) scaling + fixed confidence 0.60</td>
+                    <td>Ilk 2h +$13.20, son 2h -$23.99, net -$10.79</td>
+                    <td>Ilk saatler parliyor, sonra rejim degisimi oluyor</td>
+                </tr>
+                <tr>
+                    <td>26</td>
+                    <td>EntryPrice &gt;= 0.47 filtresi</td>
+                    <td>%39.2 WR, -$21.77 (FELAKET, erken durdu)</td>
+                    <td>Fiyat filtresi iyi trade'leri de eliyor, geri alindi</td>
+                </tr>
+                <tr>
+                    <td>27</td>
+                    <td>OBI dominant agirlik (OBI %55, OBIMom %20, OFI %20, VWAP %5)</td>
+                    <td>%48.7 WR, -$25.29 (372 trade)</td>
+                    <td>Taze veri dominant agirlik de calismadi</td>
+                </tr>
+                <tr>
+                    <td>28</td>
+                    <td>Price Momentum replaces VWAP, Loop21 base + momentum %20</td>
+                    <td>%49.2 WR, -$28.65, +2h'de +$6.63 sonra cokus</td>
+                    <td>"Ilk iyi, sonra cokus" pattern'i devam etti</td>
+                </tr>
+                <tr>
+                    <td>29</td>
+                    <td>Pure price-based (Mom5 %45, Mom15 %30, Mom60 %25) — microstructure KALDIRILDI</td>
+                    <td>%32 WR, -$29.38 — bakiye 4 saatte tukendi (FATAL)</td>
+                    <td>Microstructure olmadan algoritma calismiyor</td>
+                </tr>
+                <tr>
+                    <td>30</td>
+                    <td>Loop21 koduna tam donus, yeni bir sey denenmedi</td>
+                    <td>Orta (Loop21 tekrarlanamadi)</td>
+                    <td>Loop21 kismen sans eseri iyi sonuc vermis olabilir</td>
+                </tr>
+                <tr>
+                    <td>31</td>
+                    <td>BTC Lead-Lag cross-asset (BTC 1dk momentum %40 agirlik)</td>
+                    <td>%42 WR, -$18.87 (4 saatte iptal)</td>
+                    <td>Tek cross-asset sinyal altcoin tahmini icin yeterli degil</td>
+                </tr>
+                <tr>
+                    <td>32</td>
+                    <td>Follow Polymarket (tahmin yok, midpoint takibi 0.52-0.65 UP, 0.35-0.48 DOWN)</td>
+                    <td>Orta, edge yetersiz</td>
+                    <td>Tahmin yapmadan takip PnL uretmiyor — reaktif degil</td>
+                </tr>
+                <tr>
+                    <td>33</td>
+                    <td>Cont-Kukanov OFI + Permutation Entropy + Ornstein-Uhlenbeck</td>
+                    <td>Cok az sinyal (9/saat) — filtreler cok siki</td>
+                    <td>Akademik formuller dogru ama PE &gt;= 0.85 esigi cogu trade'i blokladi</td>
+                </tr>
+                <tr>
+                    <td><strong>34</strong></td>
+                    <td><strong>Binance-Polymarket Implied Probability Arbitrage</strong> (Brownian / Benjamin-Cup)</td>
+                    <td><strong>Ilk saat %62 WR, +$25 (devam ediyor)</strong></td>
+                    <td><strong>GERCEK EDGE: iki market arasinda matematiksel mismatch</strong></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- BOLUM 3: Denenen Yaklasim Kategorileri -->
+    <!-- ================================================================== -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-gold);">
+        <h2 class="docs-title">3. 34 Loop'ta Denenen Yaklasim Kategorileri</h2>
+        <p>
+            34 loop boyunca temelde 7 farkli paradigma denendi. Her biri akademik literatur ya da pratik
+            bot geliştirici raporlarindan esinlendi. Asagida bu yaklasimlarin kategorilenmis listesi:
+        </p>
+
+        <h3 class="docs-subtitle-h3">A. Saf Fiyat-Bazli Indikator Stratejileri (Loop 1-7, 29)</h3>
+        <p>
+            Hurst exponent, Z-Score mean reversion, Window Delta, Momentum multi-timeframe (Mom5/15/60).
+            <strong>Sonuc:</strong> Akademik ust sinir %50-52'yi gectiremedi. Loop29 felaket (%32 WR) ile kanitlandi:
+            microstructure verisi olmadan OHLCV yeterli degil.
+        </p>
+
+        <h3 class="docs-subtitle-h3">B. Weighted Multi-Signal Score (Loop 8-19)</h3>
+        <p>
+            BTC lead-lag + volume surge + micro-momentum + Z-score contrarian birlikte agirlikli skor.
+            Loop8 ilk defa karli sonuc verdi (%53.1, +$2.82). Ama 11 loop boyunca tweak'lenen agirliklar
+            kalici iyilesme saglamadi — kucuk degisiklikler PnL'i rastgele etkiledi.
+        </p>
+
+        <h3 class="docs-subtitle-h3">C. Microstructure Features — OBI/OFI Dominant (Loop 20-27)</h3>
+        <p>
+            Order Book Imbalance (L2 top-5, agirlikli), Order Flow Imbalance (taker flow), OBI Momentum,
+            Funding Rate contrarian filter, Open Interest change modifier. <strong>Loop21 en iyi sonucu verdi (+$22.49).</strong>
+            Ancak 6 loop sonra (L22-27) hic bir tweak tekrarlanamadi. Akademik bulgu: OBI prediktif penceresi 5-30 SANIYE,
+            biz 5 DAKIKA tahmin ediyoruz — fundamental mismatch.
+        </p>
+
+        <h3 class="docs-subtitle-h3">D. Momentum + Microstructure Hybrid (Loop 28)</h3>
+        <p>
+            Price Momentum (5-bar) ile VWAP'i degistirdi, OBI/OFI korundu. Ilk 2 saatte +$6.63,
+            son 2 saatte -$27.57 cokus. "Ilk iyi, sonra cokus" patterni — rejim degisimi.
+        </p>
+
+        <h3 class="docs-subtitle-h3">E. Cross-Asset Lead-Lag (Loop 31)</h3>
+        <p>
+            BTC'nin 1 dakika onceki hareketi altcoin'lerin 5dk yonunu tahmin ediyor (Granger causality).
+            Akademik kanit saglam ama pratikte %42 WR — tek cross-asset feature yetersiz.
+        </p>
+
+        <h3 class="docs-subtitle-h3">F. Market-Following (Loop 32)</h3>
+        <p>
+            Tahmin yapmadan Polymarket smart money'i takip et: midpoint 0.52-0.65 arasi UP al,
+            0.35-0.48 arasi DOWN al. <strong>Sorun:</strong> Edge yok — market zaten bilgiyi fiyatlamis.
+        </p>
+
+        <h3 class="docs-subtitle-h3">G. Akademik Matematiksel Modeller (Loop 33-34)</h3>
+        <p>
+            Loop33: Cont-Kukanov OFI + Permutation Entropy + Ornstein-Uhlenbeck. Formuller dogru ama
+            permutation entropy esigi (&ge; 0.85) cogu trade'i blokladi — 9/saat sinyal (ideal 40+).
+            <strong>Loop34: Binance-Polymarket arbitrage (Brownian motion implied probability)</strong> — ilk defa
+            iki market arasindaki matematiksel mismatch'i hedefliyor. En umut verici yaklasim.
+        </p>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- BOLUM 4: Kritik Bulgular -->
+    <!-- ================================================================== -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-red);">
+        <h2 class="docs-title">4. Kritik Bulgular — 34 Loop'tan Ogrenilenler</h2>
+
+        <h3 class="docs-subtitle-h3">A. Akademik Ust Sinir Gercek</h3>
+        <p>
+            OHLCV verisi ile 5dk crypto yon tahmini <strong>%50-52 ust sinir</strong> (arXiv 2602.00776, Tartakovsky 2020,
+            Wen 2022). Bu bir muhendislik hatasi degil, bilgi teorisi sinirdir. Kirmak icin <strong>ek veri kaynaklari</strong> gerekli:
+            L2 order book, funding rate, open interest, veya cross-market arbitrage.
+        </p>
+
+        <h3 class="docs-subtitle-h3">B. Kucuk Tweak'ler Uzun Vadede Etkisiz</h3>
+        <p>
+            L22-27 arasi denenen tweak'ler (agreement boost, sqrt scaling, EntryPrice filter, OBI dominant agirlik)
+            kisa vadede (ilk 2h) iyi gozuktu ama 8 saat boyunca istatistiksel olarak Loop21'den farkli sonuc uretmedi.
+            <strong>Ders:</strong> Kucuk orneklemle karar verme, kalici edge arayabilmek icin koklu yaklasim degisikligi gerekli.
+        </p>
+
+        <h3 class="docs-subtitle-h3">C. "Ilk Saat Iyi, Sonra Cokus" Pattern'i</h3>
+        <p>
+            Birden fazla loop'ta ayni pattern tekrarlandi: ilk 2-3 saatte guzel PnL, sonra ani cokus (Loop25, Loop28).
+            Buyuk ihtimalle <strong>rejim degisimi</strong> (volatility spike, likidite kaybi). Statik model rejim
+            bagimli davraniyor. Loop34 arbitrage yaklasimi theoretically rejim bagimsiz — dogrulanmasi gerekiyor.
+        </p>
+
+        <h3 class="docs-subtitle-h3">D. Microstructure Prediktif Penceresi 5-30 Saniye</h3>
+        <p>
+            OBI/OFI akademik olarak <strong>cok kisa vadeli</strong> (5-30 saniye) tahmin icin guclu.
+            5 dakika icin kullanildiginda gurultuye donusuyor. Loop21'de kismen calismasinin sebebi
+            sans + multi-feature ensemble etkisi olabilir (tekrarlanamadi).
+        </p>
+
+        <h3 class="docs-subtitle-h3">E. Extreme vs Moderate Signal Values</h3>
+        <p>
+            Loop24 verisi: "Guclu" sinyaller (composite &gt; 0.35) %51.9 WR, "Zayif" sinyaller %54.3 WR.
+            Akademik literatur (arXiv 2507.22712): <strong>Extreme OBI = spoofing / gecici likidite</strong>,
+            moderate OBI gercek arz/talep kaymasi. Confidence direk mapping TERS calisabiliyor.
+        </p>
+
+        <h3 class="docs-subtitle-h3">F. Tahmin vs Arbitraj</h3>
+        <p>
+            34 loop'un en buyuk dersi: <strong>tek market'te tahmin yapmak zor, iki market arasinda mismatch aramak kolay.</strong>
+            Binance efficient market, Polymarket retail-driven. Loop34: Binance'in theoretical probability'sini
+            Polymarket midpoint ile karsilastir — matematik basit, edge gercek.
+        </p>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- BOLUM 5: Su Anki Yaklasim (Loop34) -->
+    <!-- ================================================================== -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-green);">
+        <h2 class="docs-title">5. Su Anki Yaklasim (Loop34) — Binance-Polymarket Arbitrage</h2>
+        <p class="docs-source">Kaynak: Benjamin-Cup (Medium, Subat 2026) + Black-Scholes / Brownian motion</p>
+
+        <p>
+            Akademik yayinlanmis arbitraj formulu. <strong>Tahmin yapmiyoruz</strong> — Binance spot fiyatini Brownian motion
+            (rastgele yuruyus) varsayimiyla 5 dakika sonrasinin UP olma olasiligina ceviriyoruz, bu theoretical probability'yi
+            Polymarket'teki gercek fiyatla (midpoint) karsilastiriyoruz.
+        </p>
+
+        <h3 class="docs-subtitle-h3">Algoritma Akisi (3 Katman)</h3>
+        <ul class="docs-list">
+            <li><strong>Layer 1 — Binance Implied Probability:</strong> Son 60 adet 1-dakikalik log return'den realized volatility (&sigma;) hesaplanir. S<sub>0</sub> (pencere acilis fiyati) ve S<sub>t</sub> (T+2s su anki fiyat) Brownian motion formulune girilir, &Phi;(z) ile UP olasiligi bulunur.</li>
+            <li><strong>Layer 2 — Polymarket Midpoint:</strong> Polymarket CLOB'dan UP tokeninin (best bid + best ask) / 2 fiyati okunur. Bu market'in mevcut "inandigi" UP olasiligidir.</li>
+            <li><strong>Layer 3 — Arbitrage Karari:</strong> edge = impliedProbUp - polyMidUp. |edge| &lt; 0.03 ise skip (fee yiyecek). edge &gt; 0.03 ise UP underpriced, UP al. edge &lt; -0.03 ise DOWN underpriced, DOWN al.</li>
+        </ul>
+
+        <h3 class="docs-subtitle-h3">Kaldirilan Tum Eski Bilesenler</h3>
+        <p>
+            OFI Delta, OBI, OBI Momentum, VWAP Z-Score, BTC Lead-Lag, Momentum multi-timeframe, Funding Rate modifier,
+            Open Interest change modifier, volatility gate, composite score, confidence mapping. <strong>Hepsi silindi.</strong>
+            Algoritma su an sadece Brownian motion + Polymarket midpoint karsilastirmasi.
+        </p>
+
+        <h3 class="docs-subtitle-h3">Baslangic Performansi</h3>
+        <p>
+            Ilk saatte <strong>%62 WR, +$25</strong> (devam ediyor). 8 saatlik sonuc Loop34 raporunda tamamlanacak.
+            Beklenen sinyal hacmi 5-10/saat (akademik realist). Benjamin-Cup rapor: 8,894 execution'da %1.5-3 kar/islem, %65+ hit rate.
+        </p>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- BOLUM 6: Matematiksel Formul -->
+    <!-- ================================================================== -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-blue);">
+        <h2 class="docs-title">6. Matematiksel Formul — Brownian Implied Probability</h2>
+
+        <h3 class="docs-subtitle-h3">Implied Probability Hesabi</h3>
+        <pre class="docs-code">z = (ln(S_t / S_0) + 0.5 * sigma^2 * tau) / (sigma * sqrt(tau))
+impliedProbUp = Phi(z)   // standart normal CDF</pre>
+
+        <h3 class="docs-subtitle-h3">Degisken Tanimlari</h3>
+        <table class="docs-table">
+            <thead>
+                <tr>
+                    <th>Degisken</th>
+                    <th>Tanim</th>
+                    <th>Kaynak</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>S_0</code></td>
+                    <td>Binance spot fiyati, 5-dakika penceresinin baslangici (T=0)</td>
+                    <td>Binance kline stream</td>
+                </tr>
+                <tr>
+                    <td><code>S_t</code></td>
+                    <td>Binance spot fiyati, T+2s (trade karari anindaki fiyat)</td>
+                    <td>Binance kline stream</td>
+                </tr>
+                <tr>
+                    <td><code>tau</code></td>
+                    <td>Pencerede kalan sure = 4.967 dakika (5 dk - 2 sn giris gecikmesi)</td>
+                    <td>Sabit</td>
+                </tr>
+                <tr>
+                    <td><code>sigma</code></td>
+                    <td>Realized volatility = son 60 adet 1-dakika log return'unun standart sapmasi</td>
+                    <td>Binance 1m candle</td>
+                </tr>
+                <tr>
+                    <td><code>Phi</code></td>
+                    <td>Standart normal kumulatif dagilim fonksiyonu (CDF)</td>
+                    <td>Matematiksel sabit</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3 class="docs-subtitle-h3">Arbitrage Edge Hesabi</h3>
+        <pre class="docs-code">edge = impliedProbUp - polymarketMidpointUp
+
+|edge| &lt; 0.03   ->  SKIP (3 cent altinda kar fee'ye gider)
+edge &gt; 0.03     ->  BUY UP   (UP tokeni underpriced)
+edge &lt; -0.03    ->  BUY DOWN (UP overpriced, DOWN underpriced)</pre>
+
+        <h3 class="docs-subtitle-h3">Ornek Hesap</h3>
+        <p>
+            BTC pencere basi S<sub>0</sub> = $68,000, simdi S<sub>t</sub> = $68,150, &sigma; = 0.0012 (1dk), &tau; = 4.967dk.
+            z ~= (ln(68150/68000) + 0.5*0.0012^2*4.967) / (0.0012*sqrt(4.967)) ~= 0.82.
+            &Phi;(0.82) ~= 0.794 -> Binance UP olasiligi %79.4.
+            Polymarket UP midpoint = 0.68 (%68). edge = 0.794 - 0.68 = +0.114 (&gt; 0.03) -> BUY UP.
+        </p>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- BOLUM 7: Altin Kurallar -->
+    <!-- ================================================================== -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-gold);">
+        <h2 class="docs-title">7. Altin Kurallar — Degismezler</h2>
+        <p>
+            34 loop boyunca deneme-yanilma ile kanitlanmis, <strong>asla ihlal edilmemesi gereken</strong> kurallar.
+            Bu kurallarin her biri bir loop failure'i ile ogrenildi.
+        </p>
+        <ul class="docs-list">
+            <li><strong>Saat filtresi YASAK</strong> — Her saat trade yapilir. "Gece saatleri kotu, trade yapma" gibi filtreler sonradan daralmaya sebep olur ve gercek edge'i gizler.</li>
+            <li><strong>T=0+2sn giris</strong> — 5dk pencere acilir acilmaz, 2 saniye icinde karar verilip trade acilir. Gec giris = pencerede az zaman kalir = edge kaybi.</li>
+            <li><strong>Timeout / fake loss YASAK</strong> — Trade Gamma API ile dogru kapatilir, "timeout oldu, loss say" mantigi PnL'i bozar.</li>
+            <li><strong>Position size sabit formul</strong> — MAX(bakiye * 0.02, $1). Kelly criterion tarzi dinamik sizing yerine basit formul, drawdown'da kompanyonluk.</li>
+            <li><strong>40+ sinyal/saat ideal</strong> — Dusuk sinyal hacmi = kucuk orneklem = guvenilmez karar. Loop33 gibi (9/saat) filtreler asiri sikidir, geri alinir.</li>
+            <li><strong>Yon bagimsiz (direction-agnostic)</strong> — UP ve DOWN ayni algoritma ile belirlenir. "UP daha iyi, sadece UP trade et" filtresi yasak — algoritma symmetric olmali.</li>
+            <li><strong>Sinyal azaltma = filtre degil, tahmin kalitesi</strong> — Signal count dusurulecekse filtreleme ile degil, daha iyi feature engineering ile yapilir.</li>
+            <li><strong>Loop intervention sadece FATAL durumda</strong> — Bakiye 0, 0 sinyal, sistem cokmus — sadece boyle durumlarda loop durdurulur. Dusuk WR %48 gibi kosullarda durdurma yapilmaz, 8 saat beklenir.</li>
+        </ul>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- BOLUM 8: Ileriye Donuk Iyilestirmeler -->
+    <!-- ================================================================== -->
+    <div class="docs-card" style="border-left-color: var(--color-accent-blue);">
+        <h2 class="docs-title">8. Ileriye Donuk Iyilestirmeler (Loop35+)</h2>
+        <p>
+            Loop34 Binance-Polymarket arbitrage yaklasimi calistigi dogrulanirsa, asagidaki iyilestirmeler
+            edge'i artirabilir. Her biri akademik literaturden ya da bot gelistirici raporlarindan esinlendi.
+        </p>
+
+        <h3 class="docs-subtitle-h3">A. EWMA Volatility (&lambda; = 0.94)</h3>
+        <p>
+            Mevcut &sigma; son 60 dakikanin duz ortalamasi. <strong>Exponentially Weighted Moving Average</strong>
+            (RiskMetrics standardi, &lambda; = 0.94) yakin dakikayi daha cok agirliklar, rejim degisimlerine
+            (volatility spike) hizli tepki verir.
+        </p>
+
+        <h3 class="docs-subtitle-h3">B. Drift Term &mu;</h3>
+        <p>
+            Brownian formuluye drift ekleme: &mu; = son 15 dakikanin mean log return'u. Bu trend bias'i ekler.
+            Saf rastgele yuruyus varsayimini zayiflatir, trendli piyasalarda implied probability daha dogru.
+        </p>
+
+        <h3 class="docs-subtitle-h3">C. Multi-Window Sigma Ensemble</h3>
+        <p>
+            Tek bir 60-bar &sigma; yerine 15-bar + 30-bar + 60-bar'in agirlikli ortalamasi. Farkli zaman olceklerini
+            birlestirir, tek pencerenin aykiri degerine karsi robusttur.
+        </p>
+
+        <h3 class="docs-subtitle-h3">D. Polymarket Order Book Skew (Smart Money Teyit)</h3>
+        <p>
+            Polymarket CLOB order book'unun asimetrisi (UP tarafi vs DOWN tarafi derinlik) arbitrage yonu
+            ile uyusuyorsa confidence boost. "Smart money bizimle ayni yonde mi?" teyidi.
+        </p>
+
+        <h3 class="docs-subtitle-h3">E. Binance Funding Rate Entegrasyonu</h3>
+        <p>
+            Extreme funding (pozitif veya negatif) squeeze riskine isaret eder. Loop20-21'de modifier olarak kullanildi.
+            Loop34 arbitrage mantigina ek filtre olarak eklenebilir: funding extreme iken pozisyonu kucult.
+        </p>
+    </div>
+</div>
+
+<style>
+    .docs-card pre.docs-code {
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+
+    .docs-list li strong {
+        color: var(--color-text-primary);
+    }
+
+    .docs-card sub {
+        font-size: 0.75em;
+        vertical-align: sub;
+    }
+</style>

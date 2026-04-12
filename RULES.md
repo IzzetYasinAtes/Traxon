@@ -167,3 +167,41 @@ Core → Domain → Application → Infrastructure → Presentation
 - SQL injection korunmasi: parameterized queries
 - Dis repo'lara erisim YASAK
 - Agent'lar sadece kendi repo'lari icinde calisir
+
+---
+
+## Altın Kurallar (İhlal Edilemez)
+
+Bu kurallar 34 loop deneyimi sonucu çıkmış, hepsi pratik hatalardan doğmuştur.
+
+### Trading Kuralları
+1. **Saat filtresi YASAK** — "Şu saatler iyi, şu saatler kötü" YANLIŞ. Her saat trade edilmeli.
+2. **T=0+2sn giriş** — Polymarket market açılır açılmaz gir. Geç giriş YASAK.
+3. **Timeout/fake loss YASAK** — Trade'i zaman aşımıyla kapatma. Gamma API resolution bekle.
+4. **Position size sabit**: `MAX(Bakiye × 2%, $1)`. Dinamik değiştirme.
+5. **Direction agnostic**: Algoritma UP/DOWN ayrımı yapmaz. Edge yönüne bak.
+
+### Sinyal Kuralları
+6. **40+ sinyal/saat ideal** — Retail'de imkansız olabilir ama hedef bu. Az sinyal → küçük örneklem → yanlış karar.
+7. **Agresif filtreleme YASAK** — Permutation entropy, edge threshold gibi sıkı filtreler sinyali öldürür.
+8. **Kayıp önlemek için sinyal azaltma** — Filtre değil, prediction doğruluğunu artır.
+9. **MCP process killing**: sadece `Traxon.CryptoTrader*` pattern kullan. `Traxon*` yazma, MCP server'ları öldürür.
+
+### Değişiklik Kuralları
+10. **Köklü değişiklik UNUTULDU** — Loop34 Binance-Polymarket arbitrage doğru yol. İyileştir, replace etme.
+11. **Küçük tweak'ler 30 loop boyunca çalışmadı** — Ya matematiksel sağlam yeni yaklaşım, ya mevcut yaklaşımın parametresi.
+12. **Çalışmayan değişikliği geri al** — Sonraki loop'ta bırak, 2 loop taşıma.
+13. **Başarısız loop'ta sıfırdan araştır** — PnL -$10+ → derin araştırma, yeni yaklaşım.
+
+### Loop Kuralları
+14. **Loop süresi 8 saat** — 4 saat yetersiz (küçük örneklem), 12 saat gereksiz.
+15. **Her loop raporu yazılır** — `LoopTest/Loop{N}/report.md`. Kârlı loop'un başına kazanç bilgisi.
+16. **DB temizliği loop başında** — Settings + Migrations hariç her şey silinir.
+17. **LivePoly branch + 1 commit/loop** — Feature branch oluşturma.
+18. **Erken durdurma sadece fatal durumda** — bakiye < $1 VE açık trade 0. Düşük WR'da durdurma.
+
+### Geliştirme Kuralları
+19. **Commander kod yazmaz** — Her şeyi alt agent'lara yaptırır.
+20. **Git push LivePoly'ye** — Her commit sonrası push.
+21. **Build 0 hata zorunlu** — Warning bile kabul edilmez (loop33'te çalıştı).
+22. **Algoritma değişikliği → doküman güncelleme zorunlu** — Her kod değişikliği sonrası tüm UI pages (DocsPage, LivePolyTransition, PyClobClient, LoopsPage) ve md dosyaları (README, CLAUDE, RULES, docs/algorithm-*.md) anında güncellenir. Eski algoritma referansları SİLİNİR, yenisi eklenir. Alt agent'lar paralel kullanılır, hızlı yapılır.

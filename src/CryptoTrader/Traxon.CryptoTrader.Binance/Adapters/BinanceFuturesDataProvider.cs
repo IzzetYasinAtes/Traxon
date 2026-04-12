@@ -21,6 +21,11 @@ public sealed class BinanceFuturesDataProvider : IFuturesDataProvider
     private readonly ConcurrentDictionary<string, decimal> _orderBookImbalance = new();
     private readonly ConcurrentDictionary<string, List<decimal>> _obiHistory = new();
 
+    // Cont-Kukanov OFI state
+    private readonly ConcurrentDictionary<string, (decimal price, decimal qty)[][]> _prevOrderBook = new();
+    private readonly ConcurrentDictionary<string, Queue<(DateTime, decimal)>> _ofiHistory = new();
+    private const int OfiHistorySize = 120; // 60s window at 500ms
+
     private readonly List<UpdateSubscription> _subscriptions = [];
     private CancellationTokenSource? _pollCts;
     private Task? _pollTask;
@@ -82,6 +87,16 @@ public sealed class BinanceFuturesDataProvider : IFuturesDataProvider
             persistence = (decimal)history.Count(v => Math.Sign(v) == Math.Sign(avg)) / history.Count;
         }
         return avg * persistence;
+    }
+
+    public decimal GetCKOrderFlowImbalance(string symbol)
+    {
+        if (!_ofiHistory.TryGetValue(symbol, out var queue)) return 0m;
+        lock (queue)
+        {
+            if (queue.Count < 10) return 0m;
+            return queue.Sum(x => x.Item2); // 60s rolling sum
+        }
     }
 
     public async Task StartAsync(IReadOnlyList<Asset> assets, CancellationToken ct)
@@ -149,6 +164,46 @@ public sealed class BinanceFuturesDataProvider : IFuturesDataProvider
                             while (history.Count > ObiHistorySize)
                                 history.RemoveAt(0);
                         }
+
+                        // Cont-Kukanov OFI (top 5 multi-level)
+                        var currentBids = bids.Select(b => (b.Price, b.Quantity)).ToArray();
+                        var currentAsks = asks.Select(a => (a.Price, a.Quantity)).ToArray();
+
+                        if (_prevOrderBook.TryGetValue(asset.Symbol, out var prev) && prev.Length == 2)
+                        {
+                            var prevBids = prev[0];
+                            var prevAsks = prev[1];
+                            decimal ofi = 0m;
+                            int lvl = Math.Min(5, Math.Min(prevBids.Length, Math.Min(currentBids.Length,
+                                       Math.Min(prevAsks.Length, currentAsks.Length))));
+                            for (int i = 0; i < lvl; i++)
+                            {
+                                // Bid side
+                                if (currentBids[i].Price > prevBids[i].price)
+                                    ofi += currentBids[i].Quantity;
+                                else if (currentBids[i].Price < prevBids[i].price)
+                                    ofi -= prevBids[i].qty;
+                                else
+                                    ofi += (currentBids[i].Quantity - prevBids[i].qty);
+
+                                // Ask side (inverted)
+                                if (currentAsks[i].Price < prevAsks[i].price)
+                                    ofi -= currentAsks[i].Quantity;
+                                else if (currentAsks[i].Price > prevAsks[i].price)
+                                    ofi += prevAsks[i].qty;
+                                else
+                                    ofi -= (currentAsks[i].Quantity - prevAsks[i].qty);
+                            }
+
+                            var ofiQueue = _ofiHistory.GetOrAdd(asset.Symbol, _ => new Queue<(DateTime, decimal)>());
+                            lock (ofiQueue)
+                            {
+                                ofiQueue.Enqueue((DateTime.UtcNow, ofi));
+                                while (ofiQueue.Count > OfiHistorySize) ofiQueue.Dequeue();
+                            }
+                        }
+
+                        _prevOrderBook[asset.Symbol] = new[] { currentBids, currentAsks };
                     }, ct);
 
                 if (obResult.Success)
