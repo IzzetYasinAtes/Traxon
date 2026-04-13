@@ -214,7 +214,7 @@ public sealed class MarketDataWorker : BackgroundService
         if (oneMinCandles.Count < 60) return;
 
         // ======================================================
-        // LOOP 36: Loop34 base + EWMA volatility (λ=0.94) + DOWN midpoint fix (drift reverted — killed edge)
+        // LOOP 37: Pure Loop34 + DOWN midpoint fix (EWMA reverted — σ too reactive, caused give-back)
         // Benjamin-Cup (Feb 2026): Brownian motion implied prob vs Polymarket mid
         // Academic refs: Black-Scholes 1973, Reiner-Rubinstein 1991, RiskMetrics 1996
         // Target: 5-10 signals/hour, 62-68% hit rate, 3¢+ edge
@@ -237,7 +237,7 @@ public sealed class MarketDataWorker : BackgroundService
         var spotStart = windowOpenCandle.Open; // price at window start
         var spotNow = candle.Close; // latest price (just closed candle)
 
-        // === STEP 2: Compute realized volatility (EWMA, RiskMetrics λ=0.94) ===
+        // === STEP 2: Compute realized volatility (classic sample variance, 60-bar rolling) ===
         var returns = new List<double>();
         for (int i = oneMinCandles.Count - 61; i < oneMinCandles.Count - 1; i++)
         {
@@ -250,14 +250,11 @@ public sealed class MarketDataWorker : BackgroundService
         }
         if (returns.Count < 30) return;
 
-        // EWMA variance (λ=0.94) — regime change'e hızlı adapte
-        const double lambda = 0.94;
-        double sigmaSquared = returns[0] * returns[0]; // seed with first squared return
-        for (int i = 1; i < returns.Count; i++)
-        {
-            sigmaSquared = lambda * sigmaSquared + (1.0 - lambda) * returns[i] * returns[i];
-        }
-        double sigmaPerMin = Math.Sqrt(sigmaSquared);
+        // Classic sample variance (60-bar rolling, more stable)
+        // EWMA KALDIRILDI — Loop36 test etti, σ çok reaktif oluyordu
+        double mean = returns.Sum() / returns.Count;
+        double variance = returns.Sum(r => (r - mean) * (r - mean)) / (returns.Count - 1);
+        double sigmaPerMin = Math.Sqrt(variance);
 
         if (sigmaPerMin < 1e-6) return; // no volatility, skip
 
@@ -293,12 +290,12 @@ public sealed class MarketDataWorker : BackgroundService
         var absEdge = Math.Abs(edge);
 
         _logger.LogInformation(
-            "{Symbol} L36 | spot0:{S0:F2} spotNow:{SN:F2} σewma:{Sig:F5} τ:{Tau:F2} Φ(z):{Prob:F3} polyUp:{Poly:F3} edge:{Edge:F3}",
+            "{Symbol} L37 | spot0:{S0:F2} spotNow:{SN:F2} σ:{Sig:F5} τ:{Tau:F2} Φ(z):{Prob:F3} polyUp:{Poly:F3} edge:{Edge:F3}",
             symbol, spotStart, spotNow, sigmaPerMin, tau, impliedProbUp, polyMidUp, edge);
 
         if (absEdge < 0.03m)
         {
-            _logger.LogDebug("{Symbol} L36 SKIP: edge {Edge:F3} below 0.03 threshold", symbol, edge);
+            _logger.LogDebug("{Symbol} L37 SKIP: edge {Edge:F3} below 0.03 threshold", symbol, edge);
             return;
         }
 

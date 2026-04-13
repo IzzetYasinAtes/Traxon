@@ -57,5 +57,25 @@ Neden: DOWN token'ın gerçek mid'i ≠ (1 - UP mid). Loop34'te DOWN %42 WR bu y
 - **Başlangıç Bakiye:** $30.00
 - **Loop Süresi:** 8 saat
 
-## Loop35 Sonuçları
-_(Loop devam ediyor)_
+## Loop35 Sonuçları — FELAKET: -$30.57 PnL, %30.3 WR, 76 trade / 2 saat
+
+### Fatal Durum (2 saatte erken kapatıldı)
+- **Bakiye**: -$0.57 (NEGATIF!)
+- **Açık trade**: 0
+- Kural tetiklendi (bakiye < $1 VE open trades = 0)
+
+### Kritik Bulgu — DRIFT TERM EDGE'İ ÖLDÜRDÜ
+- Loop34 edge kaynağı: Brownian `drift=0` varsayımı Polymarket'in 2-saniye lag'ini yakalıyordu
+- Loop35'te `μ = mean(15 log returns)` eklenince formülümüz Polymarket'i TAKLİT etti
+- Sonuç: Edge sıfırlandı, sinyal hacmi %55 düştü (85 → 38/saat), WR %30'a çakıldı
+
+### Teknik Analiz
+- μ·τ = 0.0005 × 5 = 0.0025 (25 bps over 5 min)
+- z divisor: σ√τ ≈ 0.0044
+- Drift term z'ye +0.57 katkı yaptı → impliedProb = Φ(0.57) ≈ 0.72 drift'ten tek başına
+- Gerçek 2-saniyelik fiyat hareketi (ln(S/S_0)) bu drift tarafından boğuldu
+
+### Loop36 Planı
+- **REVERT**: Drift term (edge killer)
+- **KEEP**: EWMA volatility (direction'ı etkilemiyor)
+- **KEEP**: DOWN midpoint fix (gerçek bug düzeltmesi)
