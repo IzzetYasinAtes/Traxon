@@ -214,7 +214,7 @@ public sealed class MarketDataWorker : BackgroundService
         if (oneMinCandles.Count < 60) return;
 
         // ======================================================
-        // LOOP 35: Loop34 base + EWMA volatility (λ=0.94) + drift term + DOWN midpoint fix
+        // LOOP 36: Loop34 base + EWMA volatility (λ=0.94) + DOWN midpoint fix (drift reverted — killed edge)
         // Benjamin-Cup (Feb 2026): Brownian motion implied prob vs Polymarket mid
         // Academic refs: Black-Scholes 1973, Reiner-Rubinstein 1991, RiskMetrics 1996
         // Target: 5-10 signals/hour, 62-68% hit rate, 3¢+ edge
@@ -261,18 +261,13 @@ public sealed class MarketDataWorker : BackgroundService
 
         if (sigmaPerMin < 1e-6) return; // no volatility, skip
 
-        // === STEP 3: Brownian implied probability (with drift) ===
+        // === STEP 3: Brownian implied probability (drift=0) ===
         double tau = 5.0 - 2.0 / 60.0; // 5 min - 2 sec entry delay ≈ 4.967 min
         double lnRatio = Math.Log((double)(spotNow / spotStart));
 
-        // Drift: mean of last 15 1-min log returns (per minute trend bias)
-        int driftWindow = Math.Min(15, returns.Count);
-        double mu = 0.0;
-        for (int i = returns.Count - driftWindow; i < returns.Count; i++) mu += returns[i];
-        mu /= driftWindow;
-
-        // Full Brownian with drift: z = (ln(S_t/S_0) + (μ - 0.5σ²)·τ) / (σ·√τ)
-        double z = (lnRatio + (mu - 0.5 * sigmaPerMin * sigmaPerMin) * tau)
+        // Brownian with drift=0 (edge comes from Polymarket lag on short-term moves)
+        // DRIFT TERM KALDIRILDI (Loop35 test etti, edge'i öldürüyordu)
+        double z = (lnRatio + 0.5 * sigmaPerMin * sigmaPerMin * tau)
                  / (sigmaPerMin * Math.Sqrt(tau));
         decimal impliedProbUp = (decimal)StandardNormalCDF(z);
 
@@ -298,12 +293,12 @@ public sealed class MarketDataWorker : BackgroundService
         var absEdge = Math.Abs(edge);
 
         _logger.LogInformation(
-            "{Symbol} L35 | spot0:{S0:F2} spotNow:{SN:F2} σewma:{Sig:F5} μ:{Mu:F6} τ:{Tau:F2} Φ(z):{Prob:F3} polyUp:{Poly:F3} edge:{Edge:F3}",
-            symbol, spotStart, spotNow, sigmaPerMin, mu, tau, impliedProbUp, polyMidUp, edge);
+            "{Symbol} L36 | spot0:{S0:F2} spotNow:{SN:F2} σewma:{Sig:F5} τ:{Tau:F2} Φ(z):{Prob:F3} polyUp:{Poly:F3} edge:{Edge:F3}",
+            symbol, spotStart, spotNow, sigmaPerMin, tau, impliedProbUp, polyMidUp, edge);
 
         if (absEdge < 0.03m)
         {
-            _logger.LogDebug("{Symbol} L35 SKIP: edge {Edge:F3} below 0.03 threshold", symbol, edge);
+            _logger.LogDebug("{Symbol} L36 SKIP: edge {Edge:F3} below 0.03 threshold", symbol, edge);
             return;
         }
 
