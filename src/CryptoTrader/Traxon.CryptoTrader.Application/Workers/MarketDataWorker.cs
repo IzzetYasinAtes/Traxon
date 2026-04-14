@@ -214,19 +214,14 @@ public sealed class MarketDataWorker : BackgroundService
         if (oneMinCandles.Count < 60) return;
 
         // ======================================================
-        // LOOP 37: Pure Loop34 + DOWN midpoint fix (EWMA reverted — σ too reactive, caused give-back)
+        // LOOP 45: Stricter filters — sigma floor 0.0015, edge threshold 0.08
         // Benjamin-Cup (Feb 2026): Brownian motion implied prob vs Polymarket mid
-        // Academic refs: Black-Scholes 1973, Reiner-Rubinstein 1991, RiskMetrics 1996
-        // Target: 5-10 signals/hour, 62-68% hit rate, 3¢+ edge
         // ======================================================
 
         var symbol = candle.Asset.Symbol;
         var baseAsset = symbol.Replace("USDT", "");
 
         // === STEP 1: Find window opening price ===
-        // The 5-min window opening bar (OpenTime where minute % 5 == 0)
-        // candle.OpenTime is the just-closed 1m candle (minute is :04, :09, :14, etc.)
-        // The 5-min window opening bar is candle.OpenTime - 4 minutes (or the :00, :05, :10, :15... bar)
         var windowOpenMinute = (candle.OpenTime.Minute / 5) * 5;
         var windowOpenTime = new DateTime(candle.OpenTime.Year, candle.OpenTime.Month, candle.OpenTime.Day,
                                           candle.OpenTime.Hour, windowOpenMinute, 0, DateTimeKind.Utc);
@@ -234,10 +229,10 @@ public sealed class MarketDataWorker : BackgroundService
         var windowOpenCandle = oneMinCandles.FirstOrDefault(c => c.OpenTime == windowOpenTime);
         if (windowOpenCandle == null) return;
 
-        var spotStart = windowOpenCandle.Open; // price at window start
-        var spotNow = candle.Close; // latest price (just closed candle)
+        var spotStart = windowOpenCandle.Open;
+        var spotNow = candle.Close;
 
-        // === STEP 2: Compute realized volatility (classic sample variance, 60-bar rolling) ===
+        // === STEP 2: Classic sample variance (60-bar rolling) ===
         var returns = new List<double>();
         for (int i = oneMinCandles.Count - 61; i < oneMinCandles.Count - 1; i++)
         {
@@ -250,25 +245,27 @@ public sealed class MarketDataWorker : BackgroundService
         }
         if (returns.Count < 30) return;
 
-        // Classic sample variance (60-bar rolling, more stable)
-        // EWMA KALDIRILDI — Loop36 test etti, σ çok reaktif oluyordu
         double mean = returns.Sum() / returns.Count;
         double variance = returns.Sum(r => (r - mean) * (r - mean)) / (returns.Count - 1);
         double sigmaPerMin = Math.Sqrt(variance);
 
-        if (sigmaPerMin < 1e-6) return; // no volatility, skip
+        if (sigmaPerMin < 1e-6) return;
+
+        // Loop45: Sigma floor 0.0015 — saturasyon onleyici
+        sigmaPerMin = Math.Max(sigmaPerMin, 0.0015);
+        // Upper cap: 0.005 ustu volatil, Brownian bozulur → skip
+        if (sigmaPerMin > 0.005) return;
 
         // === STEP 3: Brownian implied probability (drift=0) ===
-        double tau = 5.0 - 2.0 / 60.0; // 5 min - 2 sec entry delay ≈ 4.967 min
+        double tau = 5.0 - 2.0 / 60.0;
         double lnRatio = Math.Log((double)(spotNow / spotStart));
 
-        // Brownian with drift=0 (edge comes from Polymarket lag on short-term moves)
-        // DRIFT TERM KALDIRILDI (Loop35 test etti, edge'i öldürüyordu)
         double z = (lnRatio + 0.5 * sigmaPerMin * sigmaPerMin * tau)
                  / (sigmaPerMin * Math.Sqrt(tau));
+
         decimal impliedProbUp = (decimal)StandardNormalCDF(z);
 
-        // === STEP 4: Fetch Polymarket UP midpoint ===
+        // === STEP 4: Fetch Polymarket UP midpoint (reference) ===
         var discoverResult = await _discovery.DiscoverMarketsAsync();
         if (discoverResult.IsFailure) return;
 
@@ -285,52 +282,43 @@ public sealed class MarketDataWorker : BackgroundService
         if (midUpResult.IsFailure) return;
         var polyMidUp = midUpResult.Value;
 
-        // === STEP 5: Compute edge ===
+        // === STEP 5: Single edge formula (0.03 threshold) ===
         var edge = impliedProbUp - polyMidUp;
-        var absEdge = Math.Abs(edge);
 
         _logger.LogInformation(
-            "{Symbol} L37 | spot0:{S0:F2} spotNow:{SN:F2} σ:{Sig:F5} τ:{Tau:F2} Φ(z):{Prob:F3} polyUp:{Poly:F3} edge:{Edge:F3}",
+            "{Symbol} L45 | spot0:{S0:F2} spotNow:{SN:F2} σ:{Sig:F5} τ:{Tau:F2} Φ(z):{Prob:F3} polyUp:{PU:F3} edge:{E:F3}",
             symbol, spotStart, spotNow, sigmaPerMin, tau, impliedProbUp, polyMidUp, edge);
 
-        if (absEdge < 0.03m)
-        {
-            _logger.LogDebug("{Symbol} L37 SKIP: edge {Edge:F3} below 0.03 threshold", symbol, edge);
-            return;
-        }
+        if (Math.Abs(edge) < 0.08m) return;
+        // Loop45: Edge cap — asiri guven sahte edge isareti
+        if (Math.Abs(edge) > 0.25m) return;
 
-        // === STEP 6: Determine direction ===
+        // === STEP 6: Direction from edge sign ===
         string direction;
         decimal marketPrice;
-        Traxon.CryptoTrader.Application.Polymarket.Models.PolymarketMarket market;
         SignalDirection signalDirection;
 
         if (edge > 0)
         {
-            // impliedProb > polyMid → UP is underpriced → buy UP
             direction = "Up";
             signalDirection = SignalDirection.Up;
-            market = marketUp;
             marketPrice = polyMidUp;
         }
         else
         {
-            // UP overpriced → DOWN underpriced → fetch DOWN midpoint separately
             direction = "Down";
             signalDirection = SignalDirection.Down;
-            market = marketDown;
-
             var midDownResult = await _polyClient.GetMidpointAsync(marketDown.RelevantTokenId);
             if (midDownResult.IsFailure) return;
             marketPrice = midDownResult.Value;
         }
 
-        // === STEP 7: Build signal with edge as conviction ===
-        var effectiveDelta = edge; // direct, signed, capped by natural Brownian range
+        // === STEP 7: Build signal ===
+        var effectiveDelta = edge;
 
         _logger.LogInformation(
-            ">>> SIGNAL: {Symbol}/5m {Direction} | BrownianProb:{BP:F3} PolyMid:{PM:F3} Edge:{E:F3}",
-            symbol, direction, impliedProbUp, polyMidUp, edge);
+            ">>> SIGNAL: {Symbol}/5m {Direction} | BrownianProbUp:{BP:F3} PolyMid:{PM:F3} Edge:{E:F3}",
+            symbol, direction, impliedProbUp, marketPrice, edge);
 
         var signalResult = _signalGenerator.Generate(
             candle.Asset, TimeFrame.FiveMinute, oneMinCandles,
