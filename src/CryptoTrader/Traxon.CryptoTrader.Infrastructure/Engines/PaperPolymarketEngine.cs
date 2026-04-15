@@ -32,7 +32,7 @@ public sealed class PaperPolymarketEngine : ITradingEngine
     private readonly SemaphoreSlim                          _initLock      = new(1, 1);
     private volatile bool                                   _initialized;
 
-    private const decimal InitialBalance = 30m;
+    private const decimal InitialBalance = 100m;
     private const decimal FeeRate        = 0.072m; // Polymarket crypto taker fee rate
 
     // Polymarket sadece bu asset'ler için market açar
